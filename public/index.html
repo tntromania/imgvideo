@@ -8,74 +8,111 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="shortcut icon" href="/favicon.ico">
+
     <style>
-        *, *::before, *::after { box-sizing:border-box; }
-        body { background:#F8FAFC; color:#0f172a; overflow:hidden; font-family:'Inter',sans-serif; }
-        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:10px}
-        textarea{resize:none}
-        .bg-gradient-viralio{background:linear-gradient(135deg,#4f46e5 0%,#ec4899 100%)}
-        #login-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);backdrop-filter:blur(10px);z-index:99999;align-items:center;justify-content:center;opacity:0;transition:.3s}
-        #login-modal.show{display:flex;opacity:1}
-        .modal-content{background:#fff;border-radius:28px;padding:40px;text-align:center;max-width:420px;width:90%;transform:translateY(24px);transition:.4s;box-shadow:0 40px 80px -20px rgba(0,0,0,.22);position:relative}
-        #login-modal.show .modal-content{transform:translateY(0)}
-        .mode-tab{padding:8px 20px;border-radius:14px;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:7px;border:none;background:none;color:#64748b}
-        .mode-tab.active{background:white;color:#0f172a;box-shadow:0 2px 12px rgba(0,0,0,.09)}
-        .prompt-wrap{border:2px solid #e2e8f0;border-radius:18px;background:#fafafa;transition:border-color .2s,box-shadow .2s}
-        .prompt-wrap:focus-within{border-color:#6366f1;box-shadow:0 0 0 4px rgba(99,102,241,.08);background:white}
-        .ratio-pill input[type=radio]{display:none}
-        .ratio-pill input:checked+span{background:white;color:#4f46e5;box-shadow:0 2px 8px rgba(79,70,229,.15);font-weight:800}
-        .ratio-pill span{display:block;padding:6px 10px;border-radius:10px;font-size:.72rem;font-weight:700;color:#64748b;cursor:pointer;transition:all .2s;user-select:none;text-align:center}
-        .ratio-pill span:hover{color:#4f46e5}
-        .count-btn{width:32px;height:32px;border-radius:10px;background:#f1f5f9;border:1.5px solid #e2e8f0;font-size:1.1rem;font-weight:800;color:#475569;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;user-select:none}
-        .count-btn:hover{background:#e0e7ff;border-color:#6366f1;color:#4f46e5}
-        .count-btn:active{transform:scale(.9)}
-        .styled-select{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 36px 10px 14px;font-size:.82rem;font-weight:700;color:#0f172a;outline:none;width:100%;-webkit-appearance:none;cursor:pointer;transition:border-color .2s}
-        .styled-select:focus{border-color:#6366f1}
-        .select-wrap{position:relative}
-        .select-wrap::after{content:'\f078';font-family:'Font Awesome 6 Free';font-weight:900;position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.65rem;pointer-events:none}
-        .gen-btn{background:linear-gradient(135deg,#4f46e5 0%,#ec4899 100%);transition:all .25s;overflow:hidden;position:relative}
-        .gen-btn:not(:disabled):hover{box-shadow:0 12px 30px rgba(79,70,229,.35);transform:translateY(-1px)}
-        .gen-btn:disabled{opacity:.6;cursor:not-allowed;transform:none!important}
-        .result-card{background:white;border-radius:18px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(0,0,0,.06);transition:all .25s;position:relative}
-        .result-card:hover{box-shadow:0 12px 35px rgba(0,0,0,.1);transform:translateY(-2px)}
-        .card-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(9,9,11,.75) 0%,transparent 50%);opacity:0;transition:opacity .25s;display:flex;align-items:flex-end;justify-content:center;padding:16px;gap:8px}
-        .result-card:hover .card-overlay{opacity:1}
-        @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
-        .skeleton{background:linear-gradient(90deg,#f1f5f9 0%,#e2e8f0 50%,#f1f5f9 100%);background-size:800px 100%;animation:shimmer 1.4s infinite linear;border-radius:18px}
-        .dropzone{border:2px dashed #e2e8f0;border-radius:14px;background:#f8fafc;transition:all .22s;cursor:pointer}
-        .dropzone:hover{border-color:#6366f1;background:#eef2ff}
-        .dropzone.has-img{border-style:solid;border-color:#c7d2fe}
-        .progress-track{background:#e2e8f0;border-radius:99px;height:5px;overflow:hidden}
-        .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#4f46e5,#ec4899);transition:width .4s ease}
-        .badge{font-size:.6rem;font-weight:800;padding:3px 9px;border-radius:7px;text-transform:uppercase;letter-spacing:.07em}
-        .badge-indigo{background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe}
-        .badge-amber{background:#fffbeb;color:#d97706;border:1px solid #fde68a}
-        .badge-pink{background:#fdf2f8;color:#db2777;border:1px solid #fbcfe8}
-        .badge-green{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
-        #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0f172a;color:white;padding:11px 22px;border-radius:14px;font-size:.82rem;font-weight:700;z-index:200000;transition:transform .35s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;white-space:nowrap}
-        #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
-        #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:300000;align-items:center;justify-content:center}
-        #lightbox.show{display:flex}
-        #lightbox img{max-width:90vw;max-height:90vh;border-radius:14px;object-fit:contain}
-        @keyframes floatUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-        .float-el{animation:floatUp 3s ease-in-out infinite}
-        .float-el:nth-child(2){animation-delay:.5s}
-        .float-el:nth-child(3){animation-delay:1s}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        .spin{animation:spin 1s linear infinite}
-        .panel-s{border-bottom:1px solid #f1f5f9;padding:18px 20px}
-        .panel-s:last-child{border-bottom:none}
-        .field-label{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:8px;display:block}
-        .aside-inner{flex:1;overflow-y:auto}
-        .sse-log{font-size:.62rem;font-family:monospace;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;margin-top:8px;max-height:72px;overflow-y:auto;line-height:1.6; word-wrap: break-word;}
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background: #F8FAFC; color: #0f172a; font-family: 'Inter', sans-serif; overflow: hidden; }
+        ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        textarea { resize: none; }
+        .bg-gradient-viralio { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); }
+
+        #login-modal { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.6); backdrop-filter: blur(8px); z-index: 99999; align-items: center; justify-content: center; opacity: 0; transition: .3s; }
+        #login-modal.show { display: flex; opacity: 1; }
+        .modal-content { background: #fff; border-radius: 28px; padding: 40px; text-align: center; max-width: 420px; width: 90%; transform: translateY(20px); transition: .4s; box-shadow: 0 40px 80px -20px rgba(0,0,0,.22); position: relative; }
+        #login-modal.show .modal-content { transform: translateY(0); }
+
+        .mode-tab { padding: 8px 20px; border-radius: 14px; font-size: .82rem; font-weight: 700; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 7px; border: none; background: none; color: #64748b; }
+        .mode-tab.active { background: white; color: #0f172a; box-shadow: 0 2px 12px rgba(0,0,0,.09); }
+
+        .prompt-wrap { border: 2px solid #e2e8f0; border-radius: 18px; background: #fafafa; transition: border-color .2s, box-shadow .2s; }
+        .prompt-wrap:focus-within { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,.08); background: white; }
+
+        .ratio-pill input[type=radio] { display: none; }
+        .ratio-pill input:checked+span { background: white; color: #4f46e5; box-shadow: 0 2px 8px rgba(79,70,229,.15); font-weight: 800; }
+        .ratio-pill span { display: block; padding: 6px 10px; border-radius: 10px; font-size: .72rem; font-weight: 700; color: #64748b; cursor: pointer; transition: all .2s; user-select: none; text-align: center; }
+        .ratio-pill span:hover { color: #4f46e5; }
+
+        .count-btn { width: 32px; height: 32px; border-radius: 10px; background: #f1f5f9; border: 1.5px solid #e2e8f0; font-size: 1.1rem; font-weight: 800; color: #475569; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; user-select: none; }
+        .count-btn:hover { background: #e0e7ff; border-color: #6366f1; color: #4f46e5; }
+        .count-btn:active { transform: scale(.9); }
+
+        .styled-select { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 10px 36px 10px 14px; font-size: .82rem; font-weight: 700; color: #0f172a; outline: none; width: 100%; -webkit-appearance: none; cursor: pointer; transition: border-color .2s; }
+        .styled-select:focus { border-color: #6366f1; }
+        .select-wrap { position: relative; }
+        .select-wrap::after { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: .65rem; pointer-events: none; }
+
+        .gen-btn { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); transition: all .25s; overflow: hidden; position: relative; }
+        .gen-btn:not(:disabled):hover { box-shadow: 0 12px 30px rgba(79,70,229,.35); transform: translateY(-1px); }
+        .gen-btn:disabled { opacity: .6; cursor: not-allowed; transform: none !important; }
+
+        .result-card { background: white; border-radius: 18px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,.06); transition: all .25s; position: relative; }
+        .result-card:hover { box-shadow: 0 12px 35px rgba(0,0,0,.1); transform: translateY(-2px); }
+        .card-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(9,9,11,.75) 0%, transparent 50%); opacity: 0; transition: opacity .25s; display: flex; align-items: flex-end; justify-content: center; padding: 16px; gap: 8px; }
+        .result-card:hover .card-overlay { opacity: 1; }
+
+        @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+        .skeleton { background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%); background-size: 800px 100%; animation: shimmer 1.4s infinite linear; border-radius: 18px; }
+
+        .dropzone { border: 2px dashed #e2e8f0; border-radius: 14px; background: #f8fafc; transition: all .22s; cursor: pointer; }
+        .dropzone:hover { border-color: #6366f1; background: #eef2ff; }
+        .dropzone.has-img { border-style: solid; border-color: #c7d2fe; }
+
+        .progress-track { background: #e2e8f0; border-radius: 99px; height: 5px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #4f46e5, #ec4899); transition: width .4s ease; }
+
+        .badge { font-size: .6rem; font-weight: 800; padding: 3px 9px; border-radius: 7px; text-transform: uppercase; letter-spacing: .07em; }
+        .badge-indigo { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; }
+        .badge-amber { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+        .badge-pink { background: #fdf2f8; color: #db2777; border: 1px solid #fbcfe8; }
+        .badge-green { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+
+        #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: #0f172a; color: white; padding: 11px 22px; border-radius: 14px; font-size: .82rem; font-weight: 700; z-index: 200000; transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s; opacity: 0; white-space: nowrap; }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.93); z-index: 300000; align-items: center; justify-content: center; }
+        #lightbox.show { display: flex; }
+        #lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 14px; object-fit: contain; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+
+        .panel-s { border-bottom: 1px solid #f1f5f9; padding: 18px 20px; }
+        .panel-s:last-child { border-bottom: none; }
+        .field-label { font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #94a3b8; margin-bottom: 8px; display: block; }
+        .aside-inner { flex: 1; overflow-y: auto; }
+        .sse-log { font-size: .62rem; font-family: monospace; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px; margin-top: 8px; max-height: 72px; overflow-y: auto; line-height: 1.6; word-wrap: break-word; }
+
+        /* HISTORY CARDS */
+        .hist-card { background: white; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; transition: all .2s; cursor: pointer; position: relative; }
+        .hist-card:hover { border-color: #a5b4fc; box-shadow: 0 6px 20px rgba(99,102,241,.12); transform: translateY(-2px); }
+        .hist-card-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(9,9,11,.8) 0%, transparent 55%); opacity: 0; transition: opacity .2s; display: flex; align-items: flex-end; padding: 10px; gap: 6px; }
+        .hist-card:hover .hist-card-overlay { opacity: 1; }
+
+        /* SECTION HEADER */
+        .section-divider { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; margin-top: 28px; }
+        .section-divider:first-child { margin-top: 0; }
+        .section-divider h3 { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: #94a3b8; white-space: nowrap; }
+        .section-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+
+        @keyframes premiumShine { 0% { transform: translateX(-150%) skewX(-20deg); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(250%) skewX(-20deg); opacity: 0; } }
+        .animate-shine-fast { animation: premiumShine 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
     </style>
 </head>
 <body class="h-[100dvh] flex flex-col">
 
+<!-- LOGIN MODAL -->
 <div id="login-modal">
     <div class="modal-content relative">
         <button onclick="closeLoginModal()" style="position:absolute;top:14px;right:18px;background:none;border:none;color:#94a3b8;font-size:1.3rem;cursor:pointer;z-index:10"><i class="fa-solid fa-xmark"></i></button>
-        <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-viralio-600 flex items-center justify-center text-2xl mx-auto mb-4 border border-indigo-100"><i class="fas fa-fingerprint"></i></div>
+        <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl mx-auto mb-4 border border-indigo-100"><i class="fas fa-fingerprint"></i></div>
         <h2 class="text-2xl font-extrabold mb-1.5 text-slate-900">Intră în cont</h2>
         <p class="text-slate-500 text-sm mb-6 px-2">Conectează-te pentru a genera conținut AI.</p>
         <div id="google-login-container" class="flex justify-center bg-slate-50 py-3 rounded-2xl border border-slate-100 min-h-[60px]">
@@ -85,57 +122,67 @@
     </div>
 </div>
 
+<!-- LIGHTBOX -->
 <div id="lightbox" onclick="closeLightbox()">
     <button onclick="closeLightbox()" style="position:absolute;top:20px;right:24px;background:rgba(255,255,255,.1);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:1.2rem;cursor:pointer;backdrop-filter:blur(8px);z-index:10"><i class="fa-solid fa-xmark"></i></button>
     <img id="lb-img" src="" alt="">
 </div>
 <div id="toast"></div>
 
-<header class="h-14 shrink-0 bg-white/80 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-50 shadow-sm">
-    <a href="https://viralio.ro" class="flex items-center font-black text-xl tracking-tight text-slate-900">
-        <div class="w-8 h-8 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md"><i class="fa-solid fa-bolt text-xs"></i></div>
-        Viralio
-        <span class="hidden sm:inline-flex items-center text-xs font-semibold text-slate-400 ml-2 border-l border-slate-200 pl-2"><i class="fa-solid fa-wand-magic-sparkles text-viralio-500 mr-1 text-[.6rem]"></i>AI Studio</span>
-    </a>
-    <div class="absolute left-1/2 -translate-x-1/2 bg-slate-100 p-1 rounded-2xl flex gap-0.5 border border-slate-200">
-        <button class="mode-tab active" id="tab-image" onclick="switchMode('image')"><i class="fa-solid fa-image text-viralio-500 text-[.72rem]"></i><span class="hidden sm:inline">Imagini</span></button>
-        <button class="mode-tab" id="tab-video" onclick="switchMode('video')"><i class="fa-solid fa-clapperboard text-[.72rem]"></i><span class="hidden sm:inline">Video</span></button>
-    </div>
-    <div class="flex items-center gap-2">
-        <button onclick="openLoginModal()" id="login-top-btn" class="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl hover:bg-viralio-600 transition-all font-bold text-xs shadow-sm"><i class="fa-solid fa-user text-[.6rem]"></i>Conectează-te</button>
-        <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden w-9 h-9 bg-slate-900 text-white rounded-xl font-bold text-xs flex items-center justify-center"><i class="fa-solid fa-user"></i></button>
-        <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1.5 pr-1.5 rounded-full">
-            <img id="nav-avatar" src="" class="w-7 h-7 rounded-full border border-slate-200">
-            <div class="flex-col leading-none ml-2 mr-2 hidden md:flex">
-                <span id="nav-name" class="text-xs font-bold text-slate-900 mb-0.5"></span>
-                <span class="text-[.6rem] font-bold text-viralio-600"><span id="nav-credits">0</span> Credite</span>
-            </div>
-            <button onclick="logout()" class="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 ml-1"><i class="fa-solid fa-power-off text-xs"></i></button>
-        </div>
-    </div>
-</header>
+<!-- NAVBAR -->
+<div class="sticky top-0 z-50 flex w-full justify-center px-2 py-2 shrink-0">
+    <nav class="w-full rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl shadow-sm px-4 md:px-6 py-2.5 flex justify-between items-center max-w-screen-2xl mx-auto">
+        <a href="https://viralio.ro" class="flex items-center font-black text-xl tracking-tight text-slate-900">
+            <div class="w-8 h-8 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md"><i class="fa-solid fa-bolt text-xs"></i></div>
+            Viralio
+            <span class="hidden sm:inline-flex items-center text-xs font-semibold text-slate-400 ml-2 border-l border-slate-200 pl-2"><i class="fa-solid fa-wand-magic-sparkles text-indigo-500 mr-1 text-[.6rem]"></i>AI Studio</span>
+        </a>
 
-<main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <!-- Mode tabs -->
+        <div class="absolute left-1/2 -translate-x-1/2 bg-slate-100 p-1 rounded-2xl flex gap-0.5 border border-slate-200">
+            <button class="mode-tab active" id="tab-image" onclick="switchMode('image')"><i class="fa-solid fa-image text-indigo-500 text-[.72rem]"></i><span class="hidden sm:inline">Imagini</span></button>
+            <button class="mode-tab" id="tab-video" onclick="switchMode('video')"><i class="fa-solid fa-clapperboard text-[.72rem]"></i><span class="hidden sm:inline">Video</span></button>
+        </div>
+
+        <!-- User / login -->
+        <div class="flex items-center gap-2">
+            <button onclick="openLoginModal()" id="login-top-btn" class="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl hover:bg-indigo-600 transition-all font-bold text-xs shadow-sm"><i class="fa-solid fa-user text-[.6rem]"></i>Conectează-te</button>
+            <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden w-9 h-9 bg-slate-900 text-white rounded-xl font-bold text-xs flex items-center justify-center"><i class="fa-solid fa-user"></i></button>
+            <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1.5 pr-1.5 rounded-full">
+                <img id="nav-avatar" src="" class="w-7 h-7 rounded-full border border-slate-200">
+                <div class="flex-col leading-none ml-2 mr-2 hidden md:flex">
+                    <span id="nav-name" class="text-xs font-bold text-slate-900 mb-0.5"></span>
+                    <span class="text-[.6rem] font-bold text-indigo-600"><span id="nav-credits">0</span> Credite</span>
+                </div>
+                <button onclick="logout()" class="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 ml-1"><i class="fa-solid fa-power-off text-xs"></i></button>
+            </div>
+        </div>
+    </nav>
+</div>
+
+<!-- MAIN -->
+<main class="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+
+    <!-- SIDEBAR -->
     <aside class="w-full md:w-[360px] lg:w-[400px] bg-white border-r border-slate-200 flex flex-col shrink-0 h-[50vh] md:h-full shadow-[4px_0_20px_rgba(0,0,0,.03)] z-20">
         <div class="aside-inner">
             <div class="panel-s">
                 <label class="field-label">Model AI</label>
                 <div class="select-wrap">
                     <select id="model-sel" class="styled-select" onchange="onModelChange()">
-                        <optgroup label="✦ Generare Imagini (Banana)" id="og-img">
-                            <option value="nano-banana-pro"  data-type="image" data-cost="1">Nano Banana Pro v2 — 1 Credit/img</option>
+                        <optgroup label="✦ Generare Imagini" id="og-img">
+                            <option value="nano-banana-pro" data-type="image" data-cost="1">Nano Banana PRO v2 — 1 Credit/img</option>
                         </optgroup>
                         <optgroup label="✦ Generare Video (Veo)" id="og-vid" style="display:none">
                             <option value="veo-3-quality" data-type="video" data-cost="5">Veo 3.1 Quality 🏆 — 5 Credite</option>
-                            <option value="veo-3-fast"    data-type="video" data-cost="3">Veo 3.1 Fast ⚡ — 3 Credite</option>
-                            <option value="veo-2"         data-type="video" data-cost="3">Veo 2 — 3 Credite</option>
+                            <option value="veo-3-fast" data-type="video" data-cost="3">Veo 3.1 Fast ⚡ — 3 Credite</option>
                         </optgroup>
                     </select>
                 </div>
                 <div class="mt-2.5 flex items-center gap-1.5 flex-wrap">
                     <span class="badge badge-indigo" id="m-type">Image</span>
-                    <span class="badge badge-amber"  id="m-cost"><i class="fa-solid fa-coins mr-1"></i>1 Credit</span>
-                    <span class="badge badge-green"  id="m-speed">Standard</span>
+                    <span class="badge badge-amber" id="m-cost"><i class="fa-solid fa-coins mr-1"></i>1 Credit</span>
+                    <span class="badge badge-green" id="m-speed">Standard</span>
                 </div>
             </div>
 
@@ -144,7 +191,7 @@
                 <div class="prompt-wrap">
                     <textarea id="prompt-in" rows="4" placeholder="Descrie în detaliu ce vrei să generezi..." class="w-full bg-transparent p-4 text-sm font-medium text-slate-900 outline-none placeholder-slate-400 leading-relaxed" oninput="updateCharCount()"></textarea>
                     <div class="flex items-center justify-between px-3 pb-3 gap-2">
-                        <button onclick="fillExample()" class="flex items-center gap-1.5 text-[.65rem] font-bold text-viralio-600 bg-viralio-50 border border-viralio-100 px-2.5 py-1.5 rounded-lg hover:bg-viralio-100 transition-colors"><i class="fa-solid fa-lightbulb text-[.6rem]"></i>Exemplu</button>
+                        <button onclick="fillExample()" class="flex items-center gap-1.5 text-[.65rem] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"><i class="fa-solid fa-lightbulb text-[.6rem]"></i>Exemplu</button>
                         <span id="char-count" class="text-[.6rem] font-bold text-slate-400">0 / 500</span>
                     </div>
                 </div>
@@ -197,8 +244,9 @@
                     <button id="ref-rm" onclick="event.stopPropagation();removeRef()" class="hidden absolute top-2 right-2 w-7 h-7 bg-white/90 rounded-lg text-red-500 items-center justify-center shadow-md border border-slate-200 text-xs z-10"><i class="fa-solid fa-trash"></i></button>
                 </div>
             </div>
+        </div>
 
-        </div><div class="shrink-0 p-4 border-t border-slate-100 bg-white/90 backdrop-blur">
+        <div class="shrink-0 p-4 border-t border-slate-100 bg-white/90 backdrop-blur">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-xs font-bold text-slate-400">Cost estimat:</span>
                 <span class="badge badge-amber"><i class="fa-solid fa-coins mr-1"></i><span id="total-cost">1</span> Credite</span>
@@ -209,14 +257,42 @@
         </div>
     </aside>
 
+    <!-- CONTENT AREA -->
     <section class="flex-1 bg-slate-100/60 overflow-y-auto h-[50vh] md:h-full relative flex flex-col">
-        <div class="relative z-10 flex-1 flex flex-col p-4 md:p-8 max-w-5xl mx-auto w-full">
+        <div class="relative z-10 flex-1 flex flex-col p-4 md:p-6 w-full">
 
-            <div id="st-empty" class="flex-1 flex flex-col items-center justify-center text-center">
-                <h2 class="text-2xl md:text-3xl font-black text-slate-800 mb-3 tracking-tight">Generare AI Viralio</h2>
-                <p class="text-slate-500 font-medium text-sm max-w-xs leading-relaxed">Scrie un prompt, alege modelul și lasă AI-ul să creeze imagini sau videoclipuri cinematice.</p>
+            <!-- EMPTY STATE cu istoric inline -->
+            <div id="st-empty" class="flex-1 flex flex-col">
+                <!-- Mesaj welcome dacă nu există istoric -->
+                <div id="welcome-msg" class="flex-1 flex flex-col items-center justify-center text-center py-12">
+                    <div class="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-3xl mb-5 shadow-sm">
+                        <i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i>
+                    </div>
+                    <h2 class="text-2xl md:text-3xl font-black text-slate-800 mb-3 tracking-tight">Generare AI Viralio</h2>
+                    <p class="text-slate-500 font-medium text-sm max-w-xs leading-relaxed">Scrie un prompt, alege modelul și lasă AI-ul să creeze imagini sau videoclipuri cinematice.</p>
+                </div>
+                <!-- Istoric inline -->
+                <div id="inline-history" class="hidden pb-8">
+                    <!-- Imagini recent -->
+                    <div id="hist-img-section" class="hidden">
+                        <div class="section-divider">
+                            <h3><i class="fa-solid fa-image mr-2 text-indigo-400"></i>Imagini recente</h3>
+                        </div>
+                        <div id="hist-img-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+                    </div>
+                    <!-- Video recent -->
+                    <div id="hist-vid-section" class="hidden">
+                        <div class="section-divider">
+                            <h3><i class="fa-solid fa-clapperboard mr-2 text-pink-400"></i>Video recente</h3>
+                        </div>
+                        <div id="hist-vid-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+                    </div>
+                    <p id="hist-empty-msg" class="hidden text-center text-slate-400 text-sm font-medium py-8">Nu ai generat nimic încă. Scrie primul tău prompt!</p>
+                    <p id="hist-loading-msg" class="text-center text-slate-400 text-sm font-medium py-8"><i class="fa-solid fa-spinner spin mr-2"></i>Se încarcă istoricul...</p>
+                </div>
             </div>
 
+            <!-- LOADING STATE -->
             <div id="st-loading" class="hidden flex-1 flex flex-col">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-2.5">
@@ -233,38 +309,73 @@
                 <div id="sk-grid" class="grid gap-4 mt-2"></div>
             </div>
 
-            <div id="st-result" class="hidden">
+            <!-- RESULT STATE -->
+            <div id="st-result" class="hidden flex-1 flex flex-col">
                 <div class="flex items-center justify-between mb-5">
                     <div class="flex items-center gap-2">
                         <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
                         <span class="text-sm font-black text-slate-800" id="res-label">Generat!</span>
                     </div>
-                    <button onclick="regen()" class="text-xs font-bold text-viralio-600 bg-viralio-50 border border-viralio-100 px-3 py-2 rounded-xl">Regenerează</button>
+                    <button onclick="regen()" class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-2 rounded-xl">Regenerează</button>
                 </div>
                 <div id="res-grid" class="grid gap-4"></div>
             </div>
 
+            <!-- ERROR STATE -->
             <div id="st-error" class="hidden flex-1 flex flex-col items-center justify-center text-center">
                 <h3 class="text-xl font-black text-slate-800 mb-2">Eroare la generare</h3>
                 <p id="err-msg" class="text-sm text-slate-500 font-medium max-w-xs mb-5 leading-relaxed"></p>
-                <button onclick="showState('empty')" class="text-xs font-bold text-viralio-600 bg-viralio-50 border border-viralio-100 px-4 py-2 rounded-xl">Înapoi</button>
+                <button onclick="showState('empty')" class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-4 py-2 rounded-xl">Înapoi</button>
             </div>
 
         </div>
     </section>
 </main>
 
+<!-- DISCORD / TELEGRAM BAR -->
+<div class="fixed bottom-5 right-5 md:right-6 z-[100000] flex items-center bg-white/70 backdrop-blur-2xl glass-premium-fin rounded-full p-1.5 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_15px_40px_-10px_rgba(0,0,0,0.2)] hover:bg-white/90">
+    <a href="https://discord.gg/h8Ah6VKDzm" target="_blank" class="group flex items-center gap-2 hover:bg-slate-100 rounded-full px-3 py-1.5 transition-all duration-300">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-900 text-white shadow-sm group-hover:bg-[#5865F2] group-hover:scale-105 transition-all duration-300"><i class="fa-brands fa-discord text-sm"></i></div>
+        <div class="flex-col hidden sm:flex text-left">
+            <span class="text-[0.55rem] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Ai Întrebări?</span>
+            <span class="text-xs font-black text-slate-800 leading-none group-hover:text-black transition-colors duration-300">Suport Discord</span>
+        </div>
+    </a>
+    <div class="w-px h-6 bg-gradient-to-b from-transparent via-slate-300 to-transparent mx-1"></div>
+    <a href="https://t.me/SmartCreator_official" target="_blank" class="group flex items-center gap-2 rounded-full px-3 py-1.5 transition-all duration-300">
+        <div class="relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300">
+            <div class="absolute inset-0 rounded-full bg-gradient-to-br from-[#0088cc] to-[#00aaff] overflow-hidden shadow-[0_0_15px_rgba(0,136,204,0.4)]">
+                <div class="absolute inset-0 w-[250%] h-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shine-fast z-10"></div>
+            </div>
+            <i class="fa-brands fa-telegram text-white text-sm pr-0.5 relative z-20"></i>
+            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse z-30 shadow-sm"></span>
+        </div>
+        <div class="flex-col hidden sm:flex text-left">
+            <span class="text-[0.55rem] font-bold text-red-500 uppercase tracking-widest leading-none mb-0.5 drop-shadow-sm">Giveaways</span>
+            <span class="text-xs font-black text-slate-800 leading-none group-hover:text-[#0088cc] transition-colors duration-300">Telegram VIP</span>
+        </div>
+    </a>
+</div>
+
 <script>
-const MODEL_META = {
-    'nano-banana-pro':  { type:'image', cost:1, speed:'Standard' },
-    'veo-3-quality':    { type:'video', cost:5, speed:'Cinematic'},
-    'veo-3-fast':       { type:'video', cost:3, speed:'Fast ⚡'  },
-    'veo-2':            { type:'video', cost:3, speed:'Standard' },
-};
+// ============================================================
+// SUPABASE — chei injectate de server via /api/config
+// ============================================================
+let supabase = null;
+async function initSupabase() {
+    try {
+        const r = await fetch('/api/config');
+        if(!r.ok) return;
+        const cfg = await r.json();
+        if(cfg.supabaseUrl && cfg.supabaseKey) {
+            supabase = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
+        }
+    } catch(e) { console.warn('Supabase init failed:', e); }
+}
 
-let mode = 'image'; let imgCount = 1; let vidCount = 1;
-let genAborted = false; let activeReader = null; let lastPrompt = ''; let fakeTimer = null;
-
+// ============================================================
+// AUTH
+// ============================================================
 const $loginModal = document.getElementById('login-modal');
 function openLoginModal()  { $loginModal.classList.add('show'); }
 function closeLoginModal() { $loginModal.classList.remove('show'); }
@@ -272,19 +383,22 @@ function setToken(t)  { document.cookie = "viralio_token="+t+"; domain=.viralio.
 function getToken()   { const m = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return m?m[1]:null; }
 function removeToken(){ document.cookie = "viralio_token=; domain=.viralio.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
 
+let currentUser = null;
+
 async function handleCredentialResponse(resp) {
     try {
-        const r = await fetch('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:resp.credential})});
+        const r = await fetch('/api/auth/google', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({credential:resp.credential}) });
         const d = await r.json();
-        if(d.token){setToken(d.token);closeLoginModal();updateUI(d.user);}
+        if(d.token){ setToken(d.token); closeLoginModal(); updateUI(d.user); loadHistory(); }
     } catch(e){}
 }
 
 function updateUI(user) {
+    currentUser = user;
     document.getElementById('login-top-btn')?.classList.add('hidden');
     document.getElementById('login-top-btn-mobile')?.classList.add('hidden');
     const up = document.getElementById('user-profile');
-    if(up){up.classList.remove('hidden');up.classList.add('flex');}
+    if(up){ up.classList.remove('hidden'); up.classList.add('flex'); }
     document.getElementById('nav-name').innerText = user.name.split(' ')[0];
     document.getElementById('nav-avatar').src = user.picture;
     document.getElementById('nav-credits').innerText = user.credits;
@@ -292,19 +406,137 @@ function updateUI(user) {
 function logout(){ removeToken(); location.reload(); }
 
 window.onload = async () => {
+    await initSupabase();
     const t = getToken();
-    if(t){try{const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+t}});if(r.ok){const d=await r.json();updateUI(d.user);}else{removeToken();}}catch(e){}}
+    if(t){
+        try{
+            const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+t}});
+            if(r.ok){ const d=await r.json(); updateUI(d.user); loadHistory(); }
+            else { removeToken(); }
+        }catch(e){}
+    }
     refreshBadges();
 };
 
+// ============================================================
+// SUPABASE HISTORY
+// ============================================================
+async function saveToHistory(type, prompt, urls, model) {
+    if(!supabase || !currentUser) return;
+    try {
+        const rows = urls.map(url => ({ user_email: currentUser.email, type, prompt, url, model, created_at: new Date().toISOString() }));
+        await supabase.from('generations').insert(rows);
+    } catch(e) { console.warn('Save history error:', e); }
+}
+
+async function loadHistory() {
+    if(!supabase || !currentUser) {
+        document.getElementById('hist-loading-msg').classList.add('hidden');
+        return;
+    }
+    document.getElementById('inline-history').classList.remove('hidden');
+    document.getElementById('welcome-msg').classList.add('hidden');
+    document.getElementById('hist-loading-msg').classList.remove('hidden');
+    document.getElementById('hist-img-section').classList.add('hidden');
+    document.getElementById('hist-vid-section').classList.add('hidden');
+
+    try {
+        const { data } = await supabase.from('generations').select('*').eq('user_email', currentUser.email).order('created_at', { ascending: false }).limit(200);
+        document.getElementById('hist-loading-msg').classList.add('hidden');
+
+        const images = (data||[]).filter(d=>d.type==='image');
+        const videos = (data||[]).filter(d=>d.type==='video');
+
+        if(images.length===0 && videos.length===0) {
+            document.getElementById('hist-empty-msg').classList.remove('hidden');
+            document.getElementById('welcome-msg').classList.remove('hidden');
+            document.getElementById('inline-history').classList.add('hidden');
+            return;
+        }
+
+        if(images.length>0) {
+            document.getElementById('hist-img-section').classList.remove('hidden');
+            renderHistGrid('hist-img-grid', images, 'image');
+        }
+        if(videos.length>0) {
+            document.getElementById('hist-vid-section').classList.remove('hidden');
+            renderHistGrid('hist-vid-grid', videos, 'video');
+        }
+    } catch(e) {
+        document.getElementById('hist-loading-msg').classList.add('hidden');
+        document.getElementById('hist-empty-msg').textContent = 'Eroare la încărcarea istoricului.';
+        document.getElementById('hist-empty-msg').classList.remove('hidden');
+    }
+}
+
+function renderHistGrid(gridId, items, type) {
+    const grid = document.getElementById(gridId);
+    grid.innerHTML = '';
+    items.forEach(item => {
+        const date = new Date(item.created_at).toLocaleDateString('ro-RO', {day:'2-digit',month:'short'});
+        const card = document.createElement('div');
+        card.className = 'hist-card group';
+
+        if(type === 'video') {
+            card.innerHTML = `
+                <div class="relative" style="aspect-ratio:16/9;background:#0f172a;overflow:hidden;border-radius:14px 14px 0 0">
+                    <video src="${item.url}" class="w-full h-full object-cover opacity-90" muted loop preload="none" playsinline></video>
+                    <div class="hist-card-overlay">
+                        <a href="${item.url}" download onclick="event.stopPropagation()" class="bg-white text-slate-900 text-[.6rem] font-black px-2.5 py-1.5 rounded-lg flex items-center gap-1"><i class="fa-solid fa-download"></i> DL</a>
+                    </div>
+                    <div class="absolute top-2 left-2 pointer-events-none">
+                        <span class="badge badge-pink">Video</span>
+                    </div>
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center group-hover:opacity-0 transition-opacity">
+                            <i class="fa-solid fa-play text-white text-xs pl-0.5"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-3 py-2">
+                    <p class="text-[.65rem] font-bold text-slate-700 truncate">${item.prompt||'—'}</p>
+                    <p class="text-[.55rem] text-slate-400 mt-0.5">${date}</p>
+                </div>`;
+            const vid = card.querySelector('video');
+            card.addEventListener('mouseenter', ()=>{ vid.play().catch(()=>{}); });
+            card.addEventListener('mouseleave', ()=>{ vid.pause(); });
+        } else {
+            card.innerHTML = `
+                <div class="relative" style="aspect-ratio:16/9;overflow:hidden;border-radius:14px 14px 0 0" onclick="openLightbox('${item.url}')">
+                    <img src="${item.url}" class="w-full h-full object-cover" loading="lazy">
+                    <div class="hist-card-overlay">
+                        <button onclick="event.stopPropagation();openLightbox('${item.url}')" class="bg-white/20 text-white text-[.6rem] font-bold px-2.5 py-1.5 rounded-lg"><i class="fa-solid fa-expand mr-1"></i>Preview</button>
+                        <a href="${item.url}" download onclick="event.stopPropagation()" class="bg-white text-slate-900 text-[.6rem] font-black px-2.5 py-1.5 rounded-lg flex items-center gap-1"><i class="fa-solid fa-download"></i> DL</a>
+                    </div>
+                </div>
+                <div class="px-3 py-2">
+                    <p class="text-[.65rem] font-bold text-slate-700 truncate">${item.prompt||'—'}</p>
+                    <p class="text-[.55rem] text-slate-400 mt-0.5">${date}</p>
+                </div>`;
+        }
+        grid.appendChild(card);
+    });
+}
+
+// ============================================================
+// UI HELPERS
+// ============================================================
 function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2800); }
-function showState(n){ ['empty','loading','result','error'].forEach(s=>{ const el=document.getElementById('st-'+s); if(!el)return; el.classList.toggle('hidden',s!==n); }); }
+function showState(n){
+    ['empty','loading','result','error'].forEach(s=>{ const el=document.getElementById('st-'+s); if(!el)return; el.classList.toggle('hidden',s!==n); });
+}
 function updateCharCount(){ document.getElementById('char-count').textContent=document.getElementById('prompt-in').value.length+' / 500'; }
-function fillExample(){ document.getElementById('prompt-in').value='Fotografie cinematică'; updateCharCount(); }
-function qp(t){ document.getElementById('prompt-in').value=t; updateCharCount(); }
+function fillExample(){ document.getElementById('prompt-in').value='Fotografie cinematică, lumină de aur, o femeie în câmp'; updateCharCount(); }
 
 function updateCount(d){ imgCount=Math.min(4,Math.max(1,imgCount+d)); document.getElementById('count-val').textContent=imgCount; refreshBadges(); }
 function updateVCount(d){ vidCount=Math.min(4,Math.max(1,vidCount+d)); document.getElementById('vcount-val').textContent=vidCount; refreshBadges(); }
+
+const MODEL_META = {
+    'nano-banana-pro': { type:'image', cost:1, speed:'Standard' },
+    'veo-3-quality':   { type:'video', cost:5, speed:'Cinematic' },
+    'veo-3-fast':      { type:'video', cost:3, speed:'Fast ⚡' },
+};
+let mode = 'image'; let imgCount = 1; let vidCount = 1;
 
 function refreshBadges(){
     const sel=document.getElementById('model-sel');
@@ -312,6 +544,8 @@ function refreshBadges(){
     const n=mode==='image'?imgCount:vidCount;
     document.getElementById('total-cost').textContent=m.cost*n;
     document.getElementById('m-type').textContent=m.type==='image'?'Image':'Video';
+    document.getElementById('m-cost').innerHTML=`<i class="fa-solid fa-coins mr-1"></i>${m.cost} Credit${m.cost>1?'e':''}`;
+    document.getElementById('m-speed').textContent=m.speed;
 }
 function onModelChange(){ refreshBadges(); }
 
@@ -319,9 +553,18 @@ function switchMode(m){
     mode=m; const isVid=m==='video';
     document.getElementById('tab-image').classList.toggle('active',!isVid);
     document.getElementById('tab-video').classList.toggle('active',isVid);
+    // Arată/ascunde optgroup-urile ÎNAINTE de a seta valoarea
     document.getElementById('og-img').style.display=isVid?'none':'';
     document.getElementById('og-vid').style.display=isVid?'':'none';
-    document.getElementById('model-sel').value=isVid?'veo-3-quality':'nano-banana-pro';
+    // Setează valoarea după ce optgroup-ul e vizibil
+    const sel=document.getElementById('model-sel');
+    if(isVid){
+        // Forțăm selectarea primei opțiuni din video
+        const firstVidOpt = sel.querySelector('#og-vid option');
+        if(firstVidOpt) sel.value = firstVidOpt.value;
+    } else {
+        sel.value = 'nano-banana-pro';
+    }
     document.getElementById('panel-ratio').classList.toggle('hidden',isVid);
     document.getElementById('panel-count').classList.toggle('hidden',isVid);
     document.getElementById('panel-vratio').classList.toggle('hidden',!isVid);
@@ -332,151 +575,115 @@ function switchMode(m){
 
 document.getElementById('ref-file').addEventListener('change',function(e){
     const f=e.target.files[0]; if(!f)return;
-    const r=new FileReader(); r.onload=ev=>{
-        document.getElementById('ref-prev').src=ev.target.result;
-        document.getElementById('ref-prev').classList.remove('hidden');
-        document.getElementById('ref-ph').style.display='none';
-        document.getElementById('ref-rm').classList.remove('hidden');
-        document.getElementById('ref-rm').classList.add('flex');
-    }; r.readAsDataURL(f);
+    const r=new FileReader(); r.onload=ev=>{ document.getElementById('ref-prev').src=ev.target.result; document.getElementById('ref-prev').classList.remove('hidden'); document.getElementById('ref-ph').style.display='none'; document.getElementById('ref-rm').classList.remove('hidden'); document.getElementById('ref-rm').classList.add('flex'); }; r.readAsDataURL(f);
 });
 function removeRef(){ document.getElementById('ref-file').value=''; document.getElementById('ref-prev').classList.add('hidden'); document.getElementById('ref-ph').style.display=''; document.getElementById('ref-rm').classList.add('hidden'); }
 function openLightbox(url){ document.getElementById('lb-img').src=url; document.getElementById('lightbox').classList.add('show'); }
 function closeLightbox(){ document.getElementById('lightbox').classList.remove('show'); }
+
+let genAborted=false; let activeReader=null; let fakeTimer=null;
 function cancelGen(){ genAborted=true; if(activeReader)activeReader.cancel(); clearFakeProgress(); showState('empty'); resetBtn(); }
-function resetBtn(){ document.getElementById('gen-btn').disabled=false; document.getElementById('gen-btn').innerHTML='GENEREAZĂ'; }
+function resetBtn(){ const b=document.getElementById('gen-btn'); b.disabled=false; b.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i> GENEREAZĂ'; }
+function aspectClass(r){ return r.includes('LANDSCAPE')?'aspect-video':(r.includes('PORTRAIT')?'aspect-[9/16]':'aspect-square'); }
 
-function aspectClass(r){ return r.includes('LANDSCAPE') ? 'aspect-video' : (r.includes('PORTRAIT') ? 'aspect-[9/16]' : 'aspect-square'); }
+function buildSkeletons(n,ac){ const g=document.getElementById('sk-grid'); g.innerHTML=''; g.className='grid gap-4 grid-cols-2 sm:grid-cols-4'; for(let i=0;i<n;i++) g.innerHTML+=`<div class="skeleton ${ac} w-full"></div>`; }
 
-function buildSkeletons(n, ac){
-    const g=document.getElementById('sk-grid'); g.innerHTML=''; g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
-    for(let i=0;i<n;i++) { g.innerHTML += `<div class="skeleton ${ac} w-full flex items-center justify-center"></div>`; }
+function buildImageGrid(urls,ratioVal){
+    const g=document.getElementById('res-grid'); g.innerHTML=''; g.className='grid gap-4 grid-cols-2 sm:grid-cols-4';
+    urls.forEach((url,i)=> g.innerHTML+=`<div class="result-card"><div class="${aspectClass(ratioVal)} w-full overflow-hidden" style="border-radius:18px"><img src="${url}" class="w-full h-full object-cover" loading="lazy"><div class="card-overlay"><button onclick="openLightbox('${url}')" class="bg-white/20 text-white text-xs p-2 rounded-xl">Preview</button><a href="${url}" download="img_${i}.png" class="bg-white text-slate-900 text-xs p-2 rounded-xl font-bold">DL</a></div></div></div>`);
 }
-function buildImageGrid(urls, ratioVal){
-    const g=document.getElementById('res-grid'); g.innerHTML=''; g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
-    urls.forEach((url,i)=> g.innerHTML += `<div class="result-card"><div class="${aspectClass(ratioVal)} w-full overflow-hidden" style="border-radius:18px"><img src="${url}" class="w-full h-full object-cover" loading="lazy"><div class="card-overlay"><button onclick="openLightbox('${url}')" class="bg-white/20 text-white text-xs p-2 rounded-xl">Preview</button><a href="${url}" download="img_${i}.png" class="bg-white text-slate-900 text-xs p-2 rounded-xl">Download</a></div></div></div>`);
-}
+
 function buildVideoGrid(urls){
-    const g=document.getElementById('res-grid'); g.innerHTML=''; g.className='grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
-    urls.forEach((url,i)=> g.innerHTML += `<div class="result-card"><video src="${url}" controls autoplay loop muted style="width:100%;border-radius:14px 14px 0 0;"></video><div class="p-3"><a href="${url}" download="vid_${i}.mp4" class="text-xs font-black bg-slate-900 text-white px-3 py-2 rounded-xl">Download</a></div></div>`);
+    const g=document.getElementById('res-grid'); g.innerHTML=''; g.className='grid gap-4 grid-cols-2 sm:grid-cols-4';
+    urls.forEach((url,i)=> g.innerHTML+=`<div class="result-card"><div class="relative" style="aspect-ratio:16/9;background:#0f172a"><video src="${url}" controls autoplay loop muted style="width:100%;height:100%;object-fit:cover;border-radius:18px 18px 0 0;display:block"></video></div><div class="p-3"><a href="${url}" download="vid_${i}.mp4" class="text-xs font-black bg-slate-900 text-white px-3 py-2 rounded-xl inline-block"><i class="fa-solid fa-download mr-1"></i>Download</a></div></div>`);
 }
 
 function logSSE(msg){ const el=document.getElementById('sse-log'); el.classList.remove('hidden'); el.innerHTML+=`<span>[API] ${msg}</span><br>`; el.scrollTop=el.scrollHeight; }
 
 async function readSSE(response){
-    const reader = response.body.getReader();
-    activeReader = reader;
-    const dec = new TextDecoder();
-    let buf = '';
-    let finalData = {}; 
-
+    const reader=response.body.getReader(); activeReader=reader;
+    const dec=new TextDecoder(); let buf=''; let finalData={};
     try {
         while(true){
             if(genAborted) break;
-            const {done, value} = await reader.read();
+            const {done,value}=await reader.read();
             if(done) break;
-            buf += dec.decode(value, {stream:true});
-            const lines = buf.split('\n');
-            buf = lines.pop();
-            
+            buf+=dec.decode(value,{stream:true});
+            const lines=buf.split('\n'); buf=lines.pop();
             for(const line of lines){
-                const t = line.trim();
-                if(!t || t.startsWith(':')) continue;
+                const t=line.trim();
+                if(!t||t.startsWith(':')) continue;
                 if(t.startsWith('data:')){
-                    const raw = t.slice(5).trim();
-                    if(raw === '[DONE]') continue;
-                    
-                    if (raw.startsWith('{') || raw.startsWith('[')) {
+                    const raw=t.slice(5).trim();
+                    if(raw==='[DONE]') continue;
+                    if(raw.startsWith('{')||raw.startsWith('[')){
                         try {
-                            const p = JSON.parse(raw);
-                            if (p.error) throw new Error(p.error);
-                            
-                            // Dacă datele sunt împachetate într-un obiect cu chei gen "0", "1"
-                            if (p["0"]) {
-                                Object.assign(finalData, p["0"]);
-                            } else {
-                                Object.assign(finalData, p);
-                            }
-
-                            if(p.progress !== undefined){
-                                document.getElementById('vid-prog-bar').style.width=p.progress+'%';
-                            }
-                            logSSE('Status: ' + (p.status || 'procesare...'));
-                        } catch(e) {}
+                            const p=JSON.parse(raw);
+                            if(p.error) throw new Error(p.error);
+                            if(p["0"]) Object.assign(finalData,p["0"]); else Object.assign(finalData,p);
+                            if(p.progress!==undefined) document.getElementById('vid-prog-bar').style.width=p.progress+'%';
+                            logSSE('Status: '+(p.status||'procesare...'));
+                        } catch(e){ if(e.message&&!e.message.includes('JSON')) throw e; }
                     }
                 }
             }
         }
-    } finally { activeReader = null; }
-    return Object.keys(finalData).length > 0 ? finalData : null;
+    } finally { activeReader=null; }
+    return Object.keys(finalData).length>0?finalData:null;
 }
 
-let fakeStep=0, fakePct=0;
-function startFakeProgress(){
-    fakeStep=0; fakePct=0; clearInterval(fakeTimer);
-    fakeTimer=setInterval(()=>{ fakePct=Math.min(90, fakePct+2); document.getElementById('vid-prog-bar').style.width=fakePct+'%'; },800);
-}
+let fakeStep=0,fakePct=0;
+function startFakeProgress(){ fakeStep=0;fakePct=0;clearInterval(fakeTimer); fakeTimer=setInterval(()=>{ fakePct=Math.min(90,fakePct+2); document.getElementById('vid-prog-bar').style.width=fakePct+'%'; },800); }
 function clearFakeProgress(){ clearInterval(fakeTimer); document.getElementById('vid-prog-bar').style.width='100%'; }
 
 async function genImage(){
-    const token = getToken();
-    const prompt = document.getElementById('prompt-in').value.trim();
-    const ratio  = document.querySelector('input[name="ratio"]:checked')?.value || 'IMAGE_ASPECT_RATIO_LANDSCAPE';
-    const model_id = document.getElementById('model-sel').value;
-
-    buildSkeletons(imgCount, aspectClass(ratio));
-    showState('loading');
-
-    const fd = new FormData();
-    fd.append('prompt', prompt); fd.append('aspect_ratio', ratio); fd.append('number_of_images', imgCount); fd.append('model_id', model_id); 
-
-    const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
-    const data = await readSSE(resp);
-    
-    // Extragem URL-urile indiferent dacă sunt în file_urls sau file_url
-    let urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
-    
-    if(!urls.length) throw new Error('Nu am găsit URL-ul în log. Verifică consola.');
-    return {urls, ratio};
+    const token=getToken(); const prompt=document.getElementById('prompt-in').value.trim();
+    const ratio=document.querySelector('input[name="ratio"]:checked')?.value||'IMAGE_ASPECT_RATIO_LANDSCAPE';
+    const model_id=document.getElementById('model-sel').value;
+    buildSkeletons(imgCount,aspectClass(ratio)); showState('loading');
+    const fd=new FormData(); fd.append('prompt',prompt); fd.append('aspect_ratio',ratio); fd.append('number_of_images',imgCount); fd.append('model_id',model_id);
+    const resp=await fetch('/api/media/image',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
+    const data=await readSSE(resp);
+    let urls=data?.file_urls||(data?.file_url?[data.file_url]:[]);
+    if(!urls.length) throw new Error('Nu am găsit URL-ul imaginii.');
+    await saveToHistory('image', prompt, urls, model_id);
+    return {urls,ratio};
 }
 
 async function genVideo(){
-    const token = getToken();
-    const prompt  = document.getElementById('prompt-in').value.trim();
-    const vratio  = document.querySelector('input[name="vratio"]:checked')?.value || 'VIDEO_ASPECT_RATIO_LANDSCAPE';
-    const model_id = document.getElementById('model-sel').value;
-    const refFile = document.getElementById('ref-file').files[0];
-
+    const token=getToken(); const prompt=document.getElementById('prompt-in').value.trim();
+    const vratio=document.querySelector('input[name="vratio"]:checked')?.value||'VIDEO_ASPECT_RATIO_LANDSCAPE';
+    const model_id=document.getElementById('model-sel').value;
+    const refFile=document.getElementById('ref-file').files[0];
     showState('loading'); startFakeProgress();
-
-    const fd = new FormData();
-    fd.append('prompt', prompt); fd.append('aspect_ratio', vratio); fd.append('number_of_videos', vidCount); fd.append('model_id', model_id);
-    if(refFile) fd.append('start_image', refFile);
-
-    const resp = await fetch('/api/media/video', { method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd });
-    const data = await readSSE(resp);
-    
-    let urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
-    
-    if(!urls.length) throw new Error('Video generat, dar URL-ul lipsește din log.');
+    document.getElementById('vid-prog-wrap').classList.remove('hidden');
+    const fd=new FormData(); fd.append('prompt',prompt); fd.append('aspect_ratio',vratio); fd.append('number_of_videos',vidCount); fd.append('model_id',model_id);
+    if(refFile) fd.append('start_image',refFile);
+    const resp=await fetch('/api/media/video',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
+    const data=await readSSE(resp);
+    let urls=data?.file_urls||(data?.file_url?[data.file_url]:[]);
+    if(!urls.length) throw new Error('Video generat, dar URL-ul lipsește.');
+    await saveToHistory('video', prompt, urls, model_id);
     return urls;
 }
 
 async function generate(){
-    const token = getToken();
+    const token=getToken();
     if(!token){ openLoginModal(); return; }
     if(!document.getElementById('prompt-in').value.trim()){ toast('Introdu un prompt!'); return; }
-
-    genAborted = false; document.getElementById('gen-btn').disabled=true;
+    genAborted=false;
+    const btn=document.getElementById('gen-btn'); btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner spin mr-2"></i>Generăm...';
+    document.getElementById('vid-prog-wrap').classList.add('hidden');
+    document.getElementById('sse-log').innerHTML=''; document.getElementById('sse-log').classList.add('hidden');
     try {
         if(mode==='image'){
-            const result = await genImage();
-            if(result) { showState('result'); buildImageGrid(result.urls, result.ratio); }
+            const result=await genImage();
+            if(result){ showState('result'); buildImageGrid(result.urls,result.ratio); document.getElementById('res-label').textContent='Generat! '+result.urls.length+' imagine'+(result.urls.length>1?'i':''); loadHistory(); }
         } else {
-            const urls = await genVideo();
-            if(urls) { showState('result'); buildVideoGrid(urls); }
+            const urls=await genVideo();
+            if(urls){ showState('result'); buildVideoGrid(urls); document.getElementById('res-label').textContent='Generat! '+urls.length+' videoclip'+(urls.length>1?' uri':''); loadHistory(); }
         }
-        try { const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+getToken()}}); if(r.ok){const d=await r.json(); document.getElementById('nav-credits').innerText=d.user.credits;} }catch(e){}
+        try{ const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+getToken()}}); if(r.ok){const d=await r.json();document.getElementById('nav-credits').innerText=d.user.credits;} }catch(e){}
     } catch(err){
         if(genAborted) return;
         showState('error'); document.getElementById('err-msg').textContent=err.message;
