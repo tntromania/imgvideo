@@ -383,13 +383,11 @@ async function handleCredentialResponse(resp) {
 }
 
 function updateUI(user) {
-    // Hide BOTH login buttons forcefully
     const deskBtn = document.getElementById('login-top-btn');
     const mobBtn = document.getElementById('login-top-btn-mobile');
     if(deskBtn) deskBtn.style.display = 'none';
     if(mobBtn) mobBtn.style.display = 'none';
     
-    // Show Profile
     const up = document.getElementById('user-profile');
     if(up) { up.classList.remove('hidden'); up.style.display = 'flex'; }
     
@@ -552,7 +550,6 @@ function updateCircleProgress(percent, text) {
         const offset = 283 - (percent / 100) * 283;
         circle.style.strokeDashoffset = offset;
     } else {
-        // Indeterminate loading
         circle.style.strokeDashoffset = 283;
         circle.classList.add('animate-spin');
         circle.style.transformOrigin = 'center';
@@ -623,7 +620,7 @@ async function readSSE(response){
     return Object.keys(finalData).length > 0 ? finalData : null;
 }
 
-// --- GENERATORS ---
+// --- EXTRACTOR URL UNIVERSAL (NOU) ---
 function extractUrls(data) {
     if (!data) return [];
     
@@ -649,6 +646,8 @@ function extractUrls(data) {
     
     return foundUrls;
 }
+
+// --- GENERATORS ---
 async function genImage(){
     const token = getToken();
     const prompt = document.getElementById('prompt-in').value.trim();
@@ -657,23 +656,23 @@ async function genImage(){
 
     showState('loading');
     buildSkeletons(imgCount, aspectClass(ratio));
-    updateCircleProgress(0, "Așteptăm server-ul..."); // Indeterminate pentru imagini
+    updateCircleProgress(0, "Așteptăm server-ul..."); 
     document.getElementById('circular-progress').classList.add('animate-spin');
 
     const fd = new FormData();
     fd.append('prompt', prompt); fd.append('aspect_ratio', ratio); fd.append('number_of_images', imgCount); fd.append('model_id', model_id); 
 
     const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
-const data = await readSSE(resp);
+    const data = await readSSE(resp);
     
     let urls = extractUrls(data);
     
     if(!urls.length) {
-        console.error("RAW API RESPONSE (Răspunsul brut de la GenAIPro):", data); // Ne va arăta fix eroarea de la ei
+        console.error("RAW API RESPONSE:", data);
         throw new Error('Eroare la API! URL-ul lipsește. (Apasă F12 și verifică Consola pentru detalii exacte)');
     }
-    
-    return mode === 'image' ? {urls, ratio} : urls;
+    return {urls, ratio};
+}
 
 async function genVideo(){
     const token = getToken();
@@ -683,7 +682,7 @@ async function genVideo(){
     const refFile = document.getElementById('ref-file').files[0];
 
     showState('loading'); 
-    document.getElementById('sk-grid').innerHTML = ''; // Nu punem scheleton pt video, arata ciudat
+    document.getElementById('sk-grid').innerHTML = ''; 
     startFakeProgress();
 
     const fd = new FormData();
@@ -691,16 +690,17 @@ async function genVideo(){
     if(refFile) fd.append('start_image', refFile);
 
     const resp = await fetch('/api/media/video', { method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd });
-const data = await readSSE(resp);
+    const data = await readSSE(resp);
     
     let urls = extractUrls(data);
     
     if(!urls.length) {
-        console.error("RAW API RESPONSE (Răspunsul brut de la GenAIPro):", data); // Ne va arăta fix eroarea de la ei
-        throw new Error('Eroare la API! URL-ul lipsește. (Apasă F12 și verifică Consola pentru detalii exacte)');
+        console.error("RAW API RESPONSE:", data);
+        throw new Error('Video generat, dar lipsește URL-ul. (Apasă F12 și verifică Consola pentru detalii exacte)');
     }
-    
-    return mode === 'image' ? {urls, ratio} : urls;
+    return urls;
+}
+
 // Main Generate Wrapper
 async function generate(){
     const token = getToken();
@@ -711,7 +711,7 @@ async function generate(){
     genAborted = false; 
     const btn = document.getElementById('gen-btn');
     btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i> PROCESARE';
-	// Închide setările pe mobil automat când apeși "Generează"
+    
     if (window.innerWidth < 768) {
         const sidebar = document.getElementById('sidebar-settings');
         if (!sidebar.classList.contains('translate-y-full')) toggleMobileSettings();
@@ -733,7 +733,6 @@ async function generate(){
                 saveToSupabase(urls, promptText); 
             }
         }
-        // Update credits
         try { 
             const r = await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+getToken()}}); 
             if(r.ok){const d=await r.json(); document.getElementById('nav-credits').innerText=d.user.credits;} 
@@ -743,7 +742,7 @@ async function generate(){
         showState('error'); document.getElementById('err-msg').textContent=err.message;
     } finally { 
         resetBtn(); clearFakeProgress(); 
-        setTimeout(loadHistory, 3500); // Reload history after save
+        setTimeout(loadHistory, 3500); 
     }
 }
 function regen(){ generate(); }
@@ -784,6 +783,7 @@ async function saveToSupabase(urls, promptText) {
         });
     } catch (e) { console.error("Eroare save-history:", e); }
 }
+
 // Funcție pentru deschiderea/închiderea setărilor pe mobil
 function toggleMobileSettings() {
     const sidebar = document.getElementById('sidebar-settings');
@@ -791,15 +791,13 @@ function toggleMobileSettings() {
     const btn = document.getElementById('mobile-settings-btn');
     
     if (sidebar.classList.contains('translate-y-full')) {
-        // Deschide Pop-up
         sidebar.classList.remove('translate-y-full');
         overlay.classList.remove('opacity-0', 'pointer-events-none');
-        btn.classList.add('translate-y-24', 'opacity-0'); // Ascunde butonul plutitor
+        btn.classList.add('translate-y-24', 'opacity-0'); 
     } else {
-        // Închide Pop-up
         sidebar.classList.add('translate-y-full');
         overlay.classList.add('opacity-0', 'pointer-events-none');
-        btn.classList.remove('translate-y-24', 'opacity-0'); // Arată butonul
+        btn.classList.remove('translate-y-24', 'opacity-0'); 
     }
 }
 </script>
