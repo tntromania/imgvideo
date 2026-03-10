@@ -101,28 +101,31 @@ app.post('/api/media/image', authenticate, upload.none(), async (req, res) => {
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
-        // Creăm forma de date pentru GenAIPro
         const formData = new FormData();
         formData.append('prompt', prompt);
         formData.append('aspect_ratio', aspect_ratio);
         formData.append('number_of_images', count);
 
-        // Cerere către GenAI cu cheia ascunsă
         const apiRes = await fetch(`${GENAIPRO_URL}/veo/create-image`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` },
             body: formData
         });
 
-        if (!apiRes.ok) throw new Error("Eroare la generare din serverul AI.");
+        // MODIFICAREA ESTE AICI: Preluăm și printăm eroarea exactă trimisă de ei
+        if (!apiRes.ok) {
+            const errorDetails = await apiRes.text();
+            console.error(`❌ Eroare GenAIPro (Status ${apiRes.status}):`, errorDetails);
+            throw new Error(`Eroare de la furnizorul AI. Verifică terminalul serverului.`);
+        }
 
-        // Scădem creditele în avans
         user.credits -= totalCost;
         await user.save();
 
-        // Trimitem progresul live către client
         pipeStream(apiRes, res);
     } catch (e) {
+        // MODIFICAREA ESTE AICI: Printăm eroarea și în consola Node.js
+        console.error("🔥 Eroare internă /api/media/image:", e);
         res.status(500).json({ error: e.message });
     }
 });
