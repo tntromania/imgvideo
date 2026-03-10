@@ -507,7 +507,9 @@ async function readSSE(response){
     activeReader = reader;
     const dec = new TextDecoder();
     let buf = '';
-    let bestData = null;
+    
+    // Aici vom CUMULA datele. Odată ce intră file_url aici, nu se mai șterge!
+    let finalData = {}; 
 
     try {
         while(true){
@@ -525,37 +527,36 @@ async function readSSE(response){
                     const raw = t.slice(5).trim();
                     if(raw === '[DONE]') continue;
                     
-                    // Verificăm dacă e JSON (începe cu { sau [ )
+                    // Dacă mesajul primit e un obiect JSON
                     if (raw.startsWith('{') || raw.startsWith('[')) {
                         try {
                             const p = JSON.parse(raw);
                             if (p.error) throw new Error(p.error);
                             
-                            if (p.file_url || p.file_urls) {
-                                bestData = p; // AM PRINS LINK-UL!
-                            } else if (!bestData) {
-                                bestData = p;
-                            }
+                            // MAGIC TRICK: Combinăm ce aveam cu ce am primit acum.
+                            // Dacă "p" conține "file_url", va intra în "finalData" permanent.
+                            Object.assign(finalData, p);
 
                             if(p.progress !== undefined){
                                 const pct=Math.min(99,Math.round(p.progress));
                                 document.getElementById('vid-prog-bar').style.width=pct+'%';
                                 document.getElementById('vid-prog-label').textContent='Progres: '+pct+'%';
                             }
-                            logSSE('Status: ' + (p.status || 'generare...'));
+                            logSSE('Status JSON: ' + (p.status || 'procesare...'));
                         } catch(e) { 
-                            logSSE('Eroare date: ' + raw.slice(0,30)); 
+                            logSSE('Eroare internă parsare JSON.'); 
                         }
                     } else {
-                        // Dacă e doar un cuvânt simplu primit de la API (starting, processing)
-                        logSSE('Status: ' + raw);
+                        // Aici prindem mesajele lor text (starting, processing) fără să dea eroare!
+                        logSSE('Status Server: ' + raw);
                     }
                 }
             }
         }
     } finally { activeReader = null; }
     
-    return bestData;
+    // Dacă am acumulat ceva, returnăm. Altfel dăm null.
+    return Object.keys(finalData).length > 0 ? finalData : null;
 }
 
 // ═══ FAKE PROGRESS ═══
