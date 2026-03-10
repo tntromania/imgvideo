@@ -509,7 +509,7 @@ async function readSSE(response){
     activeReader = reader;
     const dec = new TextDecoder();
     let buf = '';
-    let last = null;
+    let bestData = null; // AICI VOM SALVA LINK-UL CÂND APARE!
 
     try {
         while(true){
@@ -525,21 +525,34 @@ async function readSSE(response){
                 if(t.startsWith('data:')){
                     const raw = t.slice(5).trim();
                     if(raw==='[DONE]') continue;
-                    try{
+                    try {
                         const p = JSON.parse(raw);
-                        last = p;
-                        if(p.progress!==undefined){
+                        
+                        // Dacă API-ul ne aruncă o eroare direct în stream:
+                        if (p.error) throw new Error(p.error);
+
+                        // Salvăm obiectul DACA conține file_url. Așa nu îl mai pierdem!
+                        if (p.file_url || p.file_urls) {
+                            bestData = p;
+                        } else if (!bestData) {
+                            bestData = p; // Fallback
+                        }
+
+                        if(p.progress !== undefined){
                             const pct=Math.min(99,Math.round(p.progress));
                             document.getElementById('vid-prog-bar').style.width=pct+'%';
                             document.getElementById('vid-prog-label').textContent='Progres: '+pct+'%';
                         }
                         logSSE('Status: '+(p.status||'processing'));
-                    } catch(e){ logSSE(raw.slice(0,80)); }
+                    } catch(e) { 
+                        logSSE(e.message || raw.slice(0,80)); 
+                    }
                 }
             }
         }
-    } finally { activeReader=null; }
-    return last;
+    } finally { activeReader = null; }
+    
+    return bestData; // Returnăm datele bune
 }
 
 // ═══ FAKE PROGRESS ═══
