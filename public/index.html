@@ -8,97 +8,66 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="shortcut icon" href="/favicon.ico">
-    <script>
-        tailwind.config = {
-            theme: { extend: { fontFamily: { sans: ['Inter','sans-serif'] }, colors: { viralio: { 50:'#eef2ff',100:'#e0e7ff',500:'#6366f1',600:'#4f46e5',accent:'#ec4899' } } } }
-        }
-    </script>
     <style>
         *, *::before, *::after { box-sizing:border-box; }
         body { background:#F8FAFC; color:#0f172a; overflow:hidden; font-family:'Inter',sans-serif; }
         ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:10px}
         textarea{resize:none}
         .bg-gradient-viralio{background:linear-gradient(135deg,#4f46e5 0%,#ec4899 100%)}
-        /* LOGIN */
         #login-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);backdrop-filter:blur(10px);z-index:99999;align-items:center;justify-content:center;opacity:0;transition:.3s}
         #login-modal.show{display:flex;opacity:1}
         .modal-content{background:#fff;border-radius:28px;padding:40px;text-align:center;max-width:420px;width:90%;transform:translateY(24px);transition:.4s;box-shadow:0 40px 80px -20px rgba(0,0,0,.22);position:relative}
         #login-modal.show .modal-content{transform:translateY(0)}
-        /* TABS */
         .mode-tab{padding:8px 20px;border-radius:14px;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:7px;border:none;background:none;color:#64748b}
         .mode-tab.active{background:white;color:#0f172a;box-shadow:0 2px 12px rgba(0,0,0,.09)}
-        /* PROMPT */
         .prompt-wrap{border:2px solid #e2e8f0;border-radius:18px;background:#fafafa;transition:border-color .2s,box-shadow .2s}
         .prompt-wrap:focus-within{border-color:#6366f1;box-shadow:0 0 0 4px rgba(99,102,241,.08);background:white}
-        /* RATIO PILLS */
         .ratio-pill input[type=radio]{display:none}
         .ratio-pill input:checked+span{background:white;color:#4f46e5;box-shadow:0 2px 8px rgba(79,70,229,.15);font-weight:800}
         .ratio-pill span{display:block;padding:6px 10px;border-radius:10px;font-size:.72rem;font-weight:700;color:#64748b;cursor:pointer;transition:all .2s;user-select:none;text-align:center}
         .ratio-pill span:hover{color:#4f46e5}
-        /* COUNT BUTTONS */
         .count-btn{width:32px;height:32px;border-radius:10px;background:#f1f5f9;border:1.5px solid #e2e8f0;font-size:1.1rem;font-weight:800;color:#475569;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;user-select:none}
         .count-btn:hover{background:#e0e7ff;border-color:#6366f1;color:#4f46e5}
         .count-btn:active{transform:scale(.9)}
-        /* SELECT */
         .styled-select{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 36px 10px 14px;font-size:.82rem;font-weight:700;color:#0f172a;outline:none;width:100%;-webkit-appearance:none;cursor:pointer;transition:border-color .2s}
         .styled-select:focus{border-color:#6366f1}
         .select-wrap{position:relative}
         .select-wrap::after{content:'\f078';font-family:'Font Awesome 6 Free';font-weight:900;position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.65rem;pointer-events:none}
-        /* GEN BUTTON */
         .gen-btn{background:linear-gradient(135deg,#4f46e5 0%,#ec4899 100%);transition:all .25s;overflow:hidden;position:relative}
         .gen-btn:not(:disabled):hover{box-shadow:0 12px 30px rgba(79,70,229,.35);transform:translateY(-1px)}
         .gen-btn:disabled{opacity:.6;cursor:not-allowed;transform:none!important}
-        /* RESULT CARD */
         .result-card{background:white;border-radius:18px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(0,0,0,.06);transition:all .25s;position:relative}
         .result-card:hover{box-shadow:0 12px 35px rgba(0,0,0,.1);transform:translateY(-2px)}
         .card-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(9,9,11,.75) 0%,transparent 50%);opacity:0;transition:opacity .25s;display:flex;align-items:flex-end;justify-content:center;padding:16px;gap:8px}
         .result-card:hover .card-overlay{opacity:1}
-        /* SKELETON */
         @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
         .skeleton{background:linear-gradient(90deg,#f1f5f9 0%,#e2e8f0 50%,#f1f5f9 100%);background-size:800px 100%;animation:shimmer 1.4s infinite linear;border-radius:18px}
-        /* DROPZONE */
         .dropzone{border:2px dashed #e2e8f0;border-radius:14px;background:#f8fafc;transition:all .22s;cursor:pointer}
         .dropzone:hover{border-color:#6366f1;background:#eef2ff}
         .dropzone.has-img{border-style:solid;border-color:#c7d2fe}
-        /* PROGRESS */
         .progress-track{background:#e2e8f0;border-radius:99px;height:5px;overflow:hidden}
         .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#4f46e5,#ec4899);transition:width .4s ease}
-        /* BADGES */
         .badge{font-size:.6rem;font-weight:800;padding:3px 9px;border-radius:7px;text-transform:uppercase;letter-spacing:.07em}
         .badge-indigo{background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe}
         .badge-amber{background:#fffbeb;color:#d97706;border:1px solid #fde68a}
         .badge-pink{background:#fdf2f8;color:#db2777;border:1px solid #fbcfe8}
         .badge-green{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
-        /* TOAST */
         #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0f172a;color:white;padding:11px 22px;border-radius:14px;font-size:.82rem;font-weight:700;z-index:200000;transition:transform .35s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;white-space:nowrap}
         #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
-        /* LIGHTBOX */
         #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:300000;align-items:center;justify-content:center}
         #lightbox.show{display:flex}
         #lightbox img{max-width:90vw;max-height:90vh;border-radius:14px;object-fit:contain}
-        /* FLOAT */
         @keyframes floatUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
         .float-el{animation:floatUp 3s ease-in-out infinite}
         .float-el:nth-child(2){animation-delay:.5s}
         .float-el:nth-child(3){animation-delay:1s}
-        /* SPIN */
         @keyframes spin{to{transform:rotate(360deg)}}
         .spin{animation:spin 1s linear infinite}
-        /* PANEL */
         .panel-s{border-bottom:1px solid #f1f5f9;padding:18px 20px}
         .panel-s:last-child{border-bottom:none}
         .field-label{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:8px;display:block}
-        /* SHINE */
-        @keyframes premiumShine{0%{transform:translateX(-150%) skewX(-20deg);opacity:0}20%{opacity:1}80%{opacity:1}100%{transform:translateX(250%) skewX(-20deg);opacity:0}}
-        .animate-shine-fast{animation:premiumShine 2.5s infinite cubic-bezier(.4,0,.2,1)}
-        .glass-premium-fin{box-shadow:0 10px 30px -10px rgba(0,0,0,.15),inset 0 0 0 1px rgba(255,255,255,.8)}
-        /* ASIDE SCROLL */
         .aside-inner{flex:1;overflow-y:auto}
-        /* SSE LOG */
-        .sse-log{font-size:.62rem;font-family:monospace;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;margin-top:8px;max-height:72px;overflow-y:auto;line-height:1.6}
+        .sse-log{font-size:.62rem;font-family:monospace;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;margin-top:8px;max-height:72px;overflow-y:auto;line-height:1.6; word-wrap: break-word;}
     </style>
 </head>
 <body class="h-[100dvh] flex flex-col">
@@ -109,25 +78,8 @@
         <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-viralio-600 flex items-center justify-center text-2xl mx-auto mb-4 border border-indigo-100"><i class="fas fa-fingerprint"></i></div>
         <h2 class="text-2xl font-extrabold mb-1.5 text-slate-900">Intră în cont</h2>
         <p class="text-slate-500 text-sm mb-6 px-2">Conectează-te pentru a genera conținut AI.</p>
-        
-        <div id="in-app-warning" class="hidden flex-col items-center justify-center bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4">
-            <i class="fa-solid fa-triangle-exclamation text-amber-500 text-2xl mb-2"></i>
-            <p class="text-xs font-bold text-amber-700 leading-relaxed">
-                Logarea prin Google este blocată de această aplicație (TikTok/Instagram).<br><br>
-                <span class="text-slate-900 bg-white px-2 py-1 rounded shadow-sm border border-amber-100 inline-block mt-1">Apasă pe cele 3 puncte (sus) și alege "Open in Browser" / "Deschide în Safari/Chrome".</span>
-            </p>
-        </div>
-
         <div id="google-login-container" class="flex justify-center bg-slate-50 py-3 rounded-2xl border border-slate-100 min-h-[60px]">
-            <div id="g_id_onload" 
-                 data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" 
-                 data-context="signin" 
-                 data-ux_mode="popup" 
-                 data-callback="handleCredentialResponse" 
-                 data-auto_prompt="false"
-                 data-itp_support="true"
-                 data-use_fedcm_for_prompt="true">
-            </div>
+            <div id="g_id_onload" data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
             <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
         </div>
     </div>
@@ -164,10 +116,8 @@
 </header>
 
 <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
-
     <aside class="w-full md:w-[360px] lg:w-[400px] bg-white border-r border-slate-200 flex flex-col shrink-0 h-[50vh] md:h-full shadow-[4px_0_20px_rgba(0,0,0,.03)] z-20">
         <div class="aside-inner">
-
             <div class="panel-s">
                 <label class="field-label">Model AI</label>
                 <div class="select-wrap">
@@ -178,6 +128,7 @@
                         <optgroup label="✦ Generare Video (Veo)" id="og-vid" style="display:none">
                             <option value="veo-3-quality" data-type="video" data-cost="5">Veo 3.1 Quality 🏆 — 5 Credite</option>
                             <option value="veo-3-fast"    data-type="video" data-cost="3">Veo 3.1 Fast ⚡ — 3 Credite</option>
+                            <option value="veo-2"         data-type="video" data-cost="3">Veo 2 — 3 Credite</option>
                         </optgroup>
                     </select>
                 </div>
@@ -259,26 +210,11 @@
     </aside>
 
     <section class="flex-1 bg-slate-100/60 overflow-y-auto h-[50vh] md:h-full relative flex flex-col">
-        <div class="absolute inset-0 pointer-events-none opacity-[.04]" style="background-image:radial-gradient(circle,#4f46e5 1px,transparent 0);background-size:28px 28px"></div>
-        <div class="absolute top-1/4 right-1/4 w-72 h-72 bg-indigo-400/10 rounded-full blur-[80px] pointer-events-none"></div>
-        <div class="absolute bottom-1/3 left-1/4 w-48 h-48 bg-pink-400/8 rounded-full blur-[80px] pointer-events-none"></div>
-
         <div class="relative z-10 flex-1 flex flex-col p-4 md:p-8 max-w-5xl mx-auto w-full">
 
             <div id="st-empty" class="flex-1 flex flex-col items-center justify-center text-center">
-                <div class="flex gap-4 mb-8">
-                    <div class="float-el w-14 h-14 bg-white rounded-2xl border border-slate-200 shadow-md flex items-center justify-center text-2xl text-slate-300"><i class="fa-solid fa-image"></i></div>
-                    <div class="float-el w-14 h-14 bg-white rounded-2xl border border-slate-200 shadow-md flex items-center justify-center text-2xl text-indigo-200"><i class="fa-solid fa-film"></i></div>
-                    <div class="float-el w-14 h-14 bg-white rounded-2xl border border-slate-200 shadow-md flex items-center justify-center text-2xl text-pink-200"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
-                </div>
                 <h2 class="text-2xl md:text-3xl font-black text-slate-800 mb-3 tracking-tight">Generare AI Viralio</h2>
                 <p class="text-slate-500 font-medium text-sm max-w-xs leading-relaxed">Scrie un prompt, alege modelul și lasă AI-ul să creeze imagini sau videoclipuri cinematice.</p>
-                <div class="flex flex-wrap gap-2 mt-6 justify-center">
-                    <button onclick="qp('O femeie enigmatică la o fereastră ploioasă, reflecții colorate, cinematic portrait')" class="text-xs font-bold bg-white border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl hover:border-viralio-400 hover:text-viralio-600 transition-all shadow-sm">🎭 Portret cinematic</button>
-                    <button onclick="qp('Skyline cyberpunk Tokyo noaptea, neon lights, rain, 8k ultra sharp')" class="text-xs font-bold bg-white border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl hover:border-viralio-400 hover:text-viralio-600 transition-all shadow-sm">🌃 Cyberpunk city</button>
-                    <button onclick="qp('Macro fotografie a unui fluture irizat, fundal bokeh verde moale, fine art')" class="text-xs font-bold bg-white border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl hover:border-viralio-400 hover:text-viralio-600 transition-all shadow-sm">🦋 Macro art</button>
-                    <button onclick="qp('Sunrise timelapse above clouds, cinematic drone view, epic lighting, 4K')" class="text-xs font-bold bg-white border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl hover:border-viralio-400 hover:text-viralio-600 transition-all shadow-sm">🌅 Drone sunrise</button>
-                </div>
             </div>
 
             <div id="st-loading" class="hidden flex-1 flex flex-col">
@@ -287,7 +223,7 @@
                         <div class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></div>
                         <span class="text-sm font-black text-slate-700" id="load-label">Generăm...</span>
                     </div>
-                    <button onclick="cancelGen()" class="text-xs font-bold text-red-500 bg-red-50 border border-red-100 px-3 py-1.5 rounded-xl hover:bg-red-100 transition-colors"><i class="fa-solid fa-stop mr-1"></i>Anulează</button>
+                    <button onclick="cancelGen()" class="text-xs font-bold text-red-500 bg-red-50 border border-red-100 px-3 py-1.5 rounded-xl hover:bg-red-100 transition-colors">Anulează</button>
                 </div>
                 <div id="vid-prog-wrap" class="hidden mb-4">
                     <div class="progress-track"><div class="progress-fill" id="vid-prog-bar" style="width:0%"></div></div>
@@ -303,16 +239,15 @@
                         <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
                         <span class="text-sm font-black text-slate-800" id="res-label">Generat!</span>
                     </div>
-                    <button onclick="regen()" class="flex items-center gap-1.5 text-xs font-bold text-viralio-600 bg-viralio-50 border border-viralio-100 px-3 py-2 rounded-xl hover:bg-viralio-100 transition-colors"><i class="fa-solid fa-rotate-right text-[.65rem]"></i>Regenerează</button>
+                    <button onclick="regen()" class="text-xs font-bold text-viralio-600 bg-viralio-50 border border-viralio-100 px-3 py-2 rounded-xl">Regenerează</button>
                 </div>
                 <div id="res-grid" class="grid gap-4"></div>
             </div>
 
             <div id="st-error" class="hidden flex-1 flex flex-col items-center justify-center text-center">
-                <div class="w-16 h-16 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-center text-3xl text-red-400 mb-5"><i class="fa-solid fa-triangle-exclamation"></i></div>
                 <h3 class="text-xl font-black text-slate-800 mb-2">Eroare la generare</h3>
                 <p id="err-msg" class="text-sm text-slate-500 font-medium max-w-xs mb-5 leading-relaxed"></p>
-                <button onclick="showState('empty')" class="text-xs font-bold text-viralio-600 bg-viralio-50 border border-viralio-100 px-4 py-2 rounded-xl hover:bg-viralio-100 transition-colors">← Înapoi</button>
+                <button onclick="showState('empty')" class="text-xs font-bold text-viralio-600 bg-viralio-50 border border-viralio-100 px-4 py-2 rounded-xl">Înapoi</button>
             </div>
 
         </div>
@@ -322,39 +257,16 @@
 <script>
 const MODEL_META = {
     'nano-banana-pro':  { type:'image', cost:1, speed:'Standard' },
-    'nano-banana-fast': { type:'image', cost:1, speed:'Fast ⚡'  },
     'veo-3-quality':    { type:'video', cost:5, speed:'Cinematic'},
     'veo-3-fast':       { type:'video', cost:3, speed:'Fast ⚡'  },
     'veo-2':            { type:'video', cost:3, speed:'Standard' },
 };
 
-// ═══ GLOBAL STATE ═══
-let mode = 'image';
-let imgCount = 1;
-let vidCount = 1;
-let genAborted = false;
-let activeReader = null;
-let lastPrompt = '';
-let fakeTimer = null;
-
-// ═══ AUTH & IN-APP DETECTION ═══
-function detectInAppBrowser() {
-    const ua = navigator.userAgent || navigator.vendor || window.opera;
-    const isInApp = (ua.indexOf("FBAN") > -1) || (ua.indexOf("FBAV") > -1) || (ua.indexOf("Instagram") > -1) || (ua.indexOf("TikTok") > -1) || (ua.indexOf("Bytedance") > -1) || (ua.indexOf("Snapchat") > -1);
-    
-    if (isInApp) {
-        const warning = document.getElementById('in-app-warning');
-        const googleContainer = document.getElementById('google-login-container');
-        if(warning) { warning.classList.remove('hidden'); warning.classList.add('flex'); }
-        if(googleContainer) googleContainer.style.display = 'none'; 
-    }
-}
+let mode = 'image'; let imgCount = 1; let vidCount = 1;
+let genAborted = false; let activeReader = null; let lastPrompt = ''; let fakeTimer = null;
 
 const $loginModal = document.getElementById('login-modal');
-function openLoginModal()  { 
-    detectInAppBrowser();
-    $loginModal.classList.add('show'); 
-}
+function openLoginModal()  { $loginModal.classList.add('show'); }
 function closeLoginModal() { $loginModal.classList.remove('show'); }
 function setToken(t)  { document.cookie = "viralio_token="+t+"; domain=.viralio.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
 function getToken()   { const m = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return m?m[1]:null; }
@@ -365,8 +277,7 @@ async function handleCredentialResponse(resp) {
         const r = await fetch('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:resp.credential})});
         const d = await r.json();
         if(d.token){setToken(d.token);closeLoginModal();updateUI(d.user);}
-        else if(d.error==='BETA_FULL'){alert(d.message);}
-    } catch(e){alert('Eroare conexiune.');}
+    } catch(e){}
 }
 
 function updateUI(user) {
@@ -386,17 +297,11 @@ window.onload = async () => {
     refreshBadges();
 };
 
-// ═══ TOAST & STATE ═══
-function toast(msg, ms=2800){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),ms); }
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2800); }
 function showState(n){ ['empty','loading','result','error'].forEach(s=>{ const el=document.getElementById('st-'+s); if(!el)return; el.classList.toggle('hidden',s!==n); }); }
-
-// ═══ UI HELPERS ═══
-function updateCharCount(){ const l=document.getElementById('prompt-in').value.length; const el=document.getElementById('char-count'); el.textContent=l+' / 500'; el.style.color=l>480?'#ef4444':''; }
-
-const EXAMPLES=['O femeie tânără privind cerul nocturn cu stele, fotografie cinematică, blue hour, depth of field','Interior cozy coffee shop, morning golden light, steam from coffee cup, film grain, analog','Peisaj lunar cu munți înzăpeziți și aurora boreală, fotografie long exposure, fine art','A majestic wolf standing on a cliff at dusk, cinematic lighting, 8k ultra detailed','Futuristic city floating above clouds, golden sunset, sci-fi concept art, ultra-sharp'];
-let exIdx=0;
-function fillExample(){ document.getElementById('prompt-in').value=EXAMPLES[exIdx++%EXAMPLES.length]; updateCharCount(); }
-function qp(t){ document.getElementById('prompt-in').value=t; updateCharCount(); document.getElementById('prompt-in').focus(); }
+function updateCharCount(){ document.getElementById('char-count').textContent=document.getElementById('prompt-in').value.length+' / 500'; }
+function fillExample(){ document.getElementById('prompt-in').value='Fotografie cinematică'; updateCharCount(); }
+function qp(t){ document.getElementById('prompt-in').value=t; updateCharCount(); }
 
 function updateCount(d){ imgCount=Math.min(4,Math.max(1,imgCount+d)); document.getElementById('count-val').textContent=imgCount; refreshBadges(); }
 function updateVCount(d){ vidCount=Math.min(4,Math.max(1,vidCount+d)); document.getElementById('vcount-val').textContent=vidCount; refreshBadges(); }
@@ -407,12 +312,9 @@ function refreshBadges(){
     const n=mode==='image'?imgCount:vidCount;
     document.getElementById('total-cost').textContent=m.cost*n;
     document.getElementById('m-type').textContent=m.type==='image'?'Image':'Video';
-    document.getElementById('m-cost').innerHTML='<i class="fa-solid fa-coins mr-1"></i>'+m.cost+' Credit'+(m.cost>1?'e':'');
-    document.getElementById('m-speed').textContent=m.speed;
 }
 function onModelChange(){ refreshBadges(); }
 
-// ═══ MODE SWITCH ═══
 function switchMode(m){
     mode=m; const isVid=m==='video';
     document.getElementById('tab-image').classList.toggle('active',!isVid);
@@ -428,7 +330,6 @@ function switchMode(m){
     refreshBadges(); showState('empty');
 }
 
-// ═══ REFERENCE IMAGE ═══
 document.getElementById('ref-file').addEventListener('change',function(e){
     const f=e.target.files[0]; if(!f)return;
     const r=new FileReader(); r.onload=ev=>{
@@ -437,79 +338,37 @@ document.getElementById('ref-file').addEventListener('change',function(e){
         document.getElementById('ref-ph').style.display='none';
         document.getElementById('ref-rm').classList.remove('hidden');
         document.getElementById('ref-rm').classList.add('flex');
-        document.getElementById('ref-zone').classList.add('has-img');
     }; r.readAsDataURL(f);
 });
-function removeRef(){
-    document.getElementById('ref-file').value='';
-    document.getElementById('ref-prev').src='';
-    document.getElementById('ref-prev').classList.add('hidden');
-    document.getElementById('ref-ph').style.display='';
-    document.getElementById('ref-rm').classList.add('hidden');
-    document.getElementById('ref-rm').classList.remove('flex');
-    document.getElementById('ref-zone').classList.remove('has-img');
-}
-
-// ═══ LIGHTBOX ═══
+function removeRef(){ document.getElementById('ref-file').value=''; document.getElementById('ref-prev').classList.add('hidden'); document.getElementById('ref-ph').style.display=''; document.getElementById('ref-rm').classList.add('hidden'); }
 function openLightbox(url){ document.getElementById('lb-img').src=url; document.getElementById('lightbox').classList.add('show'); }
 function closeLightbox(){ document.getElementById('lightbox').classList.remove('show'); }
+function cancelGen(){ genAborted=true; if(activeReader)activeReader.cancel(); clearFakeProgress(); showState('empty'); resetBtn(); }
+function resetBtn(){ document.getElementById('gen-btn').disabled=false; document.getElementById('gen-btn').innerHTML='GENEREAZĂ'; }
 
-// ═══ CANCEL ═══
-function cancelGen(){
-    genAborted=true;
-    if(activeReader){try{activeReader.cancel();}catch(e){} activeReader=null;}
-    clearFakeProgress();
-    toast('⛔ Generare anulată.');
-    showState('empty'); resetBtn();
-}
-function resetBtn(){ const b=document.getElementById('gen-btn'); b.disabled=false; b.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i> GENEREAZĂ'; }
-
-// ═══ SKELETONS & GRIDS ═══
-function aspectClass(r){ if(r.includes('LANDSCAPE'))return'aspect-video'; if(r.includes('PORTRAIT'))return'aspect-[9/16]'; return'aspect-square'; }
+function aspectClass(r){ return r.includes('LANDSCAPE') ? 'aspect-video' : (r.includes('PORTRAIT') ? 'aspect-[9/16]' : 'aspect-square'); }
 
 function buildSkeletons(n, ac){
-    const g=document.getElementById('sk-grid'); g.innerHTML=''; 
-    g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
-    for(let i=0;i<n;i++){
-        const d=document.createElement('div'); d.className='skeleton '+ac+' w-full flex items-center justify-center';
-        d.innerHTML='<div class="text-center"><i class="fa-solid fa-microchip text-3xl text-slate-300 mb-2 block"></i><span class="text-xs font-bold text-slate-400">Generăm...</span></div>';
-        g.appendChild(d);
-    }
+    const g=document.getElementById('sk-grid'); g.innerHTML=''; g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
+    for(let i=0;i<n;i++) { g.innerHTML += `<div class="skeleton ${ac} w-full flex items-center justify-center"></div>`; }
 }
-
 function buildImageGrid(urls, ratioVal){
-    const g=document.getElementById('res-grid'); g.innerHTML=''; 
-    g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
-    const ac=aspectClass(ratioVal);
-    urls.forEach((url,i)=>{
-        const c=document.createElement('div'); c.className='result-card';
-        c.innerHTML=`<div class="${ac} w-full overflow-hidden" style="border-radius:18px"><img src="${url}" class="w-full h-full object-cover" loading="lazy"><div class="card-overlay"><button onclick="openLightbox('${url}')" class="flex items-center gap-1.5 bg-white/20 backdrop-blur text-white text-xs font-bold px-3.5 py-2.5 rounded-xl border border-white/20 hover:bg-white/30 transition-colors"><i class="fa-solid fa-expand"></i> Preview</button><a href="${url}" download="viralio_img_${Date.now()}_${i}.png" class="flex items-center gap-1.5 bg-white text-slate-900 text-xs font-black px-3.5 py-2.5 rounded-xl hover:bg-slate-100 transition-colors shadow-lg"><i class="fa-solid fa-download"></i> PNG</a></div></div>`;
-        g.appendChild(c);
-    });
+    const g=document.getElementById('res-grid'); g.innerHTML=''; g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
+    urls.forEach((url,i)=> g.innerHTML += `<div class="result-card"><div class="${aspectClass(ratioVal)} w-full overflow-hidden" style="border-radius:18px"><img src="${url}" class="w-full h-full object-cover" loading="lazy"><div class="card-overlay"><button onclick="openLightbox('${url}')" class="bg-white/20 text-white text-xs p-2 rounded-xl">Preview</button><a href="${url}" download="img_${i}.png" class="bg-white text-slate-900 text-xs p-2 rounded-xl">Download</a></div></div></div>`);
 }
-
 function buildVideoGrid(urls){
-    const g=document.getElementById('res-grid'); g.innerHTML=''; 
-    g.className='grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
-    urls.forEach((url,i)=>{
-        const c=document.createElement('div'); c.className='result-card';
-        c.innerHTML=`<video src="${url}" controls autoplay loop muted playsinline style="width:100%;border-radius:14px 14px 0 0;display:block"></video><div class="p-3 flex items-center justify-between bg-white border-t border-slate-100"><span class="text-xs font-bold text-emerald-600 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>Video generat</span><a href="${url}" download="viralio_video_${Date.now()}_${i}.mp4" class="flex items-center gap-1.5 text-xs font-black bg-slate-900 text-white px-3.5 py-2 rounded-xl hover:bg-viralio-600 transition-colors shadow-sm"><i class="fa-solid fa-download"></i> MP4</a></div>`;
-        g.appendChild(c);
-    });
+    const g=document.getElementById('res-grid'); g.innerHTML=''; g.className='grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
+    urls.forEach((url,i)=> g.innerHTML += `<div class="result-card"><video src="${url}" controls autoplay loop muted style="width:100%;border-radius:14px 14px 0 0;"></video><div class="p-3"><a href="${url}" download="vid_${i}.mp4" class="text-xs font-black bg-slate-900 text-white px-3 py-2 rounded-xl">Download</a></div></div>`);
 }
 
-// ═══ SSE LOG ═══
-function logSSE(msg){ const el=document.getElementById('sse-log'); el.classList.remove('hidden'); el.innerHTML+=`<span style="color:#94a3b8">[${new Date().toLocaleTimeString()}]</span> ${msg}<br>`; el.scrollTop=el.scrollHeight; }
+function logSSE(msg){ const el=document.getElementById('sse-log'); el.classList.remove('hidden'); el.innerHTML+=`<span>[API] ${msg}</span><br>`; el.scrollTop=el.scrollHeight; }
 
-// ═══ SSE READER ═══
 async function readSSE(response){
     const reader = response.body.getReader();
     activeReader = reader;
     const dec = new TextDecoder();
     let buf = '';
-    
-    // Aici vom CUMULA datele. Odată ce intră file_url aici, nu se mai șterge!
-    let finalData = {}; 
+    let finalData = {}; // AICI SE CUMULEAZĂ DATELE
 
     try {
         while(true){
@@ -527,55 +386,37 @@ async function readSSE(response){
                     const raw = t.slice(5).trim();
                     if(raw === '[DONE]') continue;
                     
-                    // Dacă mesajul primit e un obiect JSON
                     if (raw.startsWith('{') || raw.startsWith('[')) {
                         try {
                             const p = JSON.parse(raw);
                             if (p.error) throw new Error(p.error);
                             
-                            // MAGIC TRICK: Combinăm ce aveam cu ce am primit acum.
-                            // Dacă "p" conține "file_url", va intra în "finalData" permanent.
+                            // MERGE: Păstrăm tot ce am găsit până acum
                             Object.assign(finalData, p);
 
                             if(p.progress !== undefined){
-                                const pct=Math.min(99,Math.round(p.progress));
-                                document.getElementById('vid-prog-bar').style.width=pct+'%';
-                                document.getElementById('vid-prog-label').textContent='Progres: '+pct+'%';
+                                document.getElementById('vid-prog-bar').style.width=p.progress+'%';
                             }
-                            logSSE('Status JSON: ' + (p.status || 'procesare...'));
-                        } catch(e) { 
-                            logSSE('Eroare internă parsare JSON.'); 
-                        }
+                            logSSE('JSON Info: ' + JSON.stringify(p));
+                        } catch(e) {}
                     } else {
-                        // Aici prindem mesajele lor text (starting, processing) fără să dea eroare!
-                        logSSE('Status Server: ' + raw);
+                        logSSE('Status Simplu: ' + raw);
                     }
                 }
             }
         }
     } finally { activeReader = null; }
     
-    // Dacă am acumulat ceva, returnăm. Altfel dăm null.
     return Object.keys(finalData).length > 0 ? finalData : null;
 }
 
-// ═══ FAKE PROGRESS ═══
-const VID_STEPS=['Inițializare model Veo...','Analiză prompt...','Generare cadre video...','Aplicare mișcare cinematică...','Sinteză finală...'];
 let fakeStep=0, fakePct=0;
 function startFakeProgress(){
     fakeStep=0; fakePct=0; clearInterval(fakeTimer);
-    fakeTimer=setInterval(()=>{
-        fakePct=Math.min(90, fakePct+Math.random()*2.5);
-        document.getElementById('vid-prog-bar').style.width=fakePct+'%';
-        if(fakeStep<VID_STEPS.length-1 && fakePct>(fakeStep+1)*18) fakeStep++;
-        document.getElementById('vid-prog-label').textContent=VID_STEPS[fakeStep];
-    },800);
+    fakeTimer=setInterval(()=>{ fakePct=Math.min(90, fakePct+2); document.getElementById('vid-prog-bar').style.width=fakePct+'%'; },800);
 }
 function clearFakeProgress(){ clearInterval(fakeTimer); document.getElementById('vid-prog-bar').style.width='100%'; }
 
-// ═══════════════════════════════════════════
-// GENERATE IMAGE 
-// ═══════════════════════════════════════════
 async function genImage(){
     const token = getToken();
     const prompt = document.getElementById('prompt-in').value.trim();
@@ -587,38 +428,21 @@ async function genImage(){
     document.getElementById('sse-log').innerHTML='';
     document.getElementById('sk-grid').className='grid gap-4 mt-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
     showState('loading');
-    document.getElementById('load-label').textContent='Generăm '+imgCount+' imagine'+(imgCount>1?'i':'')+'...';
 
     const fd = new FormData();
-    fd.append('prompt', prompt);
-    fd.append('aspect_ratio', ratio);
-    fd.append('number_of_images', imgCount);
-    fd.append('model_id', model_id); 
+    fd.append('prompt', prompt); fd.append('aspect_ratio', ratio); fd.append('number_of_images', imgCount); fd.append('model_id', model_id); 
 
-    const resp = await fetch('/api/media/image', {
-        method:'POST',
-        headers:{'Authorization':'Bearer '+ token}, 
-        body: fd
-    });
-
-    if(!resp.ok){
-        let errMsg='HTTP '+resp.status;
-        try{const j=await resp.json(); errMsg=j.message||j.error||errMsg;}catch(e){}
-        throw new Error(errMsg);
-    }
+    const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
+    if(!resp.ok) throw new Error('Eroare la request-ul de imagini.');
 
     const data = await readSSE(resp);
     if(genAborted) return null;
-    if(!data) throw new Error('Nu s-a primit răspuns de la server.');
-
-    const urls = data.file_urls || (data.file_url?[data.file_url]:[]);
-    if(!urls.length) throw new Error('API nu a returnat imagini.');
+    
+    const urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
+    if(!urls.length) throw new Error('GenAIPro a răspuns, dar n-a dat poză. Răspuns: ' + JSON.stringify(data));
     return {urls, ratio};
 }
 
-// ═══════════════════════════════════════════
-// GENERATE VIDEO 
-// ═══════════════════════════════════════════
 async function genVideo(){
     const token = getToken();
     const prompt  = document.getElementById('prompt-in').value.trim();
@@ -630,97 +454,45 @@ async function genVideo(){
     document.getElementById('sse-log').innerHTML='';
     document.getElementById('vid-prog-wrap').classList.remove('hidden');
     document.getElementById('vid-prog-bar').style.width='0%';
-    document.getElementById('vid-prog-label').textContent='Inițializare...';
-    showState('loading');
-    document.getElementById('load-label').textContent='Generăm '+vidCount+' videoclip'+(vidCount>1?'uri':'')+'...';
-    startFakeProgress();
+    showState('loading'); startFakeProgress();
 
     const fd = new FormData();
-    fd.append('prompt', prompt);
-    fd.append('aspect_ratio', vratio);
-    fd.append('number_of_videos', vidCount);
-    fd.append('model_id', model_id);
+    fd.append('prompt', prompt); fd.append('aspect_ratio', vratio); fd.append('number_of_videos', vidCount); fd.append('model_id', model_id);
+    if(refFile) fd.append('start_image', refFile);
 
-    if(refFile){
-        fd.append('start_image', refFile);
-    }
-
-    const resp = await fetch('/api/media/video',{
-        method:'POST',
-        headers:{'Authorization':'Bearer '+token},
-        body: fd
-    });
-
+    const resp = await fetch('/api/media/video', { method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd });
     clearFakeProgress();
-
-    if(!resp.ok){
-        let errMsg='HTTP '+resp.status;
-        try{const j=await resp.json(); errMsg=j.message||j.error||errMsg;}catch(e){}
-        throw new Error(errMsg);
-    }
+    if(!resp.ok) throw new Error('Eroare la trimiterea către GenAIPro.');
 
     const data = await readSSE(resp);
     if(genAborted) return null;
-    if(!data) throw new Error('Nu s-a primit răspuns de la server.');
-
-    const urls = data.file_urls || (data.file_url?[data.file_url]:[]);
-    if(!urls.length) throw new Error('API nu a returnat URL video.');
+    
+    const urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
+    if(!urls.length) throw new Error('GenAIPro a terminat, dar a ascuns clipul. Log: ' + JSON.stringify(data));
     return urls;
 }
 
-// ═══════════════════════════════════════════
-// MAIN
-// ═══════════════════════════════════════════
 async function generate(){
     const token = getToken();
     if(!token){ openLoginModal(); return; }
+    if(!document.getElementById('prompt-in').value.trim()){ toast('Introdu un prompt!'); return; }
 
-    const prompt = document.getElementById('prompt-in').value.trim();
-    if(!prompt){ toast('⚠️ Introdu un prompt mai întâi!'); return; }
-
-    lastPrompt = prompt;
-    genAborted = false;
-
-    const btn = document.getElementById('gen-btn');
-    btn.disabled=true;
-    btn.innerHTML='<i class="fa-solid fa-circle-notch spin"></i> Generăm...';
-
+    genAborted = false; document.getElementById('gen-btn').disabled=true;
     try {
         if(mode==='image'){
             const result = await genImage();
-            if(genAborted||!result) return;
-            showState('result');
-            document.getElementById('res-label').textContent=result.urls.length+' imagine'+(result.urls.length>1?'i':'')+' generate cu succes!';
-            buildImageGrid(result.urls, result.ratio);
+            if(result) { showState('result'); buildImageGrid(result.urls, result.ratio); }
         } else {
             const urls = await genVideo();
-            if(genAborted||!urls) return;
-            showState('result');
-            document.getElementById('res-label').textContent=urls.length+' videoclip'+(urls.length>1?'uri':'')+' generat'+(urls.length>1?'e':'')+'!';
-            buildVideoGrid(urls);
+            if(urls) { showState('result'); buildVideoGrid(urls); }
         }
-
-        // Refresh credite
-        try{
-            const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+getToken()}});
-            if(r.ok){const d=await r.json(); if(document.getElementById('nav-credits'))document.getElementById('nav-credits').innerText=d.user.credits;}
-        }catch(e){}
-
+        try { const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+getToken()}}); if(r.ok){const d=await r.json(); document.getElementById('nav-credits').innerText=d.user.credits;} }catch(e){}
     } catch(err){
         if(genAborted) return;
-        console.error(err);
-        showState('error');
-        document.getElementById('err-msg').textContent=err.message||'Eroare necunoscută. Încearcă din nou.';
-        toast('❌ '+err.message, 4000);
-    } finally {
-        resetBtn(); clearFakeProgress();
-    }
+        showState('error'); document.getElementById('err-msg').textContent=err.message;
+    } finally { resetBtn(); clearFakeProgress(); }
 }
-
-function regen(){ document.getElementById('prompt-in').value=lastPrompt; generate(); }
-
-// INIT
-refreshBadges();
+function regen(){ generate(); }
 </script>
 </body>
 </html>
