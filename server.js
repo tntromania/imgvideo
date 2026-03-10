@@ -247,6 +247,37 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     }
 });
 
+// 4. PRELUARE COTĂ DIRECT DE LA GENAIPRO
+app.get('/api/admin/api-quota', authenticateAdmin, async (req, res) => {
+    try {
+        // Facem 2 request-uri simultan: unul pentru Balanță Generală, unul pentru Cota VEO
+        const [meRes, veoRes] = await Promise.all([
+            fetch(`${GENAIPRO_URL}/me`, { headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` } }),
+            fetch(`${GENAIPRO_URL}/veo/me`, { headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` } })
+        ]);
+
+        const meData = meRes.ok ? await meRes.json() : { balance: 'Eroare' };
+        const veoData = veoRes.ok ? await veoRes.json() : { total_quota: 0, used_quota: 0, available_quota: 0 };
+
+        res.json({
+            balance: meData.balance,
+            veoTotal: veoData.total_quota,
+            veoUsed: veoData.used_quota,
+            veoAvail: veoData.available_quota
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// FORȚĂM RUTA DE ADMIN SĂ DESCHIDĂ ADMIN.HTML
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Asta trebuie să rămână mereu ULTIMA rută din fișier:
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+app.listen(PORT, () => console.log(`🚀 Media Studio rulează pe portul ${PORT}`));
 // Verifică dacă cheia există înainte de fetch
 if (!process.env.GENAIPRO_API_KEY) {
     console.error("Lipsește cheia API GenAIPro!");
