@@ -133,39 +133,12 @@
     </div>
 </div>
 
-<script>
-    // Logica pentru detectarea In-App Browser-ului
-    function detectInAppBrowser() {
-        const ua = navigator.userAgent || navigator.vendor || window.opera;
-        // Detectăm FB, IG, TikTok, LinkedIn etc.
-        const isInApp = (ua.indexOf("FBAN") > -1) || (ua.indexOf("FBAV") > -1) || (ua.indexOf("Instagram") > -1) || (ua.indexOf("TikTok") > -1) || (ua.indexOf("Bytedance") > -1) || (ua.indexOf("Snapchat") > -1);
-        
-        if (isInApp) {
-            const warning = document.getElementById('in-app-warning');
-            const googleContainer = document.getElementById('google-login-container');
-            if(warning) warning.classList.remove('hidden');
-            if(warning) warning.classList.add('flex');
-            // Ascundem butonul de Google ca să nu se chinuie degeaba dacă nu merge
-            if(googleContainer) googleContainer.style.display = 'none'; 
-        }
-    }
-
-    // Apelăm detectarea când se deschide modalul
-    const originalOpenLoginModal = openLoginModal;
-    openLoginModal = function() {
-        detectInAppBrowser();
-        originalOpenLoginModal();
-    };
-</script>
-
-<!-- LIGHTBOX -->
 <div id="lightbox" onclick="closeLightbox()">
     <button onclick="closeLightbox()" style="position:absolute;top:20px;right:24px;background:rgba(255,255,255,.1);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:1.2rem;cursor:pointer;backdrop-filter:blur(8px);z-index:10"><i class="fa-solid fa-xmark"></i></button>
     <img id="lb-img" src="" alt="">
 </div>
 <div id="toast"></div>
 
-<!-- HEADER -->
 <header class="h-14 shrink-0 bg-white/80 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-50 shadow-sm">
     <a href="https://viralio.ro" class="flex items-center font-black text-xl tracking-tight text-slate-900">
         <div class="w-8 h-8 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md"><i class="fa-solid fa-bolt text-xs"></i></div>
@@ -190,14 +163,11 @@
     </div>
 </header>
 
-<!-- LAYOUT -->
 <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
 
-    <!-- LEFT PANEL -->
     <aside class="w-full md:w-[360px] lg:w-[400px] bg-white border-r border-slate-200 flex flex-col shrink-0 h-[50vh] md:h-full shadow-[4px_0_20px_rgba(0,0,0,.03)] z-20">
         <div class="aside-inner">
 
-            <!-- MODEL -->
             <div class="panel-s">
                 <label class="field-label">Model AI</label>
                 <div class="select-wrap">
@@ -220,7 +190,6 @@
                 </div>
             </div>
 
-            <!-- PROMPT -->
             <div class="panel-s">
                 <label class="field-label">Prompt</label>
                 <div class="prompt-wrap">
@@ -232,16 +201,14 @@
                 </div>
             </div>
 
-            <!-- IMAGE: FORMAT -->
-<div class="panel-s" id="panel-ratio">
-    <label class="field-label">Format imagine</label>
-    <div class="bg-slate-100 rounded-2xl p-1 flex gap-0.5">
-        <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_LANDSCAPE" checked><span>16:9</span></label>
-        <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_PORTRAIT"><span>9:16</span></label>
-    </div>
-</div>
+            <div class="panel-s" id="panel-ratio">
+                <label class="field-label">Format imagine</label>
+                <div class="bg-slate-100 rounded-2xl p-1 flex gap-0.5">
+                    <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_LANDSCAPE" checked><span>16:9</span></label>
+                    <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_PORTRAIT"><span>9:16</span></label>
+                </div>
+            </div>
 
-            <!-- IMAGE: COUNT -->
             <div class="panel-s" id="panel-count">
                 <label class="field-label">Număr imagini (1–4)</label>
                 <div class="flex items-center gap-3 bg-slate-100 rounded-2xl p-1.5 w-fit">
@@ -251,7 +218,6 @@
                 </div>
             </div>
 
-            <!-- VIDEO: FORMAT -->
             <div class="panel-s hidden" id="panel-vratio">
                 <label class="field-label">Format video</label>
                 <div class="bg-slate-100 rounded-2xl p-1 flex gap-0.5">
@@ -260,7 +226,6 @@
                 </div>
             </div>
 
-            <!-- VIDEO: COUNT -->
             <div class="panel-s hidden" id="panel-vcount">
                 <label class="field-label">Număr videoclipuri (1–4)</label>
                 <div class="flex items-center gap-3 bg-slate-100 rounded-2xl p-1.5 w-fit">
@@ -270,7 +235,6 @@
                 </div>
             </div>
 
-            <!-- VIDEO: START IMAGE -->
             <div class="panel-s hidden" id="panel-ref">
                 <label class="field-label">Imagine de start <span class="normal-case text-slate-400 font-medium">(opțional)</span></label>
                 <input type="file" id="ref-file" class="hidden" accept="image/*">
@@ -285,10 +249,7 @@
                 </div>
             </div>
 
-        </div><!-- end aside-inner -->
-
-        <!-- FOOTER -->
-        <div class="shrink-0 p-4 border-t border-slate-100 bg-white/90 backdrop-blur">
+        </div><div class="shrink-0 p-4 border-t border-slate-100 bg-white/90 backdrop-blur">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-xs font-bold text-slate-400">Cost estimat:</span>
                 <span class="badge badge-amber"><i class="fa-solid fa-coins mr-1"></i><span id="total-cost">1</span> Credite</span>
@@ -299,7 +260,6 @@
         </div>
     </aside>
 
-    <!-- RIGHT CANVAS -->
     <section class="flex-1 bg-slate-100/60 overflow-y-auto h-[50vh] md:h-full relative flex flex-col">
         <div class="absolute inset-0 pointer-events-none opacity-[.04]" style="background-image:radial-gradient(circle,#4f46e5 1px,transparent 0);background-size:28px 28px"></div>
         <div class="absolute top-1/4 right-1/4 w-72 h-72 bg-indigo-400/10 rounded-full blur-[80px] pointer-events-none"></div>
@@ -307,7 +267,6 @@
 
         <div class="relative z-10 flex-1 flex flex-col p-4 md:p-8 max-w-5xl mx-auto w-full">
 
-            <!-- EMPTY -->
             <div id="st-empty" class="flex-1 flex flex-col items-center justify-center text-center">
                 <div class="flex gap-4 mb-8">
                     <div class="float-el w-14 h-14 bg-white rounded-2xl border border-slate-200 shadow-md flex items-center justify-center text-2xl text-slate-300"><i class="fa-solid fa-image"></i></div>
@@ -324,7 +283,6 @@
                 </div>
             </div>
 
-            <!-- LOADING -->
             <div id="st-loading" class="hidden flex-1 flex flex-col">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-2.5">
@@ -341,7 +299,6 @@
                 <div id="sk-grid" class="grid gap-4 mt-2"></div>
             </div>
 
-            <!-- RESULT -->
             <div id="st-result" class="hidden">
                 <div class="flex items-center justify-between mb-5">
                     <div class="flex items-center gap-2">
@@ -353,7 +310,6 @@
                 <div id="res-grid" class="grid gap-4"></div>
             </div>
 
-            <!-- ERROR -->
             <div id="st-error" class="hidden flex-1 flex flex-col items-center justify-center text-center">
                 <div class="w-16 h-16 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-center text-3xl text-red-400 mb-5"><i class="fa-solid fa-triangle-exclamation"></i></div>
                 <h3 class="text-xl font-black text-slate-800 mb-2">Eroare la generare</h3>
@@ -365,33 +321,7 @@
     </section>
 </main>
 
-<!-- FLOATING WIDGETS -->
-<div class="fixed bottom-5 right-5 md:right-6 z-[100000] flex items-center bg-white/70 backdrop-blur-2xl glass-premium-fin rounded-full p-1.5 transition-all duration-500 hover:-translate-y-1 hover:bg-white/90">
-    <a href="https://discord.gg/h8Ah6VKDzm" target="_blank" class="group flex items-center gap-2 hover:bg-slate-100 rounded-full px-3 py-1.5 transition-all duration-300">
-        <div class="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center shadow-sm group-hover:bg-[#5865F2] group-hover:scale-105 transition-all duration-300"><i class="fa-brands fa-discord text-sm"></i></div>
-        <div class="flex-col hidden sm:flex text-left">
-            <span class="text-[.55rem] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Ai Întrebări?</span>
-            <span class="text-xs font-black text-slate-800 leading-none">Suport Discord</span>
-        </div>
-    </a>
-    <div class="w-px h-6 bg-gradient-to-b from-transparent via-slate-300 to-transparent mx-1"></div>
-    <a href="https://t.me/SmartCreator_official" target="_blank" class="group flex items-center gap-2 rounded-full px-3 py-1.5 transition-all duration-300">
-        <div class="relative w-10 h-10 group-hover:scale-110 transition-transform duration-300">
-            <div class="absolute inset-0 rounded-full bg-gradient-to-br from-[#0088cc] to-[#00aaff] overflow-hidden shadow-[0_0_15px_rgba(0,136,204,0.4)]">
-                <div class="absolute inset-0 w-[250%] h-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shine-fast z-10"></div>
-            </div>
-            <i class="fa-brands fa-telegram text-white text-sm pr-0.5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20"></i>
-            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse z-30"></span>
-        </div>
-        <div class="flex-col hidden sm:flex text-left">
-            <span class="text-[.55rem] font-bold text-red-500 uppercase tracking-widest leading-none mb-0.5">Giveaways</span>
-            <span class="text-xs font-black text-slate-800 leading-none">Telegram VIP</span>
-        </div>
-    </a>
-</div>
-
 <script>
-
 const MODEL_META = {
     'nano-banana-pro':  { type:'image', cost:1, speed:'Standard' },
     'nano-banana-fast': { type:'image', cost:1, speed:'Fast ⚡'  },
@@ -409,9 +339,24 @@ let activeReader = null;
 let lastPrompt = '';
 let fakeTimer = null;
 
-// ═══ AUTH ═══
+// ═══ AUTH & IN-APP DETECTION ═══
+function detectInAppBrowser() {
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    const isInApp = (ua.indexOf("FBAN") > -1) || (ua.indexOf("FBAV") > -1) || (ua.indexOf("Instagram") > -1) || (ua.indexOf("TikTok") > -1) || (ua.indexOf("Bytedance") > -1) || (ua.indexOf("Snapchat") > -1);
+    
+    if (isInApp) {
+        const warning = document.getElementById('in-app-warning');
+        const googleContainer = document.getElementById('google-login-container');
+        if(warning) { warning.classList.remove('hidden'); warning.classList.add('flex'); }
+        if(googleContainer) googleContainer.style.display = 'none'; 
+    }
+}
+
 const $loginModal = document.getElementById('login-modal');
-function openLoginModal()  { $loginModal.classList.add('show'); }
+function openLoginModal()  { 
+    detectInAppBrowser();
+    $loginModal.classList.add('show'); 
+}
 function closeLoginModal() { $loginModal.classList.remove('show'); }
 function setToken(t)  { document.cookie = "viralio_token="+t+"; domain=.viralio.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
 function getToken()   { const m = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return m?m[1]:null; }
@@ -521,10 +466,11 @@ function cancelGen(){
 }
 function resetBtn(){ const b=document.getElementById('gen-btn'); b.disabled=false; b.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i> GENEREAZĂ'; }
 
-// ═══ SKELETONS ═══
+// ═══ SKELETONS & GRIDS ═══
+function aspectClass(r){ if(r.includes('LANDSCAPE'))return'aspect-video'; if(r.includes('PORTRAIT'))return'aspect-[9/16]'; return'aspect-square'; }
+
 function buildSkeletons(n, ac){
     const g=document.getElementById('sk-grid'); g.innerHTML=''; 
-    // Modificat aici:
     g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
     for(let i=0;i<n;i++){
         const d=document.createElement('div'); d.className='skeleton '+ac+' w-full flex items-center justify-center';
@@ -533,10 +479,8 @@ function buildSkeletons(n, ac){
     }
 }
 
-// ═══ RESULT GRIDS ═══
 function buildImageGrid(urls, ratioVal){
     const g=document.getElementById('res-grid'); g.innerHTML=''; 
-    // Modificat aici:
     g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
     const ac=aspectClass(ratioVal);
     urls.forEach((url,i)=>{
@@ -548,7 +492,6 @@ function buildImageGrid(urls, ratioVal){
 
 function buildVideoGrid(urls){
     const g=document.getElementById('res-grid'); g.innerHTML=''; 
-    // Modificat aici:
     g.className='grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
     urls.forEach((url,i)=>{
         const c=document.createElement('div'); c.className='result-card';
@@ -556,11 +499,11 @@ function buildVideoGrid(urls){
         g.appendChild(c);
     });
 }
+
 // ═══ SSE LOG ═══
 function logSSE(msg){ const el=document.getElementById('sse-log'); el.classList.remove('hidden'); el.innerHTML+=`<span style="color:#94a3b8">[${new Date().toLocaleTimeString()}]</span> ${msg}<br>`; el.scrollTop=el.scrollHeight; }
 
 // ═══ SSE READER ═══
-// GenAIPro trimite SSE stream. Citim toate event-urile și returnăm ultimul JSON valid.
 async function readSSE(response){
     const reader = response.body.getReader();
     activeReader = reader;
@@ -599,7 +542,7 @@ async function readSSE(response){
     return last;
 }
 
-// ═══ FAKE PROGRESS (pentru video, completat de SSE dacă vine) ═══
+// ═══ FAKE PROGRESS ═══
 const VID_STEPS=['Inițializare model Veo...','Analiză prompt...','Generare cadre video...','Aplicare mișcare cinematică...','Sinteză finală...'];
 let fakeStep=0, fakePct=0;
 function startFakeProgress(){
@@ -620,12 +563,12 @@ async function genImage(){
     const token = getToken();
     const prompt = document.getElementById('prompt-in').value.trim();
     const ratio  = document.querySelector('input[name="ratio"]:checked')?.value || 'IMAGE_ASPECT_RATIO_SQUARE';
-    const model_id = document.getElementById('model-sel').value; // adăugăm modelul
+    const model_id = document.getElementById('model-sel').value;
 
     buildSkeletons(imgCount, aspectClass(ratio));
     document.getElementById('vid-prog-wrap').classList.add('hidden');
     document.getElementById('sse-log').innerHTML='';
-    document.getElementById('sk-grid').className='grid gap-4 mt-2';
+    document.getElementById('sk-grid').className='grid gap-4 mt-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
     showState('loading');
     document.getElementById('load-label').textContent='Generăm '+imgCount+' imagine'+(imgCount>1?'i':'')+'...';
 
@@ -633,11 +576,11 @@ async function genImage(){
     fd.append('prompt', prompt);
     fd.append('aspect_ratio', ratio);
     fd.append('number_of_images', imgCount);
-    fd.append('model_id', model_id); // trimitem modelul serverului nostru
+    fd.append('model_id', model_id); 
 
     const resp = await fetch('/api/media/image', {
         method:'POST',
-        headers:{'Authorization':'Bearer '+ token}, // AICI VINE TOKEN-UL TĂU, NU CHEIA
+        headers:{'Authorization':'Bearer '+ token}, 
         body: fd
     });
 
