@@ -73,7 +73,7 @@ const UserSchema = new mongoose.Schema({
     voice_characters: { type: Number, default: 3000 },
     createdAt: { type: Date, default: Date.now }
 });
-const User = mongoose.models.User || mongoose.model('User', UserSchema);
+// Caută unde ai UserSchema și pune asta fix sub ea:
 const LogSchema = new mongoose.Schema({
     userEmail: String,
     type: String, // 'image' sau 'video'
@@ -82,7 +82,7 @@ const LogSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 const Log = mongoose.models.Log || mongoose.model('Log', LogSchema);
-
+const User = mongoose.models.User || mongoose.model('User', UserSchema);
 // AUTH MIDDLEWARE
 const authenticate = (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
