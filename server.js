@@ -160,7 +160,14 @@ app.post('/api/media/video', authenticate, upload.single('start_image'), async (
             headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` },
             body: formData
         });
-
+		
+		// MODIFICAREA ESTE AICI: Preluăm și printăm eroarea exactă trimisă de ei
+        if (!apiRes.ok) {
+            const errorDetails = await apiRes.text();
+            console.error(`❌ Eroare GenAIPro (Status ${apiRes.status}):`, errorDetails);
+            throw new Error(`Eroare de la furnizorul AI. Verifică terminalul serverului.`);
+        }
+		
         if (!apiRes.ok) throw new Error("Eroare la generare din serverul AI.");
 
         user.credits -= totalCost;
