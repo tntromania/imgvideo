@@ -49,6 +49,16 @@ const HistorySchema = new mongoose.Schema({
 });
 const History = mongoose.models.History || mongoose.model('History', HistorySchema);
 
+// Model MongoDB pentru Log-uri (adăugat pentru a repara eroarea 500)
+const LogSchema = new mongoose.Schema({
+    userEmail: { type: String, required: true },
+    type: { type: String, enum: ['image', 'video'], required: true },
+    count: { type: Number, required: true },
+    cost: { type: Number, required: true },
+    createdAt: { type: Date, default: Date.now }
+});
+const Log = mongoose.models.Log || mongoose.model('Log', LogSchema);
+
 const authenticate = (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: "Trebuie să fii logat!" });
@@ -292,8 +302,8 @@ app.get('/api/admin/api-quota', authenticateAdmin, async (req, res) => {
 
 if (!process.env.GENAIPRO_API_KEY) console.error("Lipsește cheia API GenAIPro!");
 
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// RUTELE DE API PENTRU ISTORIC (Mutate mai sus pentru a nu fi blocate de catch-all)
+
 // Preia istoricul în funcție de tip (image sau video)
 app.get('/api/media/history', authenticate, async (req, res) => {
     try {
@@ -348,4 +358,9 @@ app.post('/api/media/save-history', authenticate, async (req, res) => {
         console.error('Eroare la salvarea în Supabase:', err.message);
     }
 });
+
+// CATCH-ALL PENTRU FRONTEND (Mutate la final)
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
 app.listen(PORT, () => console.log(`🚀 Media Studio rulează pe portul ${PORT}`));
