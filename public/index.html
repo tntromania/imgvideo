@@ -368,7 +368,7 @@ async function readSSE(response){
     activeReader = reader;
     const dec = new TextDecoder();
     let buf = '';
-    let finalData = {}; // AICI SE CUMULEAZĂ DATELE
+    let finalData = {}; 
 
     try {
         while(true){
@@ -391,22 +391,23 @@ async function readSSE(response){
                             const p = JSON.parse(raw);
                             if (p.error) throw new Error(p.error);
                             
-                            // MERGE: Păstrăm tot ce am găsit până acum
-                            Object.assign(finalData, p);
+                            // Dacă datele sunt împachetate într-un obiect cu chei gen "0", "1"
+                            if (p["0"]) {
+                                Object.assign(finalData, p["0"]);
+                            } else {
+                                Object.assign(finalData, p);
+                            }
 
                             if(p.progress !== undefined){
                                 document.getElementById('vid-prog-bar').style.width=p.progress+'%';
                             }
-                            logSSE('JSON Info: ' + JSON.stringify(p));
+                            logSSE('Status: ' + (p.status || 'procesare...'));
                         } catch(e) {}
-                    } else {
-                        logSSE('Status Simplu: ' + raw);
                     }
                 }
             }
         }
     } finally { activeReader = null; }
-    
     return Object.keys(finalData).length > 0 ? finalData : null;
 }
 
@@ -420,26 +421,22 @@ function clearFakeProgress(){ clearInterval(fakeTimer); document.getElementById(
 async function genImage(){
     const token = getToken();
     const prompt = document.getElementById('prompt-in').value.trim();
-    const ratio  = document.querySelector('input[name="ratio"]:checked')?.value || 'IMAGE_ASPECT_RATIO_SQUARE';
+    const ratio  = document.querySelector('input[name="ratio"]:checked')?.value || 'IMAGE_ASPECT_RATIO_LANDSCAPE';
     const model_id = document.getElementById('model-sel').value;
 
     buildSkeletons(imgCount, aspectClass(ratio));
-    document.getElementById('vid-prog-wrap').classList.add('hidden');
-    document.getElementById('sse-log').innerHTML='';
-    document.getElementById('sk-grid').className='grid gap-4 mt-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
     showState('loading');
 
     const fd = new FormData();
     fd.append('prompt', prompt); fd.append('aspect_ratio', ratio); fd.append('number_of_images', imgCount); fd.append('model_id', model_id); 
 
     const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
-    if(!resp.ok) throw new Error('Eroare la request-ul de imagini.');
-
     const data = await readSSE(resp);
-    if(genAborted) return null;
     
-    const urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
-    if(!urls.length) throw new Error('GenAIPro a răspuns, dar n-a dat poză. Răspuns: ' + JSON.stringify(data));
+    // Extragem URL-urile indiferent dacă sunt în file_urls sau file_url
+    let urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
+    
+    if(!urls.length) throw new Error('Nu am găsit URL-ul în log. Verifică consola.');
     return {urls, ratio};
 }
 
@@ -447,13 +444,9 @@ async function genVideo(){
     const token = getToken();
     const prompt  = document.getElementById('prompt-in').value.trim();
     const vratio  = document.querySelector('input[name="vratio"]:checked')?.value || 'VIDEO_ASPECT_RATIO_LANDSCAPE';
-    const refFile = document.getElementById('ref-file').files[0];
     const model_id = document.getElementById('model-sel').value;
+    const refFile = document.getElementById('ref-file').files[0];
 
-    document.getElementById('sk-grid').className='hidden';
-    document.getElementById('sse-log').innerHTML='';
-    document.getElementById('vid-prog-wrap').classList.remove('hidden');
-    document.getElementById('vid-prog-bar').style.width='0%';
     showState('loading'); startFakeProgress();
 
     const fd = new FormData();
@@ -461,14 +454,11 @@ async function genVideo(){
     if(refFile) fd.append('start_image', refFile);
 
     const resp = await fetch('/api/media/video', { method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd });
-    clearFakeProgress();
-    if(!resp.ok) throw new Error('Eroare la trimiterea către GenAIPro.');
-
     const data = await readSSE(resp);
-    if(genAborted) return null;
     
-    const urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
-    if(!urls.length) throw new Error('GenAIPro a terminat, dar a ascuns clipul. Log: ' + JSON.stringify(data));
+    let urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
+    
+    if(!urls.length) throw new Error('Video generat, dar URL-ul lipsește din log.');
     return urls;
 }
 
