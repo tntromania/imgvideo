@@ -168,7 +168,10 @@ app.post('/api/media/video', authenticate, upload.single('start_image'), async (
         res.status(500).json({ error: e.message });
     }
 });
-
+// Verifică dacă cheia există înainte de fetch
+if (!process.env.GENAIPRO_API_KEY) {
+    console.error("Lipsește cheia API GenAIPro!");
+}
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.listen(PORT, () => console.log(`🚀 Media Studio rulează pe portul ${PORT}`));
