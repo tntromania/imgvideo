@@ -9,7 +9,7 @@ const multer = require('multer');
 const { Readable } = require('stream');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Middleware pentru procesarea fișierelor (form-data)
