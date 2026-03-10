@@ -11,6 +11,46 @@ const { Readable } = require('stream');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// 1. Definește email-ul tău aici
+const ADMIN_EMAILS = ['banicualex3@gmail.com']; 
+
+// 2. Creează middleware-ul de verificare admin
+const authenticateAdmin = async (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: "Acces interzis!" });
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId);
+        
+        if (user && ADMIN_EMAILS.includes(user.email)) {
+            req.userId = decoded.userId;
+            next();
+        } else {
+            res.status(403).json({ error: "Nu ai permisiuni de administrator!" });
+        }
+    } catch (e) { 
+        return res.status(401).json({ error: "Sesiune invalidă." }); 
+    }
+};
+
+// 3. Aplică middleware-ul pe ruta de statistici
+app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
+    // ... restul codului de statistici rămâne neschimbat
+    try {
+        const totalUsers = await User.countDocuments();
+        const logs = await Log.find().sort({ createdAt: -1 }).limit(100);
+        const totalImages = await Log.aggregate([{ $match: { type: 'image' } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
+        const totalVideos = await Log.aggregate([{ $match: { type: 'video' } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
+
+        res.json({
+            totalUsers,
+            totalImages: totalImages[0]?.total || 0,
+            totalVideos: totalVideos[0]?.total || 0,
+            recentLogs: logs
+        });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // Middleware pentru procesarea fișierelor (form-data)
 const upload = multer({ storage: multer.memoryStorage() });
@@ -34,6 +74,14 @@ const UserSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
+const LogSchema = new mongoose.Schema({
+    userEmail: String,
+    type: String, // 'image' sau 'video'
+    count: Number,
+    cost: Number,
+    createdAt: { type: Date, default: Date.now }
+});
+const Log = mongoose.models.Log || mongoose.model('Log', LogSchema);
 
 // AUTH MIDDLEWARE
 const authenticate = (req, res, next) => {
@@ -83,6 +131,7 @@ const MODEL_PRICES = {
 };
 
 // Funcție ajutătoare pentru a trimite fluxul SSE (Server-Sent Events) înapoi la client
+await Log.create({ userEmail: user.email, type: 'image', count, cost: totalCost });
 const pipeStream = (apiRes, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -141,47 +190,85 @@ app.post('/api/media/video', authenticate, upload.single('start_image'), async (
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
-        const formData = new FormData();
-        formData.append('prompt', prompt);
-        formData.append('aspect_ratio', aspect_ratio);
-        formData.append('number_of_videos', count);
+        let endpoint, fetchOptions;
 
-        let endpoint = `${GENAIPRO_URL}/veo/text-to-video`;
-
-        // Dacă a încărcat o poză, atașăm fișierul
+        // Regula: Dacă avem imagine urcată, e frames-to-video și necesită FormData.
+        // Dacă e doar text, e text-to-video și necesită aplicație/json
         if (req.file) {
             endpoint = `${GENAIPRO_URL}/veo/frames-to-video`;
+            const formData = new FormData();
+            formData.append('prompt', prompt);
+            formData.append('aspect_ratio', aspect_ratio);
+            formData.append('number_of_videos', count);
+            
             const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
             formData.append('start_image', blob, req.file.originalname);
+
+            fetchOptions = {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` },
+                body: formData
+            };
+        } else {
+            endpoint = `${GENAIPRO_URL}/veo/text-to-video`;
+            fetchOptions = {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    aspect_ratio: aspect_ratio,
+                    number_of_videos: count
+                })
+            };
         }
 
-        const apiRes = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` },
-            body: formData
-        });
-		
-		// MODIFICAREA ESTE AICI: Preluăm și printăm eroarea exactă trimisă de ei
+        const apiRes = await fetch(endpoint, fetchOptions);
+
         if (!apiRes.ok) {
             const errorDetails = await apiRes.text();
             console.error(`❌ Eroare GenAIPro (Status ${apiRes.status}):`, errorDetails);
             throw new Error(`Eroare de la furnizorul AI. Verifică terminalul serverului.`);
         }
-		
-        if (!apiRes.ok) throw new Error("Eroare la generare din serverul AI.");
+
+        // Înregistrăm acțiunea pentru dashboard
+        await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
 
         user.credits -= totalCost;
         await user.save();
 
         pipeStream(apiRes, res);
     } catch (e) {
+        console.error("🔥 Eroare internă /api/media/video:", e);
         res.status(500).json({ error: e.message });
     }
 });
+
 // Verifică dacă cheia există înainte de fetch
 if (!process.env.GENAIPRO_API_KEY) {
     console.error("Lipsește cheia API GenAIPro!");
 }
+// Ruta pentru Dashboard-ul Admin
+app.get('/api/admin/stats', async (req, res) => {
+    try {
+        const totalUsers = await User.countDocuments();
+        const logs = await Log.find().sort({ createdAt: -1 }).limit(100);
+        
+        const totalImages = await Log.aggregate([{ $match: { type: 'image' } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
+        const totalVideos = await Log.aggregate([{ $match: { type: 'video' } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
+
+        res.json({
+            totalUsers,
+            totalImages: totalImages[0]?.total || 0,
+            totalVideos: totalVideos[0]?.total || 0,
+            recentLogs: logs
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.listen(PORT, () => console.log(`🚀 Media Studio rulează pe portul ${PORT}`));
