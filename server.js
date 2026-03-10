@@ -154,6 +154,7 @@ app.post('/api/media/image', authenticate, upload.none(), async (req, res) => {
         formData.append('prompt', prompt);
         formData.append('aspect_ratio', aspect_ratio);
         formData.append('number_of_images', count);
+        if (model_id) formData.append('model_id', model_id); // Trimitem și modelul mai departe
 
         const apiRes = await fetch(`${GENAIPRO_URL}/veo/create-image`, {
             method: 'POST',
@@ -161,19 +162,20 @@ app.post('/api/media/image', authenticate, upload.none(), async (req, res) => {
             body: formData
         });
 
-        // MODIFICAREA ESTE AICI: Preluăm și printăm eroarea exactă trimisă de ei
         if (!apiRes.ok) {
             const errorDetails = await apiRes.text();
             console.error(`❌ Eroare GenAIPro (Status ${apiRes.status}):`, errorDetails);
             throw new Error(`Eroare de la furnizorul AI. Verifică terminalul serverului.`);
         }
 
+        // Am adăugat logul aici, în interiorul funcției async
+        await Log.create({ userEmail: user.email, type: 'image', count, cost: totalCost });
+
         user.credits -= totalCost;
         await user.save();
 
         pipeStream(apiRes, res);
     } catch (e) {
-        // MODIFICAREA ESTE AICI: Printăm eroarea și în consola Node.js
         console.error("🔥 Eroare internă /api/media/image:", e);
         res.status(500).json({ error: e.message });
     }
