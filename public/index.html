@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ro">
+<html lang="ro" class="scroll-smooth">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -8,323 +8,365 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-	<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
-    <link rel="shortcut icon" href="/favicon.ico">
-    <meta property="og:image" content="/logo.png">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { 
+                        viralio: { 50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 900: '#09090b', accent: '#ec4899' }
+                    },
+                    animation: { 'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards' },
+                    keyframes: { slideUp: { '0%': { opacity: 0, transform: 'translateY(20px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } } }
+                }
+            }
+        }
+    </script>
+
     <style>
         *, *::before, *::after { box-sizing:border-box; }
-        body { background:#F8FAFC; color:#0f172a; overflow:hidden; font-family:'Inter',sans-serif; }
-        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:10px}
-        textarea{resize:none}
-        .bg-gradient-viralio{background:linear-gradient(135deg,#4f46e5 0%,#ec4899 100%)}
+        body { background:#F8FAFC; color:#0f172a; overflow:hidden; font-family:'Inter',sans-serif; -webkit-font-smoothing: antialiased; }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .bg-gradient-viralio { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); }
+        
         #login-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);backdrop-filter:blur(10px);z-index:99999;align-items:center;justify-content:center;opacity:0;transition:.3s}
         #login-modal.show{display:flex;opacity:1}
         .modal-content{background:#fff;border-radius:28px;padding:40px;text-align:center;max-width:420px;width:90%;transform:translateY(24px);transition:.4s;box-shadow:0 40px 80px -20px rgba(0,0,0,.22);position:relative}
         #login-modal.show .modal-content{transform:translateY(0)}
-        .mode-tab{padding:8px 20px;border-radius:14px;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:7px;border:none;background:none;color:#64748b}
-        .mode-tab.active{background:white;color:#0f172a;box-shadow:0 2px 12px rgba(0,0,0,.09)}
-        .prompt-wrap{border:2px solid #e2e8f0;border-radius:18px;background:#fafafa;transition:border-color .2s,box-shadow .2s}
-        .prompt-wrap:focus-within{border-color:#6366f1;box-shadow:0 0 0 4px rgba(99,102,241,.08);background:white}
-        .ratio-pill input[type=radio]{display:none}
-        .ratio-pill input:checked+span{background:white;color:#4f46e5;box-shadow:0 2px 8px rgba(79,70,229,.15);font-weight:800}
-        .ratio-pill span{display:block;padding:6px 10px;border-radius:10px;font-size:.72rem;font-weight:700;color:#64748b;cursor:pointer;transition:all .2s;user-select:none;text-align:center}
-        .ratio-pill span:hover{color:#4f46e5}
-        .count-btn{width:32px;height:32px;border-radius:10px;background:#f1f5f9;border:1.5px solid #e2e8f0;font-size:1.1rem;font-weight:800;color:#475569;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;user-select:none}
-        .count-btn:hover{background:#e0e7ff;border-color:#6366f1;color:#4f46e5}
-        .count-btn:active{transform:scale(.9)}
-        .styled-select{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 36px 10px 14px;font-size:.82rem;font-weight:700;color:#0f172a;outline:none;width:100%;-webkit-appearance:none;cursor:pointer;transition:border-color .2s}
-        .styled-select:focus{border-color:#6366f1}
-        .select-wrap{position:relative}
-        .select-wrap::after{content:'\f078';font-family:'Font Awesome 6 Free';font-weight:900;position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.65rem;pointer-events:none}
-        .gen-btn{background:linear-gradient(135deg,#4f46e5 0%,#ec4899 100%);transition:all .25s;overflow:hidden;position:relative}
-        .gen-btn:not(:disabled):hover{box-shadow:0 12px 30px rgba(79,70,229,.35);transform:translateY(-1px)}
-        .gen-btn:disabled{opacity:.6;cursor:not-allowed;transform:none!important}
-        .result-card{background:white;border-radius:18px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(0,0,0,.06);transition:all .25s;position:relative}
-        .result-card:hover{box-shadow:0 12px 35px rgba(0,0,0,.1);transform:translateY(-2px)}
-        .card-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(9,9,11,.75) 0%,transparent 50%);opacity:0;transition:opacity .25s;display:flex;align-items:flex-end;justify-content:center;padding:16px;gap:8px}
-        .result-card:hover .card-overlay{opacity:1}
-        @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
-        .skeleton{background:linear-gradient(90deg,#f1f5f9 0%,#e2e8f0 50%,#f1f5f9 100%);background-size:800px 100%;animation:shimmer 1.4s infinite linear;border-radius:18px}
-        .dropzone{border:2px dashed #e2e8f0;border-radius:14px;background:#f8fafc;transition:all .22s;cursor:pointer}
-        .dropzone:hover{border-color:#6366f1;background:#eef2ff}
-        .dropzone.has-img{border-style:solid;border-color:#c7d2fe}
-        .progress-track{background:#e2e8f0;border-radius:99px;height:5px;overflow:hidden}
-        .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#4f46e5,#ec4899);transition:width .4s ease}
-        .badge{font-size:.6rem;font-weight:800;padding:3px 9px;border-radius:7px;text-transform:uppercase;letter-spacing:.07em}
-        .badge-indigo{background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe}
-        .badge-amber{background:#fffbeb;color:#d97706;border:1px solid #fde68a}
-        .badge-pink{background:#fdf2f8;color:#db2777;border:1px solid #fbcfe8}
-        .badge-green{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
-        #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#0f172a;color:white;padding:11px 22px;border-radius:14px;font-size:.82rem;font-weight:700;z-index:200000;transition:transform .35s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;white-space:nowrap}
-        #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
-        #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:300000;align-items:center;justify-content:center}
-        #lightbox.show{display:flex}
-        #lightbox img{max-width:90vw;max-height:90vh;border-radius:14px;object-fit:contain}
-        @keyframes floatUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-        .float-el{animation:floatUp 3s ease-in-out infinite}
-        .float-el:nth-child(2){animation-delay:.5s}
-        .float-el:nth-child(3){animation-delay:1s}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        .spin{animation:spin 1s linear infinite}
-        .panel-s{border-bottom:1px solid #f1f5f9;padding:18px 20px}
-        .panel-s:last-child{border-bottom:none}
-        .field-label{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:8px;display:block}
-        .aside-inner{flex:1;overflow-y:auto}
-        .sse-log{font-size:.62rem;font-family:monospace;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;margin-top:8px;max-height:72px;overflow-y:auto;line-height:1.6; word-wrap: break-word;}
-		.history-container {
-            /* Presupunând că un rând are aprox 160px. 2 rânduri + gap = max 340px */
-            max-height: 340px; 
-            overflow-y: auto;
-            padding-right: 8px;
-        }
-        .history-container::-webkit-scrollbar { width: 6px; }
-        .history-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        .mode-tab { padding: 10px 24px; border-radius: 14px; font-size: 0.85rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; border: none; background: none; color: #64748b; }
+        .mode-tab.active { background: white; color: #0f172a; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
         
-        .history-grid {
-            display: grid;
-            gap: 1rem;
-            grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2 pe mobil */
-        }
-        @media (min-width: 1024px) {
-            .history-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr)); /* 4 pe desktop */
-            }
-        }
-        .history-item {
-            border-radius: 14px;
-            overflow: hidden;
-            aspect-ratio: 16/9;
-            background: #f1f5f9;
-            border: 1px solid #e2e8f0;
-            position: relative;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .history-item:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-color: #c7d2fe; }
-        .history-item img, .history-item video {
-            width: 100%; height: 100%; object-fit: cover;
-        }
+        .prompt-wrap { border: 2px solid #e2e8f0; border-radius: 18px; background: #fafafa; transition: all 0.2s; }
+        .prompt-wrap:focus-within { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,0.08); background: white; }
         
-        /* Efecte premium de fundal (la fel ca in aplicatiile de referinta) */
+        .ratio-pill input[type=radio] { display: none; }
+        .ratio-pill input:checked + span { background: white; color: #4f46e5; box-shadow: 0 2px 8px rgba(79,70,229,0.15); font-weight: 800; border-color: transparent; }
+        .ratio-pill span { display: block; padding: 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.2s; user-select: none; text-align: center; border: 1px solid transparent; }
+        .ratio-pill span:hover { color: #4f46e5; }
+        
+        .count-btn { width: 36px; height: 36px; border-radius: 12px; background: white; border: 1px solid #e2e8f0; font-size: 1.2rem; font-weight: 800; color: #475569; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .count-btn:hover { background: #e0e7ff; border-color: #6366f1; color: #4f46e5; }
+        .count-btn:active { transform: scale(0.9); }
+        
+        .styled-select { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 14px; padding: 12px 36px 12px 16px; font-size: 0.85rem; font-weight: 800; color: #0f172a; outline: none; width: 100%; -webkit-appearance: none; cursor: pointer; transition: all 0.2s; }
+        .styled-select:focus { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,0.08); background: white; }
+        .select-wrap { position: relative; }
+        .select-wrap::after { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.7rem; pointer-events: none; }
+        
+        .gen-btn { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); transition: all 0.3s; overflow: hidden; position: relative; }
+        .gen-btn:not(:disabled):hover { box-shadow: 0 15px 35px rgba(79,70,229,0.3); transform: translateY(-2px); }
+        .gen-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none!important; }
+        
+        .result-card { background: white; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: all 0.3s; position: relative; }
+        .result-card:hover { box-shadow: 0 20px 40px rgba(0,0,0,0.1); transform: translateY(-4px); border-color: #c7d2fe; }
+        .card-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(9,9,11,0.8) 0%, transparent 60%); opacity: 0; transition: opacity 0.3s; display: flex; align-items: flex-end; justify-content: center; padding: 20px; gap: 10px; }
+        .result-card:hover .card-overlay { opacity: 1; }
+        
+        .history-item { border-radius: 20px; overflow: hidden; background: #f1f5f9; border: 1px solid #e2e8f0; position: relative; cursor: pointer; transition: all 0.3s; aspect-ratio: 1/1; }
+        .history-item:hover { transform: translateY(-4px); box-shadow: 0 15px 30px rgba(0,0,0,0.08); border-color: #c7d2fe; }
+        .history-item img, .history-item video { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+        .history-item:hover img, .history-item:hover video { transform: scale(1.05); }
+
+        @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+        .skeleton { background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%); background-size: 800px 100%; animation: shimmer 1.5s infinite linear; border-radius: 20px; }
+        
+        .dropzone { border: 2px dashed #cbd5e1; border-radius: 16px; background: #f8fafc; transition: all 0.2s; cursor: pointer; }
+        .dropzone:hover { border-color: #6366f1; background: #eef2ff; }
+        .dropzone.has-img { border-style: solid; border-color: #c7d2fe; }
+        
+        .badge { font-size: 0.65rem; font-weight: 800; padding: 4px 10px; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .badge-indigo { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; }
+        .badge-amber { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+        .badge-green { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #0f172a; color: white; padding: 14px 28px; border-radius: 16px; font-size: 0.9rem; font-weight: 700; z-index: 200000; transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s; opacity: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        
+        #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); z-index: 300000; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+        #lightbox.show { display: flex; opacity: 1; }
+        #lightbox img, #lightbox video { max-width: 90vw; max-height: 90vh; border-radius: 16px; object-fit: contain; box-shadow: 0 30px 60px rgba(0,0,0,0.5); }
+        
+        .panel-s { border-bottom: 1px solid #f1f5f9; padding: 24px; }
+        .panel-s:last-child { border-bottom: none; }
+        .field-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 10px; display: block; }
+
+        /* Loader Circular */
+        .circle-bg { fill: none; stroke: #e2e8f0; stroke-width: 6; }
+        .circle-progress { fill: none; stroke: url(#gradient); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 283; stroke-dashoffset: 283; transition: stroke-dashoffset 0.5s ease-out; }
+
+        /* Efecte de fundal premium */
         .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
-        @keyframes premiumShine {
-            0% { transform: translateX(-150%) skewX(-20deg); opacity: 0; }
-            20% { opacity: 1; }
-            80% { opacity: 1; }
-            100% { transform: translateX(250%) skewX(-20deg); opacity: 0; }
-        }
+        @keyframes premiumShine { 0% { transform: translateX(-150%) skewX(-20deg); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(250%) skewX(-20deg); opacity: 0; } }
         .animate-shine-fast { animation: premiumShine 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 </head>
-<body class="h-[100dvh] flex flex-col relative overflow-hidden">
-    <div class="absolute top-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
-    <div class="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-pink-500/5 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
+<body class="h-[100dvh] flex flex-col relative overflow-hidden selection:bg-viralio-500 selection:text-white">
 
-<div id="login-modal">
-    <div class="modal-content relative">
-        <button onclick="closeLoginModal()" style="position:absolute;top:14px;right:18px;background:none;border:none;color:#94a3b8;font-size:1.3rem;cursor:pointer;z-index:10"><i class="fa-solid fa-xmark"></i></button>
-        <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-viralio-600 flex items-center justify-center text-2xl mx-auto mb-4 border border-indigo-100"><i class="fas fa-fingerprint"></i></div>
-        <h2 class="text-2xl font-extrabold mb-1.5 text-slate-900">Intră în cont</h2>
-        <p class="text-slate-500 text-sm mb-6 px-2">Conectează-te pentru a genera conținut AI.</p>
-        <div id="google-login-container" class="flex justify-center bg-slate-50 py-3 rounded-2xl border border-slate-100 min-h-[60px]">
-            <div id="g_id_onload" data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
-            <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
+    <div class="absolute top-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
+    <div class="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-pink-500/10 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
+
+    <div id="login-modal">
+        <div class="modal-content relative">
+            <button onclick="closeLoginModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <div class="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-viralio-600 flex items-center justify-center text-3xl mx-auto mb-4 shadow-inner"><i class="fas fa-fingerprint"></i></div>
+            <h2 class="text-2xl font-extrabold mb-2 text-slate-900">Intră în cont</h2>
+            <p class="text-slate-500 text-sm mb-6">Conectează-te pentru a genera conținut AI premium.</p>
+            <div id="google-login-container" class="flex justify-center bg-slate-50 py-3 rounded-2xl border border-slate-100 hover:border-indigo-200 transition-colors min-h-[60px]">
+                <div id="g_id_onload" data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+                <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
+            </div>
         </div>
+    </div>
+
+    <div id="lightbox" onclick="closeLightbox()">
+        <button onclick="closeLightbox()" class="absolute top-6 right-8 bg-white/10 hover:bg-white/20 text-white w-12 h-12 rounded-full text-xl backdrop-blur-md transition-all z-10"><i class="fa-solid fa-xmark"></i></button>
+        <img id="lb-img" src="" alt="" class="hidden">
+        <video id="lb-vid" src="" controls class="hidden"></video>
+    </div>
+    
+    <div id="toast"></div>
+
+    <div class="sticky top-0 z-50 flex w-full justify-center px-4 pt-4 pb-2 md:pt-5 md:pb-3 max-w-screen-2xl mx-auto">
+        <nav class="w-full rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl shadow-sm px-4 md:px-8 py-3 flex justify-between items-center relative">
+            
+            <a href="https://viralio.ro" class="flex items-center font-black text-xl tracking-tight text-slate-900 group">
+                <div class="w-9 h-9 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md group-hover:scale-105 transition-transform"><i class="fa-solid fa-bolt text-sm"></i></div>
+                <span class="hidden sm:block">Viralio</span>
+                <span class="hidden sm:inline-flex items-center text-xs font-medium text-slate-400 ml-2 border-l border-slate-200 pl-2 mt-0.5"><i class="fa-solid fa-wand-magic-sparkles text-viralio-500 mr-1.5 text-[0.7rem]"></i>Video/Image Generator</span>
+            </a>
+
+            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-100/80 p-1.5 rounded-2xl flex gap-1 border border-slate-200/50 backdrop-blur-sm">
+                <button class="mode-tab active" id="tab-image" onclick="switchMode('image')"><i class="fa-solid fa-image text-viralio-500"></i><span class="hidden sm:inline">Imagini</span></button>
+                <button class="mode-tab" id="tab-video" onclick="switchMode('video')"><i class="fa-solid fa-clapperboard"></i><span class="hidden sm:inline">Video</span></button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="openLoginModal()" id="login-top-btn" class="hidden sm:flex px-5 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-viralio-600 transition-all font-semibold shadow-md text-sm">Conectează-te</button>
+                <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden w-10 h-10 bg-slate-900 text-white rounded-xl font-bold text-sm flex items-center justify-center shadow-md"><i class="fa-solid fa-user"></i></button>
+                
+                <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1.5 pr-1.5 rounded-full">
+                    <img id="nav-avatar" src="" class="w-8 h-8 rounded-full border border-slate-200 object-cover">
+                    <div class="flex-col leading-none ml-2.5 mr-3 hidden md:flex">
+                        <span id="nav-name" class="text-xs font-bold text-slate-900 mb-0.5"></span>
+                        <span class="text-[0.65rem] font-bold text-viralio-600"><span id="nav-credits">0</span> Credite</span>
+                    </div>
+                    <button onclick="logout()" class="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 ml-1"><i class="fa-solid fa-power-off text-sm"></i></button>
+                </div>
+            </div>
+        </nav>
+    </div>
+
+<main class="flex-1 flex flex-col md:flex-row max-w-screen-2xl mx-auto w-full px-4 pb-4 gap-4 overflow-hidden z-10 relative">
+        
+        <div id="mobile-overlay" onclick="toggleMobileSettings()" class="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[95] opacity-0 pointer-events-none transition-opacity duration-300"></div>
+
+        <button id="mobile-settings-btn" onclick="toggleMobileSettings()" class="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] bg-slate-900 text-white px-6 py-3.5 rounded-full font-black text-sm shadow-[0_10px_30px_rgba(15,23,42,0.3)] flex items-center gap-2 border border-slate-700 w-[85%] justify-center">
+            <i class="fa-solid fa-sliders text-amber-300"></i> SETĂRI GENERARE
+        </button>
+
+        <aside id="sidebar-settings" class="fixed md:relative bottom-0 left-0 right-0 md:inset-auto w-full md:w-[380px] bg-white md:rounded-[1.5rem] rounded-t-[2rem] border-t md:border border-slate-200 shadow-[0_-20px_50px_rgba(0,0,0,0.15)] md:shadow-sm flex flex-col shrink-0 h-[85vh] md:h-full overflow-hidden z-[100] md:z-10 transition-transform duration-300 translate-y-full md:translate-y-0">
+            
+            <div class="md:hidden flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100 bg-slate-50/50">
+                <h3 class="font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-sliders text-slate-400"></i> Setări Generare</h3>
+                <button onclick="toggleMobileSettings()" class="w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-500 shadow-sm"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto no-scrollbar">
+                
+                <div class="panel-s">
+                    <label class="field-label">Model AI</label>
+                    <div class="select-wrap">
+                        <select id="model-sel" class="styled-select" onchange="onModelChange()">
+                            <optgroup label="Generare Imagini (Banana)" id="og-img">
+                                <option value="nano-banana-pro" data-type="image" data-cost="1">Nano Banana Pro v2 🏆 — 1 Credit</option>
+                            </optgroup>
+                            <optgroup label="Generare Video (Veo)" id="og-vid" style="display:none">
+                                <option value="veo-3-quality" data-type="video" data-cost="5">Veo 3.1 Quality 🏆 — 5 Credite</option>
+                                <option value="veo-3-fast"    data-type="video" data-cost="3">Veo 3.1 Fast ⚡ — 3 Credite</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="panel-s">
+                    <label class="field-label">Prompt</label>
+                    <div class="prompt-wrap">
+                        <textarea id="prompt-in" rows="5" placeholder="Descrie în detaliu ce vrei să generezi. Fii cât mai creativ..." class="w-full bg-transparent p-4 text-[0.95rem] font-medium text-slate-800 outline-none placeholder-slate-400 leading-relaxed no-scrollbar" oninput="updateCharCount()"></textarea>
+                        <div class="flex items-center justify-between px-3 pb-3 gap-2">
+                            <button onclick="fillExample()" class="flex items-center gap-1.5 text-[0.7rem] font-bold text-slate-500 bg-slate-100 hover:bg-viralio-50 hover:text-viralio-600 px-3 py-1.5 rounded-lg transition-colors"><i class="fa-solid fa-lightbulb"></i> Exemplu</button>
+                            <span id="char-count" class="text-[0.7rem] font-bold text-slate-400">0 caractere</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="img-options">
+                    <div class="panel-s pt-0">
+                        <label class="field-label">Format Imagine</label>
+                        <div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
+                            <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_LANDSCAPE" checked><span>16:9</span></label>
+                            <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_PORTRAIT"><span>9:16</span></label>
+                        </div>
+                    </div>
+                    <div class="panel-s pt-0 border-none">
+                        <label class="field-label">Număr Imagini (1–4)</label>
+                        <div class="flex items-center gap-4 bg-slate-100 rounded-2xl p-1.5 w-fit">
+                            <button class="count-btn" onclick="updateCount(-1)">−</button>
+                            <span id="count-val" class="font-black text-slate-900 text-base w-6 text-center">1</span>
+                            <button class="count-btn" onclick="updateCount(1)">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="vid-options" class="hidden">
+                    <div class="panel-s pt-0">
+                        <label class="field-label">Format Video</label>
+                        <div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
+                            <label class="ratio-pill flex-1"><input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_LANDSCAPE" checked><span>🖥 16:9</span></label>
+                            <label class="ratio-pill flex-1"><input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_PORTRAIT"><span>📱 9:16</span></label>
+                        </div>
+                    </div>
+                    <div class="panel-s pt-0">
+                        <label class="field-label">Număr Videoclipuri (1–4)</label>
+                        <div class="flex items-center gap-4 bg-slate-100 rounded-2xl p-1.5 w-fit">
+                            <button class="count-btn" onclick="updateVCount(-1)">−</button>
+                            <span id="vcount-val" class="font-black text-slate-900 text-base w-6 text-center">1</span>
+                            <button class="count-btn" onclick="updateVCount(1)">+</button>
+                        </div>
+                    </div>
+                    <div class="panel-s pt-0 border-none">
+                        <label class="field-label">Imagine de Start <span class="normal-case text-slate-400 font-medium">(opțional)</span></label>
+                        <input type="file" id="ref-file" class="hidden" accept="image/*">
+                        <div id="ref-zone" class="dropzone flex flex-col items-center justify-center text-center p-6 relative min-h-[100px]" onclick="document.getElementById('ref-file').click()">
+                            <div id="ref-ph" class="flex flex-col items-center gap-2">
+                                <div class="w-10 h-10 rounded-xl bg-slate-200/50 flex items-center justify-center text-slate-500"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                                <span class="text-xs font-bold text-slate-600">Încarcă o imagine</span>
+                            </div>
+                            <img id="ref-prev" src="" class="hidden absolute inset-0 w-full h-full object-cover rounded-[14px]">
+                            <button id="ref-rm" onclick="event.stopPropagation();removeRef()" class="hidden absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-xl text-red-500 items-center justify-center shadow-md border border-slate-200 z-10 hover:bg-red-50"><i class="fa-solid fa-trash text-sm"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="shrink-0 p-5 border-t border-slate-100 bg-slate-50/80 backdrop-blur-md">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Cost Estimat</span>
+                    <span class="text-lg font-black text-amber-500"><span id="total-cost">1</span> <i class="fa-solid fa-coins text-sm ml-0.5"></i></span>
+                </div>
+                <button id="gen-btn" class="gen-btn w-full text-white py-4 rounded-2xl font-black text-[1.05rem] flex items-center justify-center gap-2 shadow-lg" onclick="generate()">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> GENEREAZĂ
+                </button>
+            </div>
+        </aside>
+
+        <section class="flex-1 bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-y-auto no-scrollbar relative flex flex-col">
+            <div class="flex-1 flex flex-col p-6 md:p-10 max-w-5xl mx-auto w-full">
+
+                <div id="action-area" class="w-full mb-10 min-h-[40vh] flex flex-col items-center justify-center">
+                    
+<div id="st-empty" class="w-full flex items-center justify-center animate-slide-up px-2 py-8 md:py-16">
+    <div class="flex flex-col md:flex-row items-center justify-center gap-6 max-w-2xl bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_15px_50px_-12px_rgba(0,0,0,0.08)] border border-slate-100 relative overflow-hidden">
+        <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl"></div>
+        
+        <div class="flex items-center gap-4 md:border-r border-slate-100 md:pr-8 relative z-10">
+            <div class="w-12 h-20 bg-indigo-50/80 rounded-full flex flex-col items-center justify-center border border-indigo-100/50 shrink-0 text-indigo-500 shadow-sm relative overflow-hidden">
+                <i class="fa-solid fa-layer-group relative z-10 text-xl"></i>
+            </div>
+            <h2 class="text-[2rem] md:text-[2.5rem] font-black text-slate-800 tracking-tight leading-[1.05]">
+                <span class="block">Studio</span>
+                <span class="block text-slate-900">Creativ</span>
+            </h2>
+        </div>
+<p class="text-slate-500 font-medium text-[0.85rem] leading-relaxed text-center md:text-left relative z-10 max-w-[300px]">
+    <span class="hidden md:block">
+        Scrie un prompt în meniul din stânga,<br> alege setările și lasă inteligența artificială<br> să genereze imagini sau videoclipuri<br> cinematice.
+    </span>
+    
+    <span class="block md:hidden">
+        Apasă pe butonul <strong class="text-slate-700">Setări Generare</strong> de mai jos, scrie un prompt și lasă inteligența artificială să genereze imagini sau videoclipuri cinematice.
+    </span>
+</p>
     </div>
 </div>
 
-<div id="lightbox" onclick="closeLightbox()">
-    <button onclick="closeLightbox()" style="position:absolute;top:20px;right:24px;background:rgba(255,255,255,.1);border:none;color:white;width:44px;height:44px;border-radius:50%;font-size:1.2rem;cursor:pointer;backdrop-filter:blur(8px);z-index:10"><i class="fa-solid fa-xmark"></i></button>
-    <img id="lb-img" src="" alt="">
-</div>
-<div id="toast"></div>
-
-<header class="h-14 shrink-0 bg-white/80 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-50 shadow-sm">
-    <a href="https://viralio.ro" class="flex items-center font-black text-xl tracking-tight text-slate-900">
-        <div class="w-8 h-8 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md"><i class="fa-solid fa-bolt text-xs"></i></div>
-        Viralio
-        <span class="hidden sm:inline-flex items-center text-xs font-semibold text-slate-400 ml-2 border-l border-slate-200 pl-2"><i class="fa-solid fa-wand-magic-sparkles text-viralio-500 mr-1 text-[.6rem]"></i>AI Studio</span>
-    </a>
-    <div class="absolute left-1/2 -translate-x-1/2 bg-slate-100 p-1 rounded-2xl flex gap-0.5 border border-slate-200">
-        <button class="mode-tab active" id="tab-image" onclick="switchMode('image')"><i class="fa-solid fa-image text-viralio-500 text-[.72rem]"></i><span class="hidden sm:inline">Imagini</span></button>
-        <button class="mode-tab" id="tab-video" onclick="switchMode('video')"><i class="fa-solid fa-clapperboard text-[.72rem]"></i><span class="hidden sm:inline">Video</span></button>
-    </div>
-    <div class="flex items-center gap-2">
-        <button onclick="openLoginModal()" id="login-top-btn" class="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl hover:bg-viralio-600 transition-all font-bold text-xs shadow-sm"><i class="fa-solid fa-user text-[.6rem]"></i>Conectează-te</button>
-        <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden w-9 h-9 bg-slate-900 text-white rounded-xl font-bold text-xs flex items-center justify-center"><i class="fa-solid fa-user"></i></button>
-        <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1.5 pr-1.5 rounded-full">
-            <img id="nav-avatar" src="" class="w-7 h-7 rounded-full border border-slate-200">
-            <div class="flex-col leading-none ml-2 mr-2 hidden md:flex">
-                <span id="nav-name" class="text-xs font-bold text-slate-900 mb-0.5"></span>
-                <span class="text-[.6rem] font-bold text-viralio-600"><span id="nav-credits">0</span> Credite</span>
-            </div>
-            <button onclick="logout()" class="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 ml-1"><i class="fa-solid fa-power-off text-xs"></i></button>
-        </div>
-    </div>
-</header>
-
-<main class="flex-1 flex flex-col md:flex-row overflow-hidden">
-    <aside class="w-full md:w-[360px] lg:w-[400px] bg-white border-r border-slate-200 flex flex-col shrink-0 h-[50vh] md:h-full shadow-[4px_0_20px_rgba(0,0,0,.03)] z-20">
-        <div class="aside-inner">
-            <div class="panel-s">
-                <label class="field-label">Model AI</label>
-                <div class="select-wrap">
-                    <select id="model-sel" class="styled-select" onchange="onModelChange()">
-                        <optgroup label="✦ Generare Imagini (Banana)" id="og-img">
-                            <option value="nano-banana-pro"  data-type="image" data-cost="1">Nano Banana Pro v2 — 1 Credit/img</option>
-                        </optgroup>
-                        <optgroup label="✦ Generare Video (Veo)" id="og-vid" style="display:none">
-                            <option value="veo-3-quality" data-type="video" data-cost="5">Veo 3.1 Quality 🏆 — 5 Credite</option>
-                            <option value="veo-3-fast"    data-type="video" data-cost="3">Veo 3.1 Fast ⚡ — 3 Credite</option>
-                            <option value="veo-2"         data-type="video" data-cost="3">Veo 2 — 3 Credite</option>
-                        </optgroup>
-                    </select>
-                </div>
-                <div class="mt-2.5 flex items-center gap-1.5 flex-wrap">
-                    <span class="badge badge-indigo" id="m-type">Image</span>
-                    <span class="badge badge-amber"  id="m-cost"><i class="fa-solid fa-coins mr-1"></i>1 Credit</span>
-                    <span class="badge badge-green"  id="m-speed">Standard</span>
-                </div>
-            </div>
-
-            <div class="panel-s">
-                <label class="field-label">Prompt</label>
-                <div class="prompt-wrap">
-                    <textarea id="prompt-in" rows="4" placeholder="Descrie în detaliu ce vrei să generezi..." class="w-full bg-transparent p-4 text-sm font-medium text-slate-900 outline-none placeholder-slate-400 leading-relaxed" oninput="updateCharCount()"></textarea>
-                    <div class="flex items-center justify-between px-3 pb-3 gap-2">
-                        <button onclick="fillExample()" class="flex items-center gap-1.5 text-[.65rem] font-bold text-viralio-600 bg-viralio-50 border border-viralio-100 px-2.5 py-1.5 rounded-lg hover:bg-viralio-100 transition-colors"><i class="fa-solid fa-lightbulb text-[.6rem]"></i>Exemplu</button>
-                        <span id="char-count" class="text-[.6rem] font-bold text-slate-400">0 / 500</span>
+                    <div id="st-loading" class="hidden text-center w-full max-w-md flex-col items-center">
+                        <div class="relative w-32 h-32 mb-6 mx-auto">
+                            <svg width="0" height="0">
+                                <defs>
+                                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#4f46e5" />
+                                        <stop offset="100%" stop-color="#ec4899" />
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                <circle class="circle-bg" cx="50" cy="50" r="45"></circle>
+                                <circle id="circular-progress" class="circle-progress" cx="50" cy="50" r="45"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center flex-col">
+                                <i class="fa-solid fa-wand-magic-sparkles text-2xl text-viralio-500 animate-pulse mb-1"></i>
+                                <span id="progress-text" class="text-xs font-black text-slate-700 hidden">0%</span>
+                            </div>
+                        </div>
+                        <h3 class="text-2xl font-black text-slate-800 tracking-tight" id="load-label">Creăm Magia...</h3>
+                        <p class="text-slate-500 font-medium text-sm mt-2 mb-6" id="sse-status">Inițializare server AI</p>
+                        
+                        <div id="sk-grid" class="grid gap-4 w-full"></div>
+                        <button onclick="cancelGen()" class="mt-8 text-sm font-bold text-slate-400 hover:text-red-500 transition-colors">Anulează Procesul</button>
                     </div>
-                </div>
-            </div>
 
-            <div class="panel-s" id="panel-ratio">
-                <label class="field-label">Format imagine</label>
-                <div class="bg-slate-100 rounded-2xl p-1 flex gap-0.5">
-                    <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_LANDSCAPE" checked><span>16:9</span></label>
-                    <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_PORTRAIT"><span>9:16</span></label>
-                </div>
-            </div>
-
-            <div class="panel-s" id="panel-count">
-                <label class="field-label">Număr imagini (1–4)</label>
-                <div class="flex items-center gap-3 bg-slate-100 rounded-2xl p-1.5 w-fit">
-                    <button class="count-btn" onclick="updateCount(-1)">−</button>
-                    <span id="count-val" class="font-black text-slate-900 text-sm w-8 text-center">1</span>
-                    <button class="count-btn" onclick="updateCount(1)">+</button>
-                </div>
-            </div>
-
-            <div class="panel-s hidden" id="panel-vratio">
-                <label class="field-label">Format video</label>
-                <div class="bg-slate-100 rounded-2xl p-1 flex gap-0.5">
-                    <label class="ratio-pill flex-1"><input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_LANDSCAPE" checked><span>🖥 16:9</span></label>
-                    <label class="ratio-pill flex-1"><input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_PORTRAIT"><span>📱 9:16</span></label>
-                </div>
-            </div>
-
-            <div class="panel-s hidden" id="panel-vcount">
-                <label class="field-label">Număr videoclipuri (1–4)</label>
-                <div class="flex items-center gap-3 bg-slate-100 rounded-2xl p-1.5 w-fit">
-                    <button class="count-btn" onclick="updateVCount(-1)">−</button>
-                    <span id="vcount-val" class="font-black text-slate-900 text-sm w-8 text-center">1</span>
-                    <button class="count-btn" onclick="updateVCount(1)">+</button>
-                </div>
-            </div>
-
-            <div class="panel-s hidden" id="panel-ref">
-                <label class="field-label">Imagine de start <span class="normal-case text-slate-400 font-medium">(opțional)</span></label>
-                <input type="file" id="ref-file" class="hidden" accept="image/*">
-                <div id="ref-zone" class="dropzone flex flex-col items-center justify-center text-center p-5 relative min-h-[80px]" onclick="document.getElementById('ref-file').click()">
-                    <div id="ref-ph" class="flex flex-col items-center gap-1.5">
-                        <div class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-image text-sm"></i></div>
-                        <span class="text-xs font-bold text-slate-600">Adaugă imagine de pornire</span>
-                        <span class="text-[.65rem] text-slate-400">PNG, JPG, WEBP</span>
+                    <div id="st-result" class="hidden w-full flex-col animate-slide-up">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                                <span class="text-base font-black text-slate-800">Generare Completă</span>
+                            </div>
+                            <button onclick="regen()" class="text-sm font-bold text-viralio-600 bg-viralio-50 hover:bg-indigo-100 px-4 py-2 rounded-xl transition-colors"><i class="fa-solid fa-rotate-right mr-1.5"></i>Regenerează</button>
+                        </div>
+                        <div id="res-grid" class="grid gap-5"></div>
                     </div>
-                    <img id="ref-prev" src="" class="hidden absolute inset-0 w-full h-full object-cover rounded-[12px]">
-                    <button id="ref-rm" onclick="event.stopPropagation();removeRef()" class="hidden absolute top-2 right-2 w-7 h-7 bg-white/90 rounded-lg text-red-500 items-center justify-center shadow-md border border-slate-200 text-xs z-10"><i class="fa-solid fa-trash"></i></button>
-                </div>
-            </div>
 
-        </div><div class="shrink-0 p-4 border-t border-slate-100 bg-white/90 backdrop-blur">
-            <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-bold text-slate-400">Cost estimat:</span>
-                <span class="badge badge-amber"><i class="fa-solid fa-coins mr-1"></i><span id="total-cost">1</span> Credite</span>
-            </div>
-            <button id="gen-btn" class="gen-btn w-full text-white py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg" onclick="generate()">
-                <i class="fa-solid fa-wand-magic-sparkles"></i> GENEREAZĂ
-            </button>
-        </div>
-    </aside>
-
-    <section class="flex-1 bg-slate-100/60 overflow-y-auto h-[50vh] md:h-full relative flex flex-col">
-        <div class="relative z-10 flex-1 flex flex-col p-4 md:p-8 max-w-5xl mx-auto w-full">
-
-            <div id="st-empty" class="flex-1 flex flex-col items-center justify-center text-center">
-                <h2 class="text-2xl md:text-3xl font-black text-slate-800 mb-3 tracking-tight">Generare AI Viralio</h2>
-                <p class="text-slate-500 font-medium text-sm max-w-xs leading-relaxed">Scrie un prompt, alege modelul și lasă AI-ul să creeze imagini sau videoclipuri cinematice.</p>
-            </div>
-
-            <div id="st-loading" class="hidden flex-1 flex flex-col">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></div>
-                        <span class="text-sm font-black text-slate-700" id="load-label">Generăm...</span>
+                    <div id="st-error" class="hidden text-center w-full max-w-md animate-slide-up">
+                        <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-red-100 text-red-500 text-2xl">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <h3 class="text-xl font-black text-slate-800 mb-2">Eroare de procesare</h3>
+                        <p id="err-msg" class="text-sm text-slate-500 font-medium mb-6 leading-relaxed"></p>
+                        <button onclick="showState('empty')" class="text-sm font-bold text-white bg-slate-900 px-6 py-2.5 rounded-xl hover:bg-slate-800 transition-colors">Încearcă din nou</button>
                     </div>
-                    <button onclick="cancelGen()" class="text-xs font-bold text-red-500 bg-red-50 border border-red-100 px-3 py-1.5 rounded-xl hover:bg-red-100 transition-colors">Anulează</button>
-                </div>
-                <div id="vid-prog-wrap" class="hidden mb-4">
-                    <div class="progress-track"><div class="progress-fill" id="vid-prog-bar" style="width:0%"></div></div>
-                    <p class="text-[.65rem] font-bold text-slate-400 mt-1.5" id="vid-prog-label">Inițializare...</p>
-                </div>
-                <div id="sse-log" class="sse-log hidden"></div>
-                <div id="sk-grid" class="grid gap-4 mt-2"></div>
-            </div>
 
-            <div id="st-result" class="hidden">
-			<div id="history-section" class="mt-8 border-t border-slate-200 pt-6 hidden w-full">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-black text-slate-800" id="history-title"><i class="fas fa-history text-slate-400 mr-2"></i> Istoric Imagini</h3>
                 </div>
-                <div class="history-container">
-                    <div id="history-grid" class="history-grid">
+
+                <div class="w-full mt-auto border-t border-slate-100 pt-8 pb-4">
+                    <div id="history-grid" class="grid gap-4 grid-cols-2 lg:grid-cols-4">
                         </div>
                 </div>
-            </div>
-                <div class="flex items-center justify-between mb-5">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
-                        <span class="text-sm font-black text-slate-800" id="res-label">Generat!</span>
-                    </div>
-                    <button onclick="regen()" class="text-xs font-bold text-viralio-600 bg-viralio-50 border border-viralio-100 px-3 py-2 rounded-xl">Regenerează</button>
-                </div>
-                <div id="res-grid" class="grid gap-4"></div>
-            </div>
 
-            <div id="st-error" class="hidden flex-1 flex flex-col items-center justify-center text-center">
-                <h3 class="text-xl font-black text-slate-800 mb-2">Eroare la generare</h3>
-                <p id="err-msg" class="text-sm text-slate-500 font-medium max-w-xs mb-5 leading-relaxed"></p>
-                <button onclick="showState('empty')" class="text-xs font-bold text-viralio-600 bg-viralio-50 border border-viralio-100 px-4 py-2 rounded-xl">Înapoi</button>
             </div>
-
-        </div>
-    </section>
-</main>
+        </section>
+    </main>
 
 <script>
 const MODEL_META = {
-    'nano-banana-pro':  { type:'image', cost:1, speed:'Standard' },
-    'veo-3-quality':    { type:'video', cost:5, speed:'Cinematic'},
-    'veo-3-fast':       { type:'video', cost:3, speed:'Fast ⚡'  },
-    'veo-2':            { type:'video', cost:3, speed:'Standard' },
+    'nano-banana-pro':  { type:'image', cost:1 },
+    'veo-3-quality':    { type:'video', cost:5 },
+    'veo-3-fast':       { type:'video', cost:3 }
 };
 
 let mode = 'image'; let imgCount = 1; let vidCount = 1;
-let genAborted = false; let activeReader = null; let lastPrompt = ''; let fakeTimer = null;
+let genAborted = false; let activeReader = null; let fakeTimer = null;
 
+// --- AUTH LOGIC ---
 const $loginModal = document.getElementById('login-modal');
 function openLoginModal()  { $loginModal.classList.add('show'); }
 function closeLoginModal() { $loginModal.classList.remove('show'); }
@@ -336,15 +378,21 @@ async function handleCredentialResponse(resp) {
     try {
         const r = await fetch('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:resp.credential})});
         const d = await r.json();
-        if(d.token){setToken(d.token);closeLoginModal();updateUI(d.user);}
-    } catch(e){}
+        if(d.token){ setToken(d.token); closeLoginModal(); updateUI(d.user); }
+    } catch(e){ toast('Eroare conectare server.'); }
 }
 
 function updateUI(user) {
-    document.getElementById('login-top-btn')?.classList.add('hidden');
-    document.getElementById('login-top-btn-mobile')?.classList.add('hidden');
+    // Hide BOTH login buttons forcefully
+    const deskBtn = document.getElementById('login-top-btn');
+    const mobBtn = document.getElementById('login-top-btn-mobile');
+    if(deskBtn) deskBtn.style.display = 'none';
+    if(mobBtn) mobBtn.style.display = 'none';
+    
+    // Show Profile
     const up = document.getElementById('user-profile');
-    if(up){up.classList.remove('hidden');up.classList.add('flex');}
+    if(up) { up.classList.remove('hidden'); up.style.display = 'flex'; }
+    
     document.getElementById('nav-name').innerText = user.name.split(' ')[0];
     document.getElementById('nav-avatar').src = user.picture;
     document.getElementById('nav-credits').innerText = user.credits;
@@ -353,43 +401,68 @@ function logout(){ removeToken(); location.reload(); }
 
 window.onload = async () => {
     const t = getToken();
-    if(t){try{const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+t}});if(r.ok){const d=await r.json();updateUI(d.user);}else{removeToken();}}catch(e){}}
+    if(t){
+        try{
+            const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+t}});
+            if(r.ok){ const d=await r.json(); updateUI(d.user); } else { removeToken(); }
+        }catch(e){}
+    }
     refreshBadges();
+    if(t) loadHistory();
 };
 
+// --- UI HELPERS ---
 function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2800); }
-function showState(n){ ['empty','loading','result','error'].forEach(s=>{ const el=document.getElementById('st-'+s); if(!el)return; el.classList.toggle('hidden',s!==n); }); }
-function updateCharCount(){ document.getElementById('char-count').textContent=document.getElementById('prompt-in').value.length+' / 500'; }
-function fillExample(){ document.getElementById('prompt-in').value='Fotografie cinematică'; updateCharCount(); }
-function qp(t){ document.getElementById('prompt-in').value=t; updateCharCount(); }
+
+function showState(n){ 
+    ['empty','loading','result','error'].forEach(s => { 
+        const el = document.getElementById('st-'+s); 
+        if(el) el.classList.toggle('hidden', s !== n); 
+        if(s === n && el) el.classList.add('flex');
+        else if(el) el.classList.remove('flex');
+    }); 
+}
+
+function updateCharCount() {
+    const text = document.getElementById('prompt-in').value;
+    document.getElementById('char-count').textContent = text.length + ' caractere';
+}
+
+function fillExample(){ 
+    document.getElementById('prompt-in').value='A cinematic wide shot of a futuristic cyberpunk city at sunset, neon lights reflecting on wet streets, 8k resolution, photorealistic'; 
+    updateCharCount(); 
+}
 
 function updateCount(d){ imgCount=Math.min(4,Math.max(1,imgCount+d)); document.getElementById('count-val').textContent=imgCount; refreshBadges(); }
 function updateVCount(d){ vidCount=Math.min(4,Math.max(1,vidCount+d)); document.getElementById('vcount-val').textContent=vidCount; refreshBadges(); }
 
 function refreshBadges(){
     const sel=document.getElementById('model-sel');
-    const m=MODEL_META[sel?.value]||{type:'image',cost:1,speed:'Standard'};
+    const m=MODEL_META[sel?.value]||{type:'image',cost:1};
     const n=mode==='image'?imgCount:vidCount;
     document.getElementById('total-cost').textContent=m.cost*n;
-    document.getElementById('m-type').textContent=m.type==='image'?'Image':'Video';
+    document.getElementById('m-type').textContent=m.type==='image'?'IMAGE':'VIDEO';
 }
 function onModelChange(){ refreshBadges(); }
 
 function switchMode(m){
-    mode=m; const isVid=m==='video';
-    document.getElementById('tab-image').classList.toggle('active',!isVid);
-    document.getElementById('tab-video').classList.toggle('active',isVid);
-    document.getElementById('og-img').style.display=isVid?'none':'';
-    document.getElementById('og-vid').style.display=isVid?'':'none';
-    document.getElementById('model-sel').value=isVid?'veo-3-quality':'nano-banana-pro';
-    document.getElementById('panel-ratio').classList.toggle('hidden',isVid);
-    document.getElementById('panel-count').classList.toggle('hidden',isVid);
-    document.getElementById('panel-vratio').classList.toggle('hidden',!isVid);
-    document.getElementById('panel-vcount').classList.toggle('hidden',!isVid);
-    document.getElementById('panel-ref').classList.toggle('hidden',!isVid);
-    refreshBadges(); showState('empty');
+    mode=m; const isVid = m==='video';
+    document.getElementById('tab-image').classList.toggle('active', !isVid);
+    document.getElementById('tab-video').classList.toggle('active', isVid);
+    
+    document.getElementById('og-img').style.display = isVid ? 'none' : '';
+    document.getElementById('og-vid').style.display = isVid ? '' : 'none';
+    document.getElementById('model-sel').value = isVid ? 'veo-3-quality' : 'nano-banana-pro';
+    
+    document.getElementById('img-options').classList.toggle('hidden', isVid);
+    document.getElementById('vid-options').classList.toggle('hidden', !isVid);
+    
+    refreshBadges(); 
+    showState('empty');
+    if(getToken()) loadHistory();
 }
 
+// --- FILE REF LOGIC ---
 document.getElementById('ref-file').addEventListener('change',function(e){
     const f=e.target.files[0]; if(!f)return;
     const r=new FileReader(); r.onload=ev=>{
@@ -401,34 +474,117 @@ document.getElementById('ref-file').addEventListener('change',function(e){
     }; r.readAsDataURL(f);
 });
 function removeRef(){ document.getElementById('ref-file').value=''; document.getElementById('ref-prev').classList.add('hidden'); document.getElementById('ref-ph').style.display=''; document.getElementById('ref-rm').classList.add('hidden'); }
-function openLightbox(url){ document.getElementById('lb-img').src=url; document.getElementById('lightbox').classList.add('show'); }
-function closeLightbox(){ document.getElementById('lightbox').classList.remove('show'); }
+
+// --- LIGHTBOX ---
+function openLightbox(url, type){ 
+    const lb = document.getElementById('lightbox');
+    const img = document.getElementById('lb-img');
+    const vid = document.getElementById('lb-vid');
+    
+    img.classList.add('hidden'); vid.classList.add('hidden');
+    
+    if(type === 'image') {
+        img.src = url; img.classList.remove('hidden');
+    } else {
+        vid.src = url; vid.classList.remove('hidden');
+    }
+    lb.classList.add('show'); 
+}
+function closeLightbox(){ 
+    const lb = document.getElementById('lightbox');
+    lb.classList.remove('show'); 
+    setTimeout(() => { document.getElementById('lb-vid').pause(); }, 300);
+}
+
+// --- GENERATION LOGIC ---
 function cancelGen(){ genAborted=true; if(activeReader)activeReader.cancel(); clearFakeProgress(); showState('empty'); resetBtn(); }
-function resetBtn(){ document.getElementById('gen-btn').disabled=false; document.getElementById('gen-btn').innerHTML='GENEREAZĂ'; }
+function resetBtn(){ document.getElementById('gen-btn').disabled=false; document.getElementById('gen-btn').innerHTML='<i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> GENEREAZĂ'; }
 
 function aspectClass(r){ return r.includes('LANDSCAPE') ? 'aspect-video' : (r.includes('PORTRAIT') ? 'aspect-[9/16]' : 'aspect-square'); }
 
 function buildSkeletons(n, ac){
-    const g=document.getElementById('sk-grid'); g.innerHTML=''; g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
-    for(let i=0;i<n;i++) { g.innerHTML += `<div class="skeleton ${ac} w-full flex items-center justify-center"></div>`; }
+    const g=document.getElementById('sk-grid'); 
+    g.className = `grid gap-4 w-full ${n > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${n > 2 ? 'lg:grid-cols-4' : ''}`;
+    g.innerHTML = '';
+    for(let i=0; i<n; i++) { g.innerHTML += `<div class="skeleton ${ac} w-full flex items-center justify-center"></div>`; }
 }
+
 function buildImageGrid(urls, ratioVal){
-    const g=document.getElementById('res-grid'); g.innerHTML=''; g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
-    urls.forEach((url,i)=> g.innerHTML += `<div class="result-card"><div class="${aspectClass(ratioVal)} w-full overflow-hidden" style="border-radius:18px"><img src="${url}" class="w-full h-full object-cover" loading="lazy"><div class="card-overlay"><button onclick="openLightbox('${url}')" class="bg-white/20 text-white text-xs p-2 rounded-xl">Preview</button><a href="${url}" download="img_${i}.png" class="bg-white text-slate-900 text-xs p-2 rounded-xl">Download</a></div></div></div>`);
+    const g=document.getElementById('res-grid'); 
+    g.className = `grid gap-4 w-full ${urls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${urls.length > 2 ? 'lg:grid-cols-4' : ''}`;
+    g.innerHTML='';
+    urls.forEach((url,i)=> g.innerHTML += `
+        <div class="result-card animate-slide-up" style="animation-delay: ${i*0.1}s">
+            <div class="${aspectClass(ratioVal)} w-full relative">
+                <img src="${url}" class="w-full h-full object-cover" loading="lazy">
+                <div class="card-overlay">
+                    <button onclick="openLightbox('${url}', 'image')" class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-expand mr-1"></i>Mărește</button>
+                    <a href="${url}" download="viralio_${Date.now()}.png" class="bg-white hover:bg-slate-100 text-slate-900 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</a>
+                </div>
+            </div>
+        </div>
+    `);
 }
+
 function buildVideoGrid(urls){
-    const g=document.getElementById('res-grid'); g.innerHTML=''; g.className='grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
-    urls.forEach((url,i)=> g.innerHTML += `<div class="result-card"><video src="${url}" controls autoplay loop muted style="width:100%;border-radius:14px 14px 0 0;"></video><div class="p-3"><a href="${url}" download="vid_${i}.mp4" class="text-xs font-black bg-slate-900 text-white px-3 py-2 rounded-xl">Download</a></div></div>`);
+    const g=document.getElementById('res-grid'); 
+    g.className = `grid gap-5 w-full ${urls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${urls.length > 2 ? 'lg:grid-cols-4' : ''}`;
+    g.innerHTML='';
+    urls.forEach((url,i)=> g.innerHTML += `
+        <div class="result-card animate-slide-up bg-slate-900" style="animation-delay: ${i*0.1}s">
+            <video src="${url}" controls autoplay loop muted class="w-full rounded-t-[20px] aspect-video object-cover"></video>
+            <div class="p-3 bg-white">
+                <a href="${url}" download="viralio_vid_${Date.now()}.mp4" class="w-full block text-center text-xs font-black bg-slate-900 hover:bg-viralio-600 text-white px-4 py-3 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i> Descarcă Video</a>
+            </div>
+        </div>
+    `);
 }
 
-function logSSE(msg){ const el=document.getElementById('sse-log'); el.classList.remove('hidden'); el.innerHTML+=`<span>[API] ${msg}</span><br>`; el.scrollTop=el.scrollHeight; }
+// --- PROGRESS CIRCLE LOGIC ---
+function updateCircleProgress(percent, text) {
+    const circle = document.getElementById('circular-progress');
+    const textEl = document.getElementById('progress-text');
+    const statusEl = document.getElementById('sse-status');
+    
+    if(percent > 0) {
+        textEl.classList.remove('hidden');
+        textEl.textContent = `${Math.round(percent)}%`;
+        const offset = 283 - (percent / 100) * 283;
+        circle.style.strokeDashoffset = offset;
+    } else {
+        // Indeterminate loading
+        circle.style.strokeDashoffset = 283;
+        circle.classList.add('animate-spin');
+        circle.style.transformOrigin = 'center';
+    }
+    if(text) statusEl.textContent = text;
+}
 
+function startFakeProgress(){
+    const circle = document.getElementById('circular-progress');
+    circle.classList.remove('animate-spin');
+    let pct = 0; clearInterval(fakeTimer);
+    updateCircleProgress(0, 'Se procesează...');
+    fakeTimer = setInterval(() => { 
+        pct = Math.min(95, pct + Math.random() * 3); 
+        updateCircleProgress(pct, pct < 30 ? 'Analizăm prompt-ul...' : pct < 70 ? 'Generăm frame-urile...' : 'Randare finală...');
+    }, 1200);
+}
+
+function clearFakeProgress(){ 
+    clearInterval(fakeTimer); 
+    const circle = document.getElementById('circular-progress');
+    circle.style.strokeDashoffset = 283;
+    circle.classList.remove('animate-spin');
+    document.getElementById('progress-text').classList.add('hidden');
+}
+
+// --- SSE READER ---
 async function readSSE(response){
     const reader = response.body.getReader();
     activeReader = reader;
     const dec = new TextDecoder();
-    let buf = '';
-    let finalData = {}; 
+    let buf = ''; let finalData = {}; 
 
     try {
         while(true){
@@ -436,8 +592,7 @@ async function readSSE(response){
             const {done, value} = await reader.read();
             if(done) break;
             buf += dec.decode(value, {stream:true});
-            const lines = buf.split('\n');
-            buf = lines.pop();
+            const lines = buf.split('\n'); buf = lines.pop();
             
             for(const line of lines){
                 const t = line.trim();
@@ -451,17 +606,14 @@ async function readSSE(response){
                             const p = JSON.parse(raw);
                             if (p.error) throw new Error(p.error);
                             
-                            // Dacă datele sunt împachetate într-un obiect cu chei gen "0", "1"
-                            if (p["0"]) {
-                                Object.assign(finalData, p["0"]);
-                            } else {
-                                Object.assign(finalData, p);
-                            }
+                            if (p["0"]) Object.assign(finalData, p["0"]);
+                            else Object.assign(finalData, p);
 
-                            if(p.progress !== undefined){
-                                document.getElementById('vid-prog-bar').style.width=p.progress+'%';
+                            if(p.progress !== undefined && mode === 'video'){
+                                updateCircleProgress(p.progress, p.status || 'Procesare video...');
+                            } else if (p.status) {
+                                document.getElementById('sse-status').textContent = p.status;
                             }
-                            logSSE('Status: ' + (p.status || 'procesare...'));
                         } catch(e) {}
                     }
                 }
@@ -471,21 +623,17 @@ async function readSSE(response){
     return Object.keys(finalData).length > 0 ? finalData : null;
 }
 
-let fakeStep=0, fakePct=0;
-function startFakeProgress(){
-    fakeStep=0; fakePct=0; clearInterval(fakeTimer);
-    fakeTimer=setInterval(()=>{ fakePct=Math.min(90, fakePct+2); document.getElementById('vid-prog-bar').style.width=fakePct+'%'; },800);
-}
-function clearFakeProgress(){ clearInterval(fakeTimer); document.getElementById('vid-prog-bar').style.width='100%'; }
-
+// --- GENERATORS ---
 async function genImage(){
     const token = getToken();
     const prompt = document.getElementById('prompt-in').value.trim();
     const ratio  = document.querySelector('input[name="ratio"]:checked')?.value || 'IMAGE_ASPECT_RATIO_LANDSCAPE';
     const model_id = document.getElementById('model-sel').value;
 
-    buildSkeletons(imgCount, aspectClass(ratio));
     showState('loading');
+    buildSkeletons(imgCount, aspectClass(ratio));
+    updateCircleProgress(0, "Așteptăm server-ul..."); // Indeterminate pentru imagini
+    document.getElementById('circular-progress').classList.add('animate-spin');
 
     const fd = new FormData();
     fd.append('prompt', prompt); fd.append('aspect_ratio', ratio); fd.append('number_of_images', imgCount); fd.append('model_id', model_id); 
@@ -493,10 +641,8 @@ async function genImage(){
     const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
     const data = await readSSE(resp);
     
-    // Extragem URL-urile indiferent dacă sunt în file_urls sau file_url
     let urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
-    
-    if(!urls.length) throw new Error('Nu am găsit URL-ul în log. Verifică consola.');
+    if(!urls.length) throw new Error('Nu am primit URL de la server.');
     return {urls, ratio};
 }
 
@@ -507,7 +653,9 @@ async function genVideo(){
     const model_id = document.getElementById('model-sel').value;
     const refFile = document.getElementById('ref-file').files[0];
 
-    showState('loading'); startFakeProgress();
+    showState('loading'); 
+    document.getElementById('sk-grid').innerHTML = ''; // Nu punem scheleton pt video, arata ciudat
+    startFakeProgress();
 
     const fd = new FormData();
     fd.append('prompt', prompt); fd.append('aspect_ratio', vratio); fd.append('number_of_videos', vidCount); fd.append('model_id', model_id);
@@ -517,66 +665,82 @@ async function genVideo(){
     const data = await readSSE(resp);
     
     let urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
-    
-    if(!urls.length) throw new Error('Video generat, dar URL-ul lipsește din log.');
+    if(!urls.length) throw new Error('Video generat, dar lipsește URL-ul.');
     return urls;
 }
 
+// Main Generate Wrapper
 async function generate(){
     const token = getToken();
     if(!token){ openLoginModal(); return; }
-    if(!document.getElementById('prompt-in').value.trim()){ toast('Introdu un prompt!'); return; }
+    const promptText = document.getElementById('prompt-in').value.trim();
+    if(!promptText){ toast('Introdu un prompt descriptiv!'); return; }
 
-    genAborted = false; document.getElementById('gen-btn').disabled=true;
+    genAborted = false; 
+    const btn = document.getElementById('gen-btn');
+    btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i> PROCESARE';
+	// Închide setările pe mobil automat când apeși "Generează"
+    if (window.innerWidth < 768) {
+        const sidebar = document.getElementById('sidebar-settings');
+        if (!sidebar.classList.contains('translate-y-full')) toggleMobileSettings();
+    }
+    
     try {
-        if(mode==='image'){
+        if(mode === 'image'){
             const result = await genImage();
-            if(result) { showState('result'); buildImageGrid(result.urls, result.ratio); }
+            if(result) { 
+                showState('result'); 
+                buildImageGrid(result.urls, result.ratio); 
+                saveToSupabase(result.urls, promptText); 
+            }
         } else {
             const urls = await genVideo();
-            if(urls) { showState('result'); buildVideoGrid(urls); }
+            if(urls) { 
+                showState('result'); 
+                buildVideoGrid(urls); 
+                saveToSupabase(urls, promptText); 
+            }
         }
-        try { const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+getToken()}}); if(r.ok){const d=await r.json(); document.getElementById('nav-credits').innerText=d.user.credits;} }catch(e){}
+        // Update credits
+        try { 
+            const r = await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+getToken()}}); 
+            if(r.ok){const d=await r.json(); document.getElementById('nav-credits').innerText=d.user.credits;} 
+        } catch(e){}
     } catch(err){
         if(genAborted) return;
         showState('error'); document.getElementById('err-msg').textContent=err.message;
-    } finally { resetBtn(); clearFakeProgress(); }
+    } finally { 
+        resetBtn(); clearFakeProgress(); 
+        setTimeout(loadHistory, 3500); // Reload history after save
+    }
 }
 function regen(){ generate(); }
-// Funcție pentru preluarea istoricului
+
+// --- HISTORY & SUPABASE LOGIC ---
 async function loadHistory() {
     const token = getToken();
     if (!token) return;
 
     try {
-        const res = await fetch(`/api/media/history?type=${mode}`, {
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
+        const res = await fetch(`/api/media/history?type=${mode}`, { headers: { 'Authorization': 'Bearer ' + token } });
         const data = await res.json();
-        
-        const section = document.getElementById('history-section');
         const grid = document.getElementById('history-grid');
-        const title = document.getElementById('history-title');
-        
-        title.innerHTML = `<i class="fas fa-history text-slate-400 mr-2"></i> Istoric ${mode === 'image' ? 'Imagini' : 'Video'}`;
 
         if (data.history && data.history.length > 0) {
-            section.classList.remove('hidden');
-            grid.innerHTML = data.history.map(item => {
+            grid.innerHTML = data.history.map((item, i) => {
                 const url = item.supabaseUrl || item.originalUrl;
                 if (item.type === 'image') {
-                    return `<div class="history-item" onclick="openLightbox('${url}')"><img src="${url}" loading="lazy"></div>`;
+                    return `<div class="history-item animate-slide-up" style="animation-delay: ${i*0.05}s" onclick="openLightbox('${url}', 'image')"><img src="${url}" loading="lazy"></div>`;
                 } else {
-                    return `<div class="history-item"><video src="${url}" controls preload="none"></video></div>`;
+                    return `<div class="history-item animate-slide-up bg-slate-900" style="animation-delay: ${i*0.05}s" onclick="openLightbox('${url}', 'video')"><video src="${url}" preload="metadata" class="w-full h-full object-cover"></video><div class="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/10 transition-colors"><i class="fa-solid fa-play text-white text-3xl opacity-80 drop-shadow-md"></i></div></div>`;
                 }
             }).join('');
         } else {
-            section.classList.add('hidden');
+            grid.innerHTML = '';
         }
     } catch (e) { console.error("Eroare istoric:", e); }
 }
 
-// Funcție pentru trimiterea rezultatelor către backend (Supabase)
 async function saveToSupabase(urls, promptText) {
     const token = getToken();
     if (!token) return;
@@ -588,89 +752,24 @@ async function saveToSupabase(urls, promptText) {
         });
     } catch (e) { console.error("Eroare save-history:", e); }
 }
-
-// Suprascriem funcția `generate()` existentă pentru a salva în Supabase
-const originalGenerate = generate;
-generate = async function() {
-    const token = getToken();
-    if(!token){ openLoginModal(); return; }
-    const promptText = document.getElementById('prompt-in').value.trim();
-    if(!promptText){ toast('Introdu un prompt!'); return; }
-
-    genAborted = false; document.getElementById('gen-btn').disabled=true;
-    try {
-        if(mode === 'image'){
-            const result = await genImage();
-            if(result) { 
-                showState('result'); 
-                buildImageGrid(result.urls, result.ratio); 
-                saveToSupabase(result.urls, promptText); // SALVĂM AICI
-            }
-        } else {
-            const urls = await genVideo();
-            if(urls) { 
-                showState('result'); 
-                buildVideoGrid(urls); 
-                saveToSupabase(urls, promptText); // SALVĂM AICI
-            }
-        }
-        try { 
-            const r = await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+getToken()}}); 
-            if(r.ok){const d=await r.json(); document.getElementById('nav-credits').innerText=d.user.credits;} 
-        } catch(e){}
-    } catch(err){
-        if(genAborted) return;
-        showState('error'); document.getElementById('err-msg').textContent=err.message;
-    } finally { 
-        resetBtn(); 
-        clearFakeProgress(); 
-        // Reîncărcăm istoricul după ~4 secunde pentru a da timp serverului să uploadeze
-        setTimeout(loadHistory, 4000); 
+// Funcție pentru deschiderea/închiderea setărilor pe mobil
+function toggleMobileSettings() {
+    const sidebar = document.getElementById('sidebar-settings');
+    const overlay = document.getElementById('mobile-overlay');
+    const btn = document.getElementById('mobile-settings-btn');
+    
+    if (sidebar.classList.contains('translate-y-full')) {
+        // Deschide Pop-up
+        sidebar.classList.remove('translate-y-full');
+        overlay.classList.remove('opacity-0', 'pointer-events-none');
+        btn.classList.add('translate-y-24', 'opacity-0'); // Ascunde butonul plutitor
+    } else {
+        // Închide Pop-up
+        sidebar.classList.add('translate-y-full');
+        overlay.classList.add('opacity-0', 'pointer-events-none');
+        btn.classList.remove('translate-y-24', 'opacity-0'); // Arată butonul
     }
 }
-
-// Apelăm loadHistory la inițializarea paginii și la schimbarea tab-urilor
-const originalUpdateUI = updateUI;
-updateUI = function(user) {
-    originalUpdateUI(user);
-    loadHistory();
-}
-
-const originalSwitchMode = switchMode;
-switchMode = function(m) {
-    originalSwitchMode(m);
-    loadHistory();
-}
-
-// Declanșăm pe load dacă tokenul există deja
-window.addEventListener('DOMContentLoaded', () => {
-    if(getToken()) loadHistory();
-});
 </script>
-<div class="fixed bottom-5 right-5 md:right-6 z-[100000] flex items-center bg-white/70 backdrop-blur-2xl glass-premium-fin rounded-full p-1.5 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_15px_40px_-10px_rgba(0,0,0,0.2)] hover:bg-white/90">
-    <a href="https://discord.gg/h8Ah6VKDzm" target="_blank" class="group flex items-center gap-2 hover:bg-slate-100 rounded-full px-3 py-1.5 transition-all duration-300">
-        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-900 text-white shadow-sm group-hover:bg-[#5865F2] group-hover:scale-105 transition-all duration-300">
-            <i class="fa-brands fa-discord text-sm"></i>
-        </div>
-        <div class="flex-col hidden sm:flex text-left">
-            <span class="text-[0.55rem] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Ai Întrebări?</span>
-            <span class="text-xs font-black text-slate-800 leading-none group-hover:text-black transition-colors duration-300">Suport Discord</span>
-        </div>
-    </a>
-    <div class="w-px h-6 bg-gradient-to-b from-transparent via-slate-300 to-transparent mx-1"></div>
-    <a href="https://t.me/SmartCreator_official" target="_blank" class="group flex items-center gap-2 rounded-full px-3 py-1.5 transition-all duration-300">
-        <div class="relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300">
-            <div class="absolute inset-0 rounded-full bg-gradient-to-br from-[#0088cc] to-[#00aaff] overflow-hidden shadow-[0_0_15px_rgba(0,136,204,0.4)]">
-                <div class="absolute inset-0 w-[250%] h-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shine-fast z-10"></div>
-            </div>
-            <i class="fa-brands fa-telegram text-white text-sm pr-0.5 relative z-20"></i>
-            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse z-30 shadow-sm"></span>
-        </div>
-        <div class="flex-col hidden sm:flex text-left">
-            <span class="text-[0.55rem] font-bold text-red-500 uppercase tracking-widest leading-none mb-0.5 drop-shadow-sm">Giveaways</span>
-            <span class="text-xs font-black text-slate-800 leading-none group-hover:text-[#0088cc] transition-colors duration-300">Telegram VIP</span>
-        </div>
-    </a>
-</div>
 </body>
 </html>
