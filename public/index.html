@@ -233,13 +233,13 @@
             </div>
 
             <!-- IMAGE: FORMAT -->
-            <div class="panel-s" id="panel-ratio">
-                <label class="field-label">Format imagine</label>
-                <div class="bg-slate-100 rounded-2xl p-1 flex gap-0.5">
-                    <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_LANDSCAPE"><span>16:9</span></label>
-                    <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_PORTRAIT"><span>9:16</span></label>
-                </div>
-            </div>
+<div class="panel-s" id="panel-ratio">
+    <label class="field-label">Format imagine</label>
+    <div class="bg-slate-100 rounded-2xl p-1 flex gap-0.5">
+        <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_LANDSCAPE" checked><span>16:9</span></label>
+        <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_PORTRAIT"><span>9:16</span></label>
+    </div>
+</div>
 
             <!-- IMAGE: COUNT -->
             <div class="panel-s" id="panel-count">
@@ -522,10 +522,10 @@ function cancelGen(){
 function resetBtn(){ const b=document.getElementById('gen-btn'); b.disabled=false; b.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i> GENEREAZĂ'; }
 
 // ═══ SKELETONS ═══
-function aspectClass(r){ if(r.includes('LANDSCAPE'))return'aspect-video'; if(r.includes('PORTRAIT'))return'aspect-[9/16]'; return'aspect-square'; }
-
 function buildSkeletons(n, ac){
-    const g=document.getElementById('sk-grid'); g.innerHTML=''; g.className='grid gap-4 '+(n===1?'grid-cols-1':'grid-cols-2');
+    const g=document.getElementById('sk-grid'); g.innerHTML=''; 
+    // Modificat aici:
+    g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
     for(let i=0;i<n;i++){
         const d=document.createElement('div'); d.className='skeleton '+ac+' w-full flex items-center justify-center';
         d.innerHTML='<div class="text-center"><i class="fa-solid fa-microchip text-3xl text-slate-300 mb-2 block"></i><span class="text-xs font-bold text-slate-400">Generăm...</span></div>';
@@ -535,7 +535,9 @@ function buildSkeletons(n, ac){
 
 // ═══ RESULT GRIDS ═══
 function buildImageGrid(urls, ratioVal){
-    const g=document.getElementById('res-grid'); g.innerHTML=''; g.className='grid gap-4 '+(urls.length===1?'grid-cols-1':'grid-cols-2');
+    const g=document.getElementById('res-grid'); g.innerHTML=''; 
+    // Modificat aici:
+    g.className='grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
     const ac=aspectClass(ratioVal);
     urls.forEach((url,i)=>{
         const c=document.createElement('div'); c.className='result-card';
@@ -545,14 +547,15 @@ function buildImageGrid(urls, ratioVal){
 }
 
 function buildVideoGrid(urls){
-    const g=document.getElementById('res-grid'); g.innerHTML=''; g.className='grid gap-6 '+(urls.length===1?'grid-cols-1':'grid-cols-2');
+    const g=document.getElementById('res-grid'); g.innerHTML=''; 
+    // Modificat aici:
+    g.className='grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
     urls.forEach((url,i)=>{
         const c=document.createElement('div'); c.className='result-card';
         c.innerHTML=`<video src="${url}" controls autoplay loop muted playsinline style="width:100%;border-radius:14px 14px 0 0;display:block"></video><div class="p-3 flex items-center justify-between bg-white border-t border-slate-100"><span class="text-xs font-bold text-emerald-600 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>Video generat</span><a href="${url}" download="viralio_video_${Date.now()}_${i}.mp4" class="flex items-center gap-1.5 text-xs font-black bg-slate-900 text-white px-3.5 py-2 rounded-xl hover:bg-viralio-600 transition-colors shadow-sm"><i class="fa-solid fa-download"></i> MP4</a></div>`;
         g.appendChild(c);
     });
 }
-
 // ═══ SSE LOG ═══
 function logSSE(msg){ const el=document.getElementById('sse-log'); el.classList.remove('hidden'); el.innerHTML+=`<span style="color:#94a3b8">[${new Date().toLocaleTimeString()}]</span> ${msg}<br>`; el.scrollTop=el.scrollHeight; }
 

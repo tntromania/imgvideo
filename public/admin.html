@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="utf-8">
+    <title>Admin Dashboard | Viralio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 p-8 font-sans text-slate-800">
+
+    <div class="max-w-5xl mx-auto">
+        <h1 class="text-3xl font-black mb-8">Dashboard Viralio AI</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-slate-400 text-sm font-bold uppercase">Utilizatori Totali</h3>
+                <p id="stat-users" class="text-4xl font-black text-indigo-600 mt-2">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-slate-400 text-sm font-bold uppercase">Imagini Generate</h3>
+                <p id="stat-images" class="text-4xl font-black text-pink-500 mt-2">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-slate-400 text-sm font-bold uppercase">Video Generate</h3>
+                <p id="stat-videos" class="text-4xl font-black text-emerald-500 mt-2">0</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-4 bg-slate-100 border-b border-slate-200 font-bold">Ultimele 100 de generări</div>
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr class="text-slate-400 bg-slate-50 uppercase text-xs">
+                        <th class="p-4">Utilizator (Email)</th>
+                        <th class="p-4">Tip</th>
+                        <th class="p-4">Cantitate</th>
+                        <th class="p-4">Credite Consumate</th>
+                        <th class="p-4">Data și Ora</th>
+                    </tr>
+                </thead>
+                <tbody id="logs-table" class="divide-y divide-slate-100">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+	function getToken() {
+    const m = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/);
+    return m ? m[1] : null;
+}
+        async function loadDashboard() {
+            try {
+                const res = await fetch('/api/admin/stats');
+                const data = await res.json();
+                
+                document.getElementById('stat-users').innerText = data.totalUsers;
+                document.getElementById('stat-images').innerText = data.totalImages;
+                document.getElementById('stat-videos').innerText = data.totalVideos;
+
+                const tbody = document.getElementById('logs-table');
+                tbody.innerHTML = '';
+                
+                data.recentLogs.forEach(log => {
+                    const row = document.createElement('tr');
+                    const date = new Date(log.createdAt).toLocaleString('ro-RO');
+                    row.innerHTML = `
+                        <td class="p-4 font-medium">${log.userEmail}</td>
+                        <td class="p-4"><span class="px-2 py-1 rounded bg-slate-100 text-xs font-bold uppercase ${log.type === 'video' ? 'text-emerald-600' : 'text-pink-600'}">${log.type}</span></td>
+                        <td class="p-4 font-bold">${log.count}</td>
+                        <td class="p-4 text-amber-600 font-bold">-${log.cost}</td>
+                        <td class="p-4 text-slate-500">${date}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (err) {
+                console.error('Eroare la încărcarea datelor', err);
+            }
+        }
+        loadDashboard();
+        // Se dă refresh automat la fiecare 30 de secunde
+        setInterval(loadDashboard, 30000);
+    </script>
+</body>
+</html>
