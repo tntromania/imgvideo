@@ -624,6 +624,31 @@ async function readSSE(response){
 }
 
 // --- GENERATORS ---
+function extractUrls(data) {
+    if (!data) return [];
+    
+    // 1. Verificăm structura veche
+    if (data.file_urls && Array.isArray(data.file_urls) && data.file_urls.length > 0) return data.file_urls;
+    
+    // 2. Căutăm cele mai comune nume de variabile folosite de API-uri
+    const possibleKeys = ['file_url', 'video_url', 'image_url', 'url', 'uri', 'video', 'output'];
+    for (let key of possibleKeys) {
+        if (typeof data[key] === 'string' && data[key].startsWith('http')) return [data[key]];
+        if (Array.isArray(data[key]) && typeof data[key][0] === 'string' && data[key][0].startsWith('http')) return data[key];
+    }
+
+    // 3. Scanare Agresivă: Căutăm efectiv orice string care începe cu "http" în obiectul primit
+    let foundUrls = [];
+    const scanObj = (obj) => {
+        for (let k in obj) {
+            if (typeof obj[k] === 'string' && obj[k].startsWith('http')) foundUrls.push(obj[k]);
+            else if (typeof obj[k] === 'object' && obj[k] !== null) scanObj(obj[k]);
+        }
+    };
+    scanObj(data);
+    
+    return foundUrls;
+}
 async function genImage(){
     const token = getToken();
     const prompt = document.getElementById('prompt-in').value.trim();
@@ -639,12 +664,16 @@ async function genImage(){
     fd.append('prompt', prompt); fd.append('aspect_ratio', ratio); fd.append('number_of_images', imgCount); fd.append('model_id', model_id); 
 
     const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
-    const data = await readSSE(resp);
+const data = await readSSE(resp);
     
-    let urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
-    if(!urls.length) throw new Error('Nu am primit URL de la server.');
-    return {urls, ratio};
-}
+    let urls = extractUrls(data);
+    
+    if(!urls.length) {
+        console.error("RAW API RESPONSE (Răspunsul brut de la GenAIPro):", data); // Ne va arăta fix eroarea de la ei
+        throw new Error('Eroare la API! URL-ul lipsește. (Apasă F12 și verifică Consola pentru detalii exacte)');
+    }
+    
+    return mode === 'image' ? {urls, ratio} : urls;
 
 async function genVideo(){
     const token = getToken();
@@ -662,13 +691,16 @@ async function genVideo(){
     if(refFile) fd.append('start_image', refFile);
 
     const resp = await fetch('/api/media/video', { method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd });
-    const data = await readSSE(resp);
+const data = await readSSE(resp);
     
-    let urls = data?.file_urls || (data?.file_url ? [data.file_url] : []);
-    if(!urls.length) throw new Error('Video generat, dar lipsește URL-ul.');
-    return urls;
-}
-
+    let urls = extractUrls(data);
+    
+    if(!urls.length) {
+        console.error("RAW API RESPONSE (Răspunsul brut de la GenAIPro):", data); // Ne va arăta fix eroarea de la ei
+        throw new Error('Eroare la API! URL-ul lipsește. (Apasă F12 și verifică Consola pentru detalii exacte)');
+    }
+    
+    return mode === 'image' ? {urls, ratio} : urls;
 // Main Generate Wrapper
 async function generate(){
     const token = getToken();

@@ -146,15 +146,22 @@ const pipeStream = async (apiRes, res) => {
             for (const key of Object.keys(json)) {
                 if (!isNaN(key)) { hasNumericKeys = true; break; }
             }
-            if (hasNumericKeys) {
-                // Extragem valorile din "0","1",... și le combinăm
+if (hasNumericKeys) {
                 const items = Object.values(json);
-                // Colectăm toate file_url-urile
-                const file_urls = items.map(i => i.file_url).filter(Boolean);
                 const first = items[0] || {};
                 Object.assign(normalized, first);
-                if (file_urls.length > 1) normalized.file_urls = file_urls;
-                else if (file_urls.length === 1) normalized.file_url = file_urls[0];
+                
+                // Căutăm orice fel de URL (video sau imagine)
+                const allUrls = [];
+                items.forEach(i => {
+                    if (i.file_url) allUrls.push(i.file_url);
+                    if (i.video_url) allUrls.push(i.video_url);
+                    if (i.url) allUrls.push(i.url);
+                });
+                
+                if (allUrls.length > 0) {
+                    normalized.file_urls = allUrls;
+                }
             } else {
                 Object.assign(normalized, json);
             }
