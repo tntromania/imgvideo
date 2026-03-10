@@ -33,28 +33,11 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
-const { createClient } = require('@supabase/supabase-js');
-
-// Configurare Supabase (Asigură-te că ai adăugat aceste variabile în .env)
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
-
-// Model MongoDB pentru Istoric
-const HistorySchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    type: { type: String, enum: ['image', 'video'], required: true },
-    originalUrl: String,
-    supabaseUrl: String,
-    prompt: String,
-    createdAt: { type: Date, default: Date.now }
-});
-const History = mongoose.models.History || mongoose.model('History', HistorySchema);
-
-// Model MongoDB pentru Log-uri (adăugat pentru a repara eroarea 500)
 const LogSchema = new mongoose.Schema({
-    userEmail: { type: String, required: true },
-    type: { type: String, enum: ['image', 'video'], required: true },
-    count: { type: Number, required: true },
-    cost: { type: Number, required: true },
+    userEmail: String,
+    type: String,
+    count: Number,
+    cost: Number,
     createdAt: { type: Date, default: Date.now }
 });
 const Log = mongoose.models.Log || mongoose.model('Log', LogSchema);
@@ -125,49 +108,11 @@ const MODEL_PRICES = {
     'veo-2': 3,
 };
 
-const sendSSE = (res, data) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-};
-
-const pipeStream = async (apiRes, res) => {
+const pipeStream = (apiRes, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-
-    const contentType = apiRes.headers.get('content-type') || '';
-
-    // Dacă API-ul returnează JSON direct (nu SSE), normalizăm la format SSE
-    if (contentType.includes('application/json')) {
-        try {
-            const json = await apiRes.json();
-            // Normalizăm obiectele cu chei "0","1",... (array-like objects)
-            const normalized = {};
-            let hasNumericKeys = false;
-            for (const key of Object.keys(json)) {
-                if (!isNaN(key)) { hasNumericKeys = true; break; }
-            }
-            if (hasNumericKeys) {
-                // Extragem valorile din "0","1",... și le combinăm
-                const items = Object.values(json);
-                // Colectăm toate file_url-urile
-                const file_urls = items.map(i => i.file_url).filter(Boolean);
-                const first = items[0] || {};
-                Object.assign(normalized, first);
-                if (file_urls.length > 1) normalized.file_urls = file_urls;
-                else if (file_urls.length === 1) normalized.file_url = file_urls[0];
-            } else {
-                Object.assign(normalized, json);
-            }
-            sendSSE(res, normalized);
-            res.write('data: [DONE]\n\n');
-        } catch (e) {
-            sendSSE(res, { error: 'Eroare la parsarea răspunsului API' });
-        }
-        res.end();
-    } else {
-        // SSE real — pipe direct
-        Readable.fromWeb(apiRes.body).pipe(res);
-    }
+    Readable.fromWeb(apiRes.body).pipe(res);
 };
 
 app.post('/api/media/image', authenticate, upload.none(), async (req, res) => {
@@ -302,65 +247,6 @@ app.get('/api/admin/api-quota', authenticateAdmin, async (req, res) => {
 
 if (!process.env.GENAIPRO_API_KEY) console.error("Lipsește cheia API GenAIPro!");
 
-// RUTELE DE API PENTRU ISTORIC (Mutate mai sus pentru a nu fi blocate de catch-all)
-
-// Preia istoricul în funcție de tip (image sau video)
-app.get('/api/media/history', authenticate, async (req, res) => {
-    try {
-        const type = req.query.type || 'image';
-        const history = await History.find({ userId: req.userId, type: type })
-                                     .sort({ createdAt: -1 })
-                                     .limit(50); // Limităm la ultimele 50 pentru performanță
-        res.json({ history });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// Salvează rezultatele generate în Supabase și în MongoDB
-app.post('/api/media/save-history', authenticate, async (req, res) => {
-    const { urls, type, prompt } = req.body;
-    if (!urls || !urls.length) return res.status(400).json({ error: 'Fără URL-uri.' });
-
-    // Răspundem imediat clientului pentru a nu bloca interfața
-    res.status(202).json({ message: 'Salvare pornită în fundal' });
-
-    try {
-        for (const url of urls) {
-            // 1. Descărcăm fișierul generat temporar
-            const response = await fetch(url);
-            const buffer = await response.arrayBuffer();
-            const extension = type === 'video' ? 'mp4' : 'png';
-            const fileName = `${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
-
-            // 2. Upload în Supabase (bucket-ul trebuie să se numească 'media-history')
-            const { data, error } = await supabase.storage
-                .from('media-history')
-                .upload(fileName, buffer, { 
-                    contentType: type === 'video' ? 'video/mp4' : 'image/png' 
-                });
-
-            if (error) throw error;
-
-            // 3. Obținem URL-ul public
-            const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-
-            // 4. Salvăm în MongoDB
-            await History.create({
-                userId: req.userId,
-                type: type,
-                originalUrl: url,
-                supabaseUrl: publicData.publicUrl,
-                prompt: prompt
-            });
-        }
-    } catch (err) {
-        console.error('Eroare la salvarea în Supabase:', err.message);
-    }
-});
-
-// CATCH-ALL PENTRU FRONTEND (Mutate la final)
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-
 app.listen(PORT, () => console.log(`🚀 Media Studio rulează pe portul ${PORT}`));
