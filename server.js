@@ -57,7 +57,8 @@ const authenticate = (req, res, next) => {
 };
 
 // ADMIN MIDDLEWARE (Pune emailul tău aici!)
-const ADMIN_EMAILS = ['emailul_tau@gmail.com']; 
+const ADMIN_EMAILS = ['banicualex3@gmail.com']; // <-- Ai pus adresa ta aici, da?
+
 const authenticateAdmin = async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: "Acces interzis!" });
@@ -70,7 +71,8 @@ const authenticateAdmin = async (req, res, next) => {
             req.userId = decoded.userId;
             next();
         } else {
-            res.status(403).json({ error: "Nu ai permisiuni de administrator!" });
+            // ACUM ÎȚI VA ZICE EXACT CE EMAIL A GĂSIT!
+            res.status(403).json({ error: `Acces respins! Adresa ta (${user?.email}) nu este în lista de admini din server.js.` });
         }
     } catch (e) { 
         return res.status(401).json({ error: "Sesiune invalidă." }); 

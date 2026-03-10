@@ -174,12 +174,10 @@
                     <select id="model-sel" class="styled-select" onchange="onModelChange()">
                         <optgroup label="✦ Generare Imagini (Banana)" id="og-img">
                             <option value="nano-banana-pro"  data-type="image" data-cost="1">Nano Banana Pro v2 — 1 Credit/img</option>
-                            <option value="nano-banana-fast" data-type="image" data-cost="1">Nano Banana Fast ⚡ — 1 Credit/img</option>
                         </optgroup>
                         <optgroup label="✦ Generare Video (Veo)" id="og-vid" style="display:none">
                             <option value="veo-3-quality" data-type="video" data-cost="5">Veo 3.1 Quality 🏆 — 5 Credite</option>
                             <option value="veo-3-fast"    data-type="video" data-cost="3">Veo 3.1 Fast ⚡ — 3 Credite</option>
-                            <option value="veo-2"         data-type="video" data-cost="3">Veo 2 — 3 Credite</option>
                         </optgroup>
                     </select>
                 </div>
@@ -509,7 +507,7 @@ async function readSSE(response){
     activeReader = reader;
     const dec = new TextDecoder();
     let buf = '';
-    let bestData = null; // AICI VOM SALVA LINK-UL CÂND APARE!
+    let bestData = null;
 
     try {
         while(true){
@@ -519,40 +517,45 @@ async function readSSE(response){
             buf += dec.decode(value, {stream:true});
             const lines = buf.split('\n');
             buf = lines.pop();
+            
             for(const line of lines){
                 const t = line.trim();
                 if(!t || t.startsWith(':')) continue;
                 if(t.startsWith('data:')){
                     const raw = t.slice(5).trim();
-                    if(raw==='[DONE]') continue;
-                    try {
-                        const p = JSON.parse(raw);
-                        
-                        // Dacă API-ul ne aruncă o eroare direct în stream:
-                        if (p.error) throw new Error(p.error);
+                    if(raw === '[DONE]') continue;
+                    
+                    // Verificăm dacă e JSON (începe cu { sau [ )
+                    if (raw.startsWith('{') || raw.startsWith('[')) {
+                        try {
+                            const p = JSON.parse(raw);
+                            if (p.error) throw new Error(p.error);
+                            
+                            if (p.file_url || p.file_urls) {
+                                bestData = p; // AM PRINS LINK-UL!
+                            } else if (!bestData) {
+                                bestData = p;
+                            }
 
-                        // Salvăm obiectul DACA conține file_url. Așa nu îl mai pierdem!
-                        if (p.file_url || p.file_urls) {
-                            bestData = p;
-                        } else if (!bestData) {
-                            bestData = p; // Fallback
+                            if(p.progress !== undefined){
+                                const pct=Math.min(99,Math.round(p.progress));
+                                document.getElementById('vid-prog-bar').style.width=pct+'%';
+                                document.getElementById('vid-prog-label').textContent='Progres: '+pct+'%';
+                            }
+                            logSSE('Status: ' + (p.status || 'generare...'));
+                        } catch(e) { 
+                            logSSE('Eroare date: ' + raw.slice(0,30)); 
                         }
-
-                        if(p.progress !== undefined){
-                            const pct=Math.min(99,Math.round(p.progress));
-                            document.getElementById('vid-prog-bar').style.width=pct+'%';
-                            document.getElementById('vid-prog-label').textContent='Progres: '+pct+'%';
-                        }
-                        logSSE('Status: '+(p.status||'processing'));
-                    } catch(e) { 
-                        logSSE(e.message || raw.slice(0,80)); 
+                    } else {
+                        // Dacă e doar un cuvânt simplu primit de la API (starting, processing)
+                        logSSE('Status: ' + raw);
                     }
                 }
             }
         }
     } finally { activeReader = null; }
     
-    return bestData; // Returnăm datele bune
+    return bestData;
 }
 
 // ═══ FAKE PROGRESS ═══
