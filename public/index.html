@@ -692,7 +692,9 @@ function extractUrls(data) {
 async function genImage(){
     const token = getToken();
     const prompt = document.getElementById('prompt-in').value.trim();
-const vratio  = document.querySelector('input[name="vratio"]:checked')?.value || '16:9';
+    
+    // Aici era greșeala: trebuie "ratio" și "name='ratio'"
+    const ratio = document.querySelector('input[name="ratio"]:checked')?.value || '16:9';
     const model_id = document.getElementById('model-sel').value;
 
     showState('loading');
@@ -701,11 +703,13 @@ const vratio  = document.querySelector('input[name="vratio"]:checked')?.value ||
     document.getElementById('circular-progress').classList.add('animate-spin');
 
     const fd = new FormData();
-    fd.append('prompt', prompt); fd.append('aspect_ratio', ratio); fd.append('number_of_images', imgCount); fd.append('model_id', model_id); 
+    fd.append('prompt', prompt); 
+    fd.append('aspect_ratio', ratio); 
+    fd.append('number_of_images', imgCount); 
+    fd.append('model_id', model_id); 
 
     const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
     
-    // [FIX 2] Verificare Server Error (nu mai dă răspuns null orb)
     if(!resp.ok) {
         let errStr = "Eroare la procesare pe server.";
         try { const j = await resp.json(); errStr = j.error || errStr; } catch(e){}
@@ -725,7 +729,9 @@ const vratio  = document.querySelector('input[name="vratio"]:checked')?.value ||
 async function genVideo(){
     const token = getToken();
     const prompt  = document.getElementById('prompt-in').value.trim();
-    const vratio  = document.querySelector('input[name="vratio"]:checked')?.value || 'VIDEO_ASPECT_RATIO_LANDSCAPE';
+    
+    // Aici trebuia updatat la '16:9'
+    const vratio  = document.querySelector('input[name="vratio"]:checked')?.value || '16:9';
     const model_id = document.getElementById('model-sel').value;
     const refFile = document.getElementById('ref-file').files[0];
 
@@ -734,12 +740,14 @@ async function genVideo(){
     startFakeProgress();
 
     const fd = new FormData();
-    fd.append('prompt', prompt); fd.append('aspect_ratio', vratio); fd.append('number_of_videos', vidCount); fd.append('model_id', model_id);
+    fd.append('prompt', prompt); 
+    fd.append('aspect_ratio', vratio); 
+    fd.append('number_of_videos', vidCount); 
+    fd.append('model_id', model_id);
     if(refFile) fd.append('start_image', refFile);
 
     const resp = await fetch('/api/media/video', { method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd });
     
-    // [FIX 2] Verificare Server Error
     if(!resp.ok) {
         let errStr = "Eroare la procesare pe server.";
         try { const j = await resp.json(); errStr = j.error || errStr; } catch(e){}
