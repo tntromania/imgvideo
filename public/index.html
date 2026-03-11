@@ -25,21 +25,6 @@
     </script>
 
     <style>
-	/* Limitează mărimea rezultatului pentru a nu ocupa tot ecranul */
-#res-grid .result-card img, 
-#res-grid .result-card video {
-    max-height: 65vh; /* Ocupă maxim 65% din înălțimea ecranului */
-    width: auto;
-    margin: 0 auto;
-    display: block;
-    object-fit: contain; /* Păstrează proporțiile fără să taie din imagine */
-}
-
-#res-grid {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
         *, *::before, *::after { box-sizing:border-box; }
         body { background:#F8FAFC; color:#0f172a; overflow:hidden; font-family:'Inter',sans-serif; -webkit-font-smoothing: antialiased; }
         
@@ -371,7 +356,6 @@
         </section>
     </main>
 
-<script>
 const MODEL_META = {
     'nano-banana-pro':  { type:'image', cost:1 },
     'veo-3-quality':    { type:'video', cost:5 },
@@ -409,7 +393,7 @@ function updateUI(user) {
     document.getElementById('nav-name').innerText = user.name.split(' ')[0];
     document.getElementById('nav-avatar').src = user.picture;
     document.getElementById('nav-credits').innerText = user.credits;
-	loadHistory()
+    loadHistory()
 }
 function logout(){ removeToken(); location.reload(); }
 
@@ -450,7 +434,6 @@ function fillExample(){
 function updateCount(d){ imgCount=Math.min(4,Math.max(1,imgCount+d)); document.getElementById('count-val').textContent=imgCount; refreshBadges(); }
 function updateVCount(d){ vidCount=Math.min(4,Math.max(1,vidCount+d)); document.getElementById('vcount-val').textContent=vidCount; refreshBadges(); }
 
-// [FIX 1] refreshBadges protejat la elemente inexistente (eroarea de null)
 function refreshBadges(){
     const sel=document.getElementById('model-sel');
     const m=MODEL_META[sel?.value]||{type:'image',cost:1};
@@ -481,7 +464,6 @@ function switchMode(m){
     if(getToken()) loadHistory();
 }
 
-// --- FILE REF LOGIC ---
 document.getElementById('ref-file').addEventListener('change',function(e){
     const f=e.target.files[0]; if(!f)return;
     const r=new FileReader(); r.onload=ev=>{
@@ -515,11 +497,10 @@ function closeLightbox(){
     setTimeout(() => { document.getElementById('lb-vid').pause(); }, 300);
 }
 
-// --- GENERATION LOGIC ---
+// --- LOGICĂ NOUĂ PENTRU GRID INTELIGENT ---
 function cancelGen(){ genAborted=true; if(activeReader)activeReader.cancel(); clearFakeProgress(); showState('empty'); resetBtn(); }
 function resetBtn(){ document.getElementById('gen-btn').disabled=false; document.getElementById('gen-btn').innerHTML='<i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> GENEREAZĂ'; }
 
-// --- FUNCȚIE NOUĂ DE DESCĂRCARE SIGURĂ ---
 async function downloadMedia(url, filename) {
     try {
         const response = await fetch(url);
@@ -533,7 +514,6 @@ async function downloadMedia(url, filename) {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
-        // Fallback dacă fișierul extern blochează descărcarea directă
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
@@ -544,47 +524,66 @@ async function downloadMedia(url, filename) {
     }
 }
 
-// --- ACTUALIZARE FUNCȚII DE AFIȘARE ---
 function aspectClass(r){ return r.includes('LANDSCAPE') ? 'aspect-video' : (r.includes('PORTRAIT') ? 'aspect-[9/16]' : 'aspect-square'); }
 
-function buildSkeletons(n, ac){
+function getGridClass(count, ratio) {
+    const isLandscape = ratio.includes('LANDSCAPE');
+    if (count === 1) {
+        // O imagine/video centrat (mai mare pt landscape, mai mic pt portrait sa nu ocupe tot ecranul vertical)
+        return isLandscape ? 'grid grid-cols-1 max-w-4xl mx-auto' : 'grid grid-cols-1 max-w-sm mx-auto';
+    }
+    if (isLandscape) {
+        // Landscape: maxim 2 pe rând (ex: 2x2 pentru 4 imagini)
+        return 'grid grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto';
+    } else {
+        // Portrait: 4 pe un rând pe desktop, 2 pe rând pe mobil
+        return `grid grid-cols-2 ${count > 2 ? 'md:grid-cols-4' : 'md:grid-cols-2'} max-w-5xl mx-auto`;
+    }
+}
+
+function buildSkeletons(n, ratioVal){
     const g=document.getElementById('sk-grid'); 
-    g.className = `grid gap-4 w-full ${n > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${n > 2 ? 'lg:grid-cols-4' : ''}`;
+    g.className = `gap-4 w-full ${getGridClass(n, ratioVal)}`;
     g.innerHTML = '';
-    for(let i=0; i<n; i++) { g.innerHTML += `<div class="skeleton ${ac} w-full flex items-center justify-center"></div>`; }
+    for(let i=0; i<n; i++) { g.innerHTML += `<div class="skeleton ${aspectClass(ratioVal)} w-full flex items-center justify-center rounded-2xl"></div>`; }
 }
 
 function buildImageGrid(urls, ratioVal){
     const g=document.getElementById('res-grid'); 
-    g.className = `grid gap-4 w-full ${urls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${urls.length > 2 ? 'lg:grid-cols-4' : ''}`;
+    g.className = `gap-5 w-full ${getGridClass(urls.length, ratioVal)}`;
     g.innerHTML='';
     urls.forEach((url,i)=> g.innerHTML += `
-        <div class="result-card animate-slide-up" style="animation-delay: ${i*0.1}s">
-            <div class="${aspectClass(ratioVal)} w-full relative">
-                <img src="${url}" class="w-full h-full object-cover" loading="lazy">
+        <div class="result-card animate-slide-up flex flex-col justify-between h-full" style="animation-delay: ${i*0.1}s">
+            <div class="${aspectClass(ratioVal)} w-full relative group">
+                <img src="${url}" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
                 <div class="card-overlay">
                     <button onclick="openLightbox('${url}', 'image')" class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-expand mr-1"></i>Mărește</button>
-                    <button onclick="downloadMedia('${url}', 'viralio_${Date.now()}.png')" class="bg-white hover:bg-slate-100 text-slate-900 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
                 </div>
+            </div>
+            <div class="p-3 bg-white mt-auto border-t border-slate-100">
+                <button onclick="downloadMedia('${url}', 'viralio_${Date.now()}.png')" class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
             </div>
         </div>
     `);
 }
 
-function buildVideoGrid(urls){
+function buildVideoGrid(urls, ratioVal){
     const g=document.getElementById('res-grid'); 
-    g.className = `grid gap-5 w-full ${urls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${urls.length > 2 ? 'lg:grid-cols-4' : ''}`;
+    g.className = `gap-5 w-full ${getGridClass(urls.length, ratioVal)}`;
     g.innerHTML='';
     urls.forEach((url,i)=> g.innerHTML += `
-        <div class="result-card animate-slide-up bg-slate-900" style="animation-delay: ${i*0.1}s">
-            <video src="${url}" controls autoplay loop muted class="w-full rounded-t-[20px] aspect-video object-cover"></video>
-            <div class="p-3 bg-white">
+        <div class="result-card animate-slide-up bg-slate-900 flex flex-col h-full" style="animation-delay: ${i*0.1}s">
+            <div class="${aspectClass(ratioVal)} w-full relative bg-black">
+                <video src="${url}" controls autoplay loop muted class="absolute inset-0 w-full h-full object-cover"></video>
+            </div>
+            <div class="p-3 bg-white mt-auto">
                 <button onclick="downloadMedia('${url}', 'viralio_vid_${Date.now()}.mp4')" class="w-full block text-center text-xs font-black bg-slate-900 hover:bg-viralio-600 text-white px-4 py-3 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i> Descarcă Video</button>
             </div>
         </div>
     `);
 }
 
+// --- SSE & GENERATOARE ---
 function updateCircleProgress(percent, text) {
     const circle = document.getElementById('circular-progress');
     const textEl = document.getElementById('progress-text');
@@ -622,7 +621,6 @@ function clearFakeProgress(){
     document.getElementById('progress-text').classList.add('hidden');
 }
 
-// --- SSE READER ---
 async function readSSE(response){
     const reader = response.body.getReader();
     activeReader = reader;
@@ -666,7 +664,6 @@ async function readSSE(response){
     return Object.keys(finalData).length > 0 ? finalData : null;
 }
 
-// --- EXTRACTOR URL UNIVERSAL ---
 function extractUrls(data) {
     if (!data) return [];
     if (data.file_urls && Array.isArray(data.file_urls) && data.file_urls.length > 0) return data.file_urls;
@@ -695,15 +692,12 @@ async function genImage(){
     const model_id = document.getElementById('model-sel').value;
 
     showState('loading');
-    buildSkeletons(imgCount, aspectClass(ratio));
+    buildSkeletons(imgCount, ratio);
     updateCircleProgress(0, "Așteptăm server-ul..."); 
     document.getElementById('circular-progress').classList.add('animate-spin');
 
     const fd = new FormData();
-    fd.append('prompt', prompt); 
-    fd.append('aspect_ratio', ratio); 
-    fd.append('number_of_images', imgCount); 
-    fd.append('model_id', model_id); 
+    fd.append('prompt', prompt); fd.append('aspect_ratio', ratio); fd.append('number_of_images', imgCount); fd.append('model_id', model_id); 
 
     const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
     
@@ -716,10 +710,7 @@ async function genImage(){
     const data = await readSSE(resp);
     let urls = extractUrls(data);
     
-    if(!urls || !urls.length) {
-        console.error("Răspuns incorect:", data);
-        throw new Error('Imaginile au fost generate, dar URL-urile lipsesc.');
-    }
+    if(!urls || !urls.length) throw new Error('Imaginile au fost generate, dar URL-urile lipsesc.');
     return {urls, ratio};
 }
 
@@ -735,10 +726,7 @@ async function genVideo(){
     startFakeProgress();
 
     const fd = new FormData();
-    fd.append('prompt', prompt); 
-    fd.append('aspect_ratio', vratio); 
-    fd.append('number_of_videos', vidCount); 
-    fd.append('model_id', model_id);
+    fd.append('prompt', prompt); fd.append('aspect_ratio', vratio); fd.append('number_of_videos', vidCount); fd.append('model_id', model_id);
     if(refFile) fd.append('start_image', refFile);
 
     const resp = await fetch('/api/media/video', { method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd });
@@ -752,14 +740,10 @@ async function genVideo(){
     const data = await readSSE(resp);
     let urls = extractUrls(data);
     
-    if(!urls || !urls.length) {
-        console.error("Răspuns incorect:", data);
-        throw new Error('Videoclipul a fost generat, dar linkul lipsește.');
-    }
-    return urls;
+    if(!urls || !urls.length) throw new Error('Videoclipul a fost generat, dar linkul lipsește.');
+    return {urls, ratio: vratio}; // Returnam si formatul la video
 }
 
-// Main Generate Wrapper
 async function generate(){
     const token = getToken();
     if(!token){ openLoginModal(); return; }
@@ -778,17 +762,17 @@ async function generate(){
     try {
         if(mode === 'image'){
             const result = await genImage();
-            if(result) { 
+            if(result && result.urls) { 
                 showState('result'); 
                 buildImageGrid(result.urls, result.ratio); 
                 saveToSupabase(result.urls, promptText); 
             }
         } else {
-            const urls = await genVideo();
-            if(urls) { 
+            const result = await genVideo();
+            if(result && result.urls) { 
                 showState('result'); 
-                buildVideoGrid(urls); 
-                saveToSupabase(urls, promptText); 
+                buildVideoGrid(result.urls, result.ratio); 
+                saveToSupabase(result.urls, promptText); 
             }
         }
         try { 
@@ -805,7 +789,7 @@ async function generate(){
 }
 function regen(){ generate(); }
 
-// --- HISTORY & SUPABASE LOGIC ---
+// --- HISTORY & MOBIL ---
 async function loadHistory() {
     const token = getToken();
     if (!token) return;
@@ -842,7 +826,6 @@ async function saveToSupabase(urls, promptText) {
     } catch (e) { console.error("Eroare save-history:", e); }
 }
 
-// Funcție pentru deschiderea/închiderea setărilor pe mobil
 function toggleMobileSettings() {
     const sidebar = document.getElementById('sidebar-settings');
     const overlay = document.getElementById('mobile-overlay');
