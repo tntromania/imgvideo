@@ -227,8 +227,8 @@
                     <div class="panel-s pt-0">
                         <label class="field-label">Format Imagine</label>
                         <div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
-<label class="ratio-pill flex-1"><input type="radio" name="ratio" value="16:9" checked><span>16:9</span></label>
-<label class="ratio-pill flex-1"><input type="radio" name="ratio" value="9:16"><span>9:16</span></label>
+<label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_LANDSCAPE" checked><span>16:9</span></label>
+<label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_PORTRAIT"><span>9:16</span></label>
                         </div>
                     </div>
                     <div class="panel-s pt-0 border-none">
@@ -245,8 +245,8 @@
                     <div class="panel-s pt-0">
                         <label class="field-label">Format Video</label>
                         <div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
-<label class="ratio-pill flex-1"><input type="radio" name="vratio" value="16:9" checked><span>16:9</span></label>
-<label class="ratio-pill flex-1"><input type="radio" name="vratio" value="9:16"><span>9:16</span></label>
+<label class="ratio-pill flex-1"><input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_LANDSCAPE" checked><span>16:9</span></label>
+<label class="ratio-pill flex-1"><input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_PORTRAIT"><span>9:16</span></label>
                         </div>
                     </div>
                     <div class="panel-s pt-0">
@@ -545,7 +545,7 @@ async function downloadMedia(url, filename) {
 }
 
 // --- ACTUALIZARE FUNCȚII DE AFIȘARE ---
-function aspectClass(r){ return r === '16:9' ? 'aspect-video' : (r === '9:16' ? 'aspect-[9/16]' : 'aspect-square'); }
+function aspectClass(r){ return r.includes('LANDSCAPE') ? 'aspect-video' : (r.includes('PORTRAIT') ? 'aspect-[9/16]' : 'aspect-square'); }
 
 function buildSkeletons(n, ac){
     const g=document.getElementById('sk-grid'); 
@@ -688,13 +688,10 @@ function extractUrls(data) {
     return foundUrls;
 }
 
-// --- GENERATORS CU EROARE PROTEJATĂ ---
 async function genImage(){
     const token = getToken();
     const prompt = document.getElementById('prompt-in').value.trim();
-    
-    // Aici era greșeala: trebuie "ratio" și "name='ratio'"
-    const ratio = document.querySelector('input[name="ratio"]:checked')?.value || '16:9';
+    const ratio  = document.querySelector('input[name="ratio"]:checked')?.value || 'IMAGE_ASPECT_RATIO_LANDSCAPE';
     const model_id = document.getElementById('model-sel').value;
 
     showState('loading');
@@ -729,9 +726,7 @@ async function genImage(){
 async function genVideo(){
     const token = getToken();
     const prompt  = document.getElementById('prompt-in').value.trim();
-    
-    // Aici trebuia updatat la '16:9'
-    const vratio  = document.querySelector('input[name="vratio"]:checked')?.value || '16:9';
+    const vratio  = document.querySelector('input[name="vratio"]:checked')?.value || 'VIDEO_ASPECT_RATIO_LANDSCAPE';
     const model_id = document.getElementById('model-sel').value;
     const refFile = document.getElementById('ref-file').files[0];
 
