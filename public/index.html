@@ -667,25 +667,30 @@ async function readSSE(response){
 
 function extractUrls(data) {
     if (!data) return [];
-    if (data.file_urls && Array.isArray(data.file_urls) && data.file_urls.length > 0) return data.file_urls;
     
-    const possibleKeys = ['file_url', 'video_url', 'image_url', 'url', 'uri', 'video', 'output'];
-    for (let key of possibleKeys) {
-        if (typeof data[key] === 'string' && data[key].startsWith('http')) return [data[key]];
-        if (Array.isArray(data[key]) && typeof data[key][0] === 'string' && data[key][0].startsWith('http')) return data[key];
-    }
+    // 1. Regula simplă care mergea de la început
+    if (data.file_urls && Array.isArray(data.file_urls) && data.file_urls.length > 0) return data.file_urls;
+    if (data.file_url) return [data.file_url];
+    if (data.video_url) return [data.video_url];
+    if (data.url) return [data.url];
 
-    let foundUrls = [];
+    // 2. Dacă URL-urile sunt băgate adânc în alte obiecte, căutăm orice se termină în mp4/png sau începe cu http
+    let found = [];
     const scanObj = (obj) => {
         for (let k in obj) {
-            if (typeof obj[k] === 'string' && obj[k].startsWith('http')) foundUrls.push(obj[k]);
-            else if (typeof obj[k] === 'object' && obj[k] !== null) scanObj(obj[k]);
+            if (typeof obj[k] === 'string' && (obj[k].includes('.mp4') || obj[k].includes('.png') || obj[k].includes('http'))) {
+                found.push(obj[k]);
+            } else if (typeof obj[k] === 'object' && obj[k] !== null) {
+                scanObj(obj[k]);
+            }
         }
     };
     scanObj(data);
-    return foundUrls;
+    
+    return found;
 }
 
+// --- GENERATOARE ---
 async function genImage(){
     const token = getToken();
     const prompt = document.getElementById('prompt-in').value.trim();
@@ -698,7 +703,10 @@ async function genImage(){
     document.getElementById('circular-progress').classList.add('animate-spin');
 
     const fd = new FormData();
-    fd.append('prompt', prompt); fd.append('aspect_ratio', ratio); fd.append('number_of_images', imgCount); fd.append('model_id', model_id); 
+    fd.append('prompt', prompt); 
+    fd.append('aspect_ratio', ratio); 
+    fd.append('number_of_images', imgCount); 
+    fd.append('model_id', model_id); 
 
     const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
     
@@ -711,7 +719,11 @@ async function genImage(){
     const data = await readSSE(resp);
     let urls = extractUrls(data);
     
-    if(!urls || !urls.length) throw new Error('Imaginile au fost generate, dar URL-urile lipsesc.');
+    if(!urls || !urls.length) {
+        console.error("RAW DATA EȘUAT:", data);
+        // Afișăm pe ecran exact ce a trimis serverul ca să știm de ce lipsește URL-ul
+        throw new Error('Lipsă URL! Răspuns primit: ' + JSON.stringify(data).substring(0, 120));
+    }
     return {urls, ratio};
 }
 
@@ -727,7 +739,10 @@ async function genVideo(){
     startFakeProgress();
 
     const fd = new FormData();
-    fd.append('prompt', prompt); fd.append('aspect_ratio', vratio); fd.append('number_of_videos', vidCount); fd.append('model_id', model_id);
+    fd.append('prompt', prompt); 
+    fd.append('aspect_ratio', vratio); 
+    fd.append('number_of_videos', vidCount); 
+    fd.append('model_id', model_id);
     if(refFile) fd.append('start_image', refFile);
 
     const resp = await fetch('/api/media/video', { method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd });
@@ -741,8 +756,11 @@ async function genVideo(){
     const data = await readSSE(resp);
     let urls = extractUrls(data);
     
-    if(!urls || !urls.length) throw new Error('Videoclipul a fost generat, dar linkul lipsește.');
-    return {urls, ratio: vratio}; // Returnam si formatul la video
+    if(!urls || !urls.length) {
+        console.error("RAW DATA EȘUAT:", data);
+        throw new Error('Lipsă URL! Răspuns primit: ' + JSON.stringify(data).substring(0, 120));
+    }
+    return {urls, ratio: vratio}; 
 }
 
 async function generate(){
