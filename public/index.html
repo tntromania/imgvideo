@@ -25,6 +25,21 @@
     </script>
 
     <style>
+	/* Limitează mărimea rezultatului pentru a nu ocupa tot ecranul */
+#res-grid .result-card img, 
+#res-grid .result-card video {
+    max-height: 65vh; /* Ocupă maxim 65% din înălțimea ecranului */
+    width: auto;
+    margin: 0 auto;
+    display: block;
+    object-fit: contain; /* Păstrează proporțiile fără să taie din imagine */
+}
+
+#res-grid {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
         *, *::before, *::after { box-sizing:border-box; }
         body { background:#F8FAFC; color:#0f172a; overflow:hidden; font-family:'Inter',sans-serif; -webkit-font-smoothing: antialiased; }
         
@@ -212,8 +227,8 @@
                     <div class="panel-s pt-0">
                         <label class="field-label">Format Imagine</label>
                         <div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
-                            <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_LANDSCAPE" checked><span>16:9</span></label>
-                            <label class="ratio-pill flex-1"><input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_PORTRAIT"><span>9:16</span></label>
+<label class="ratio-pill flex-1"><input type="radio" name="ratio" value="16:9" checked><span>16:9</span></label>
+<label class="ratio-pill flex-1"><input type="radio" name="ratio" value="9:16"><span>9:16</span></label>
                         </div>
                     </div>
                     <div class="panel-s pt-0 border-none">
@@ -230,8 +245,8 @@
                     <div class="panel-s pt-0">
                         <label class="field-label">Format Video</label>
                         <div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
-                            <label class="ratio-pill flex-1"><input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_LANDSCAPE" checked><span>🖥 16:9</span></label>
-                            <label class="ratio-pill flex-1"><input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_PORTRAIT"><span>📱 9:16</span></label>
+<label class="ratio-pill flex-1"><input type="radio" name="vratio" value="16:9" checked><span>16:9</span></label>
+<label class="ratio-pill flex-1"><input type="radio" name="vratio" value="9:16"><span>9:16</span></label>
                         </div>
                     </div>
                     <div class="panel-s pt-0">
@@ -394,6 +409,7 @@ function updateUI(user) {
     document.getElementById('nav-name').innerText = user.name.split(' ')[0];
     document.getElementById('nav-avatar').src = user.picture;
     document.getElementById('nav-credits').innerText = user.credits;
+	loadHistory()
 }
 function logout(){ removeToken(); location.reload(); }
 
@@ -434,12 +450,17 @@ function fillExample(){
 function updateCount(d){ imgCount=Math.min(4,Math.max(1,imgCount+d)); document.getElementById('count-val').textContent=imgCount; refreshBadges(); }
 function updateVCount(d){ vidCount=Math.min(4,Math.max(1,vidCount+d)); document.getElementById('vcount-val').textContent=vidCount; refreshBadges(); }
 
+// [FIX 1] refreshBadges protejat la elemente inexistente (eroarea de null)
 function refreshBadges(){
     const sel=document.getElementById('model-sel');
     const m=MODEL_META[sel?.value]||{type:'image',cost:1};
     const n=mode==='image'?imgCount:vidCount;
-    document.getElementById('total-cost').textContent=m.cost*n;
-    document.getElementById('m-type').textContent=m.type==='image'?'IMAGE':'VIDEO';
+    
+    const costEl = document.getElementById('total-cost');
+    if (costEl) costEl.textContent=m.cost*n;
+    
+    const typeEl = document.getElementById('m-type');
+    if (typeEl) typeEl.textContent=m.type==='image'?'IMAGE':'VIDEO';
 }
 function onModelChange(){ refreshBadges(); }
 
@@ -498,7 +519,33 @@ function closeLightbox(){
 function cancelGen(){ genAborted=true; if(activeReader)activeReader.cancel(); clearFakeProgress(); showState('empty'); resetBtn(); }
 function resetBtn(){ document.getElementById('gen-btn').disabled=false; document.getElementById('gen-btn').innerHTML='<i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> GENEREAZĂ'; }
 
-function aspectClass(r){ return r.includes('LANDSCAPE') ? 'aspect-video' : (r.includes('PORTRAIT') ? 'aspect-[9/16]' : 'aspect-square'); }
+// --- FUNCȚIE NOUĂ DE DESCĂRCARE SIGURĂ ---
+async function downloadMedia(url, filename) {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+        // Fallback dacă fișierul extern blochează descărcarea directă
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+}
+
+// --- ACTUALIZARE FUNCȚII DE AFIȘARE ---
+function aspectClass(r){ return r === '16:9' ? 'aspect-video' : (r === '9:16' ? 'aspect-[9/16]' : 'aspect-square'); }
 
 function buildSkeletons(n, ac){
     const g=document.getElementById('sk-grid'); 
@@ -517,7 +564,7 @@ function buildImageGrid(urls, ratioVal){
                 <img src="${url}" class="w-full h-full object-cover" loading="lazy">
                 <div class="card-overlay">
                     <button onclick="openLightbox('${url}', 'image')" class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-expand mr-1"></i>Mărește</button>
-                    <a href="${url}" download="viralio_${Date.now()}.png" class="bg-white hover:bg-slate-100 text-slate-900 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</a>
+                    <button onclick="downloadMedia('${url}', 'viralio_${Date.now()}.png')" class="bg-white hover:bg-slate-100 text-slate-900 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
                 </div>
             </div>
         </div>
@@ -532,13 +579,12 @@ function buildVideoGrid(urls){
         <div class="result-card animate-slide-up bg-slate-900" style="animation-delay: ${i*0.1}s">
             <video src="${url}" controls autoplay loop muted class="w-full rounded-t-[20px] aspect-video object-cover"></video>
             <div class="p-3 bg-white">
-                <a href="${url}" download="viralio_vid_${Date.now()}.mp4" class="w-full block text-center text-xs font-black bg-slate-900 hover:bg-viralio-600 text-white px-4 py-3 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i> Descarcă Video</a>
+                <button onclick="downloadMedia('${url}', 'viralio_vid_${Date.now()}.mp4')" class="w-full block text-center text-xs font-black bg-slate-900 hover:bg-viralio-600 text-white px-4 py-3 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i> Descarcă Video</button>
             </div>
         </div>
     `);
 }
 
-// --- PROGRESS CIRCLE LOGIC ---
 function updateCircleProgress(percent, text) {
     const circle = document.getElementById('circular-progress');
     const textEl = document.getElementById('progress-text');
@@ -620,21 +666,17 @@ async function readSSE(response){
     return Object.keys(finalData).length > 0 ? finalData : null;
 }
 
-// --- EXTRACTOR URL UNIVERSAL (NOU) ---
+// --- EXTRACTOR URL UNIVERSAL ---
 function extractUrls(data) {
     if (!data) return [];
-    
-    // 1. Verificăm structura veche
     if (data.file_urls && Array.isArray(data.file_urls) && data.file_urls.length > 0) return data.file_urls;
     
-    // 2. Căutăm cele mai comune nume de variabile folosite de API-uri
     const possibleKeys = ['file_url', 'video_url', 'image_url', 'url', 'uri', 'video', 'output'];
     for (let key of possibleKeys) {
         if (typeof data[key] === 'string' && data[key].startsWith('http')) return [data[key]];
         if (Array.isArray(data[key]) && typeof data[key][0] === 'string' && data[key][0].startsWith('http')) return data[key];
     }
 
-    // 3. Scanare Agresivă: Căutăm efectiv orice string care începe cu "http" în obiectul primit
     let foundUrls = [];
     const scanObj = (obj) => {
         for (let k in obj) {
@@ -643,15 +685,14 @@ function extractUrls(data) {
         }
     };
     scanObj(data);
-    
     return foundUrls;
 }
 
-// --- GENERATORS ---
+// --- GENERATORS CU EROARE PROTEJATĂ ---
 async function genImage(){
     const token = getToken();
     const prompt = document.getElementById('prompt-in').value.trim();
-    const ratio  = document.querySelector('input[name="ratio"]:checked')?.value || 'IMAGE_ASPECT_RATIO_LANDSCAPE';
+const vratio  = document.querySelector('input[name="vratio"]:checked')?.value || '16:9';
     const model_id = document.getElementById('model-sel').value;
 
     showState('loading');
@@ -663,13 +704,20 @@ async function genImage(){
     fd.append('prompt', prompt); fd.append('aspect_ratio', ratio); fd.append('number_of_images', imgCount); fd.append('model_id', model_id); 
 
     const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
-    const data = await readSSE(resp);
     
+    // [FIX 2] Verificare Server Error (nu mai dă răspuns null orb)
+    if(!resp.ok) {
+        let errStr = "Eroare la procesare pe server.";
+        try { const j = await resp.json(); errStr = j.error || errStr; } catch(e){}
+        throw new Error(errStr);
+    }
+
+    const data = await readSSE(resp);
     let urls = extractUrls(data);
     
-    if(!urls.length) {
-        console.error("RAW API RESPONSE:", data);
-        throw new Error('Eroare la API! URL-ul lipsește. (Apasă F12 și verifică Consola pentru detalii exacte)');
+    if(!urls || !urls.length) {
+        console.error("Răspuns incorect:", data);
+        throw new Error('Imaginile au fost generate, dar URL-urile lipsesc.');
     }
     return {urls, ratio};
 }
@@ -690,13 +738,20 @@ async function genVideo(){
     if(refFile) fd.append('start_image', refFile);
 
     const resp = await fetch('/api/media/video', { method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd });
-    const data = await readSSE(resp);
     
+    // [FIX 2] Verificare Server Error
+    if(!resp.ok) {
+        let errStr = "Eroare la procesare pe server.";
+        try { const j = await resp.json(); errStr = j.error || errStr; } catch(e){}
+        throw new Error(errStr);
+    }
+
+    const data = await readSSE(resp);
     let urls = extractUrls(data);
     
-    if(!urls.length) {
-        console.error("RAW API RESPONSE:", data);
-        throw new Error('Video generat, dar lipsește URL-ul. (Apasă F12 și verifică Consola pentru detalii exacte)');
+    if(!urls || !urls.length) {
+        console.error("Răspuns incorect:", data);
+        throw new Error('Videoclipul a fost generat, dar linkul lipsește.');
     }
     return urls;
 }
@@ -714,7 +769,7 @@ async function generate(){
     
     if (window.innerWidth < 768) {
         const sidebar = document.getElementById('sidebar-settings');
-        if (!sidebar.classList.contains('translate-y-full')) toggleMobileSettings();
+        if (sidebar && !sidebar.classList.contains('translate-y-full')) toggleMobileSettings();
     }
     
     try {
