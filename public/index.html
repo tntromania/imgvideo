@@ -650,47 +650,74 @@ function clearFakeProgress(){
     document.getElementById('progress-text').classList.add('hidden');
 }
 
-async function readSSE(response){
+// --- SSE READER BLINDAT (FIX DEFINITIV) ---
+async function readSSE(response) {
     const reader = response.body.getReader();
     activeReader = reader;
     const dec = new TextDecoder();
-    let buf = ''; let finalData = {}; 
+    let buf = ''; let finalData = {};
+    let rawText = ''; // Păstrăm și textul brut în caz că e un JSON simplu
+
+    const processLine = (line) => {
+        const t = line.trim();
+        if (!t || t.startsWith(':')) return;
+        if (t.startsWith('data:')) {
+            const raw = t.slice(5).trim();
+            if (raw === '[DONE]') return;
+            if (raw.startsWith('{') || raw.startsWith('[')) {
+                try {
+                    const p = JSON.parse(raw);
+                    if (p.error) throw new Error(p.error);
+                    if (p["0"]) Object.assign(finalData, p["0"]);
+                    else Object.assign(finalData, p);
+
+                    if (p.progress !== undefined && mode === 'video') {
+                        updateCircleProgress(p.progress, p.status || 'Procesare video...');
+                    } else if (p.status) {
+                        const statusEl = document.getElementById('sse-status');
+                        if (statusEl) statusEl.textContent = p.status;
+                    }
+                } catch (e) {}
+            }
+        }
+    };
 
     try {
-        while(true){
-            if(genAborted) break;
-            const {done, value} = await reader.read();
-            if(done) break;
-            buf += dec.decode(value, {stream:true});
-            const lines = buf.split('\n'); buf = lines.pop();
-            
-            for(const line of lines){
-                const t = line.trim();
-                if(!t || t.startsWith(':')) continue;
-                if(t.startsWith('data:')){
-                    const raw = t.slice(5).trim();
-                    if(raw === '[DONE]') continue;
-                    
-                    if (raw.startsWith('{') || raw.startsWith('[')) {
-                        try {
-                            const p = JSON.parse(raw);
-                            if (p.error) throw new Error(p.error);
-                            
-                            if (p["0"]) Object.assign(finalData, p["0"]);
-                            else Object.assign(finalData, p);
+        while (true) {
+            if (genAborted) break;
+            const { done, value } = await reader.read();
+            if (value) {
+                const chunk = dec.decode(value, { stream: true });
+                buf += chunk;
+                rawText += chunk;
+            }
 
-                            if(p.progress !== undefined && mode === 'video'){
-                                updateCircleProgress(p.progress, p.status || 'Procesare video...');
-                            } else if (p.status) {
-                                document.getElementById('sse-status').textContent = p.status;
-                            }
-                        } catch(e) {}
-                    }
-                }
+            const lines = buf.split('\n');
+            buf = lines.pop(); // Păstrează bucata neterminată în buffer
+
+            for (const line of lines) {
+                processLine(line);
+            }
+
+            if (done) {
+                if (buf.trim()) processLine(buf); // FORȚEAZĂ procesarea textului rămas la final!
+                break;
             }
         }
     } finally { activeReader = null; }
-    return Object.keys(finalData).length > 0 ? finalData : null;
+
+    if (Object.keys(finalData).length > 0) return finalData;
+
+    // Fallback suprem: Dacă serverul nu a trimis prefixul "data:" ci doar un JSON direct
+    try {
+        const parsed = JSON.parse(rawText);
+        if (parsed["0"]) return parsed["0"];
+        return parsed;
+    } catch (e) {
+        console.error("Text brut primit de la server:", rawText);
+    }
+
+    return null;
 }
 
 function extractUrls(data) {
