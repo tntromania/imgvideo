@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="utf-8">
+    <title>Admin Dashboard | Viralio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 p-10 font-sans">
+
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-black text-slate-800 mb-8"><i class="fa-solid fa-chart-pie text-indigo-500 mr-2"></i> Status Ecosistem GenAIPro</h1>
+        
+        <button onclick="fetchQuota()" class="mb-6 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-md">
+            <i class="fa-solid fa-rotate-right mr-2"></i> Actualizează Datele
+        </button>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="quota-grid">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center animate-pulse">
+                <p class="text-slate-400 font-bold mb-2">Se încarcă datele...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Funcție pentru a lua token-ul de login curent (pentru a dovedi că ești tu, adminul)
+        function getToken() {
+            const m = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/);
+            return m ? m[1] : null;
+        }
+
+        async function fetchQuota() {
+            const token = getToken();
+            if (!token) {
+                alert("Nu ești logat! Intră pe site-ul principal, loghează-te cu contul de admin, apoi întoarce-te aici.");
+                return;
+            }
+
+            try {
+                // Apelăm ruta pe care o avem deja pregătită în server.js
+                const res = await fetch('/api/admin/api-quota', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (!res.ok) throw new Error("Nu ai acces de Admin sau serverul nu răspunde.");
+                
+                const data = await res.json();
+                
+                const grid = document.getElementById('quota-grid');
+                grid.innerHTML = `
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 w-16 h-16 bg-emerald-500/10 rounded-full blur-xl"></div>
+                        <h3 class="text-slate-400 font-bold text-xs uppercase tracking-widest mb-1">Balanță Cont General</h3>
+                        <div class="text-4xl font-black text-slate-800 mb-2">$${data.balance.toFixed(2)}</div>
+                        <p class="text-xs text-emerald-500 font-bold"><i class="fa-solid fa-circle-check"></i> Bani disponibili pe GenAIPro</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 w-16 h-16 bg-indigo-500/10 rounded-full blur-xl"></div>
+                        <h3 class="text-slate-400 font-bold text-xs uppercase tracking-widest mb-1">Quota Video (Veo)</h3>
+                        <div class="text-4xl font-black text-slate-800 mb-2">${data.veoTotal}</div>
+                        <p class="text-xs text-indigo-500 font-bold"><i class="fa-solid fa-video"></i> Total alocat</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 w-16 h-16 bg-pink-500/10 rounded-full blur-xl"></div>
+                        <h3 class="text-slate-400 font-bold text-xs uppercase tracking-widest mb-1">Rămas Video (Veo)</h3>
+                        <div class="text-4xl font-black text-slate-800 mb-2">${data.veoAvail}</div>
+                        <p class="text-xs text-pink-500 font-bold"><i class="fa-solid fa-fire"></i> Ai consumat: ${data.veoUsed}</p>
+                    </div>
+                `;
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // Pornim automat când se deschide pagina
+        window.onload = fetchQuota;
+    </script>
+</body>
+</html>
