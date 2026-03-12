@@ -177,7 +177,7 @@ if (hasNumericKeys) {
     }
 };
 
-// --- RUTA PENTRU IMAGINI CU SUPORT @IMG ---
+// --- RUTA PENTRU IMAGINI CU SUPORT @IMG (CHARACTER CONSISTENCY) ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -189,7 +189,9 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
-        // Urcăm pozele temporar și băgăm URL-ul public direct în prompt
+        let crefUrls = [];
+
+        // Urcăm pozele temporar și extragem URL-urile
         if (req.files && req.files.length > 0) {
             for (let i = 0; i < req.files.length; i++) {
                 const file = req.files[i];
@@ -201,13 +203,22 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                     const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
                     const tag = `@img${i+1}`;
                     
+                    // ȘTERGEM @img1 din propoziție ca să nu dăm peste cap engleza AI-ului!
                     if (finalPrompt.includes(tag)) {
-                        finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), publicData.publicUrl);
-                    } else {
-                        finalPrompt = `${publicData.publicUrl} ${finalPrompt}`;
+                        finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), '').trim();
                     }
+                    // Adăugăm link-ul curat în lista de referințe
+                    crefUrls.push(publicData.publicUrl);
                 }
             }
+        }
+
+        // MAGIA: Dacă avem poze de referință, adăugăm comanda oficială pentru Clonare Personaj la final!
+        if (crefUrls.length > 0) {
+            // --cref = Character Reference / --cw 100 = Forțează reținerea feței
+            finalPrompt = `${finalPrompt} --cref ${crefUrls.join(' ')} --cw 100`;
+            // Curățăm spațiile în plus
+            finalPrompt = finalPrompt.replace(/\s+/g, ' ').trim();
         }
 
         const formData = new FormData();
