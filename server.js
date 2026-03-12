@@ -177,7 +177,7 @@ if (hasNumericKeys) {
     }
 };
 
-app.post('/api/media/image', authenticate, upload.none(), async (req, res) => {
+app.post('/api/media/image', authenticate, upload.single('start_image'), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
         const count = parseInt(number_of_images) || 1;
@@ -191,6 +191,12 @@ app.post('/api/media/image', authenticate, upload.none(), async (req, res) => {
         formData.append('prompt', prompt);
         formData.append('aspect_ratio', aspect_ratio);
         formData.append('number_of_images', count);
+        
+        // Dacă utilizatorul a încărcat o imagine de referință, o adăugăm în pachet
+        if (req.file) {
+            const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+            formData.append('start_image', blob, req.file.originalname);
+        }
 
         const apiRes = await fetch(`${GENAIPRO_URL}/veo/create-image`, {
             method: 'POST',
