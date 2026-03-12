@@ -214,17 +214,17 @@
                     </div>
                 </div>
 
-                <div id="img-options">
+<div id="img-options">
                     <div class="panel-s pt-0">
                         <label class="field-label">Format Imagine</label>
-<div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
+                        <div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
                             <label class="ratio-pill flex-1">
                                 <input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_LANDSCAPE" checked>
-                                <span class="flex items-center justify-center gap-2"><div class="w-4 h-2.5 border-2 border-current rounded-[2px] opacity-70"></div> 16:9</span>
+                                <span><div class="w-[18px] h-[12px] border-[2px] border-current rounded-[3px] opacity-75"></div> 16:9</span>
                             </label>
                             <label class="ratio-pill flex-1">
                                 <input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_PORTRAIT">
-                                <span class="flex items-center justify-center gap-2"><div class="w-2.5 h-4 border-2 border-current rounded-[2px] opacity-70"></div> 9:16</span>
+                                <span><div class="w-[12px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div> 9:16</span>
                             </label>
                         </div>
                     </div>
@@ -241,18 +241,18 @@
                 <div id="vid-options" class="hidden">
                     <div class="panel-s pt-0">
                         <label class="field-label">Format Video</label>
-<div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
+                        <div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
                             <label class="ratio-pill flex-1">
                                 <input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_LANDSCAPE" checked>
-                                <span class="flex items-center justify-center gap-2"><div class="w-4 h-2.5 border-2 border-current rounded-[2px] opacity-70"></div> 16:9</span>
+                                <span><div class="w-[18px] h-[12px] border-[2px] border-current rounded-[3px] opacity-75"></div> 16:9</span>
                             </label>
                             <label class="ratio-pill flex-1">
                                 <input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_PORTRAIT">
-                                <span class="flex items-center justify-center gap-2"><div class="w-2.5 h-4 border-2 border-current rounded-[2px] opacity-70"></div> 9:16</span>
+                                <span><div class="w-[12px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div> 9:16</span>
                             </label>
                         </div>
                     </div>
-                    <div class="panel-s pt-0">
+                    <div class="panel-s pt-0 border-none">
                         <label class="field-label">Număr Videoclipuri (1–4)</label>
                         <div class="flex items-center gap-4 bg-slate-100 rounded-2xl p-1.5 w-fit">
                             <button class="count-btn" onclick="updateVCount(-1)">−</button>
@@ -260,17 +260,18 @@
                             <button class="count-btn" onclick="updateVCount(1)">+</button>
                         </div>
                     </div>
-                    <div class="panel-s pt-0 border-none">
-                        <label class="field-label">Imagine de Start <span class="normal-case text-slate-400 font-medium">(opțional)</span></label>
-                        <input type="file" id="ref-file" class="hidden" accept="image/*">
-                        <div id="ref-zone" class="dropzone flex flex-col items-center justify-center text-center p-6 relative min-h-[100px]" onclick="document.getElementById('ref-file').click()">
-                            <div id="ref-ph" class="flex flex-col items-center gap-2">
-                                <div class="w-10 h-10 rounded-xl bg-slate-200/50 flex items-center justify-center text-slate-500"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-                                <span class="text-xs font-bold text-slate-600">Încarcă o imagine</span>
-                            </div>
-                            <img id="ref-prev" src="" class="hidden absolute inset-0 w-full h-full object-cover rounded-[14px]">
-                            <button id="ref-rm" onclick="event.stopPropagation();removeRef()" class="hidden absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-xl text-red-500 items-center justify-center shadow-md border border-slate-200 z-10 hover:bg-red-50"><i class="fa-solid fa-trash text-sm"></i></button>
+                </div>
+
+                <div class="panel-s pt-0 border-none mt-2">
+                    <label class="field-label">Imagine de Referință <span class="normal-case text-slate-400 font-medium">(opțional)</span></label>
+                    <input type="file" id="ref-file" class="hidden" accept="image/*">
+                    <div id="ref-zone" class="dropzone flex flex-col items-center justify-center text-center p-6 relative min-h-[100px]" onclick="document.getElementById('ref-file').click()">
+                        <div id="ref-ph" class="flex flex-col items-center gap-2">
+                            <div class="w-10 h-10 rounded-xl bg-slate-200/50 flex items-center justify-center text-slate-500"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                            <span class="text-xs font-bold text-slate-600">Încarcă o imagine</span>
                         </div>
+                        <img id="ref-prev" src="" class="hidden absolute inset-0 w-full h-full object-cover rounded-[14px]">
+                        <button id="ref-rm" onclick="event.stopPropagation();removeRef()" class="hidden absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-xl text-red-500 items-center justify-center shadow-md border border-slate-200 z-10 hover:bg-red-50"><i class="fa-solid fa-trash text-sm"></i></button>
                     </div>
                 </div>
 
@@ -751,6 +752,7 @@ async function genImage(){
     const prompt = document.getElementById('prompt-in').value.trim();
     const ratio  = document.querySelector('input[name="ratio"]:checked')?.value || 'IMAGE_ASPECT_RATIO_LANDSCAPE';
     const model_id = document.getElementById('model-sel').value;
+    const refFile = document.getElementById('ref-file').files[0]; // AM ADĂUGAT CITIREA FIȘIERULUI
 
     showState('loading');
     buildSkeletons(imgCount, ratio);
@@ -762,6 +764,7 @@ async function genImage(){
     fd.append('aspect_ratio', ratio); 
     fd.append('number_of_images', imgCount); 
     fd.append('model_id', model_id); 
+    if(refFile) fd.append('start_image', refFile); // AM ADĂUGAT TRIMITEREA LUI CĂTRE SERVER
 
     const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
     
@@ -776,7 +779,6 @@ async function genImage(){
     
     if(!urls || !urls.length) {
         console.error("RAW DATA EȘUAT:", data);
-        // Afișăm pe ecran exact ce a trimis serverul ca să știm de ce lipsește URL-ul
         throw new Error('Lipsă URL! Răspuns primit: ' + JSON.stringify(data).substring(0, 120));
     }
     return {urls, ratio};
