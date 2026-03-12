@@ -179,7 +179,7 @@
             <i class="fa-solid fa-sliders text-amber-300"></i> SETĂRI GENERARE
         </button>
 
-        <aside id="sidebar-settings" class="fixed md:relative bottom-0 left-0 right-0 md:inset-auto w-full md:w-[380px] bg-white md:rounded-[1.5rem] rounded-t-[2rem] border-t md:border border-slate-200 shadow-[0_-20px_50px_rgba(0,0,0,0.15)] md:shadow-sm flex flex-col shrink-0 h-[85vh] md:h-full overflow-hidden z-[100] md:z-10 transition-transform duration-300 translate-y-full md:translate-y-0">
+<aside id="sidebar-settings" class="fixed md:relative bottom-0 left-0 right-0 md:inset-auto w-full md:w-[380px] bg-white md:rounded-[1.5rem] rounded-t-[2rem] border-t md:border border-slate-200 shadow-[0_-20px_50px_rgba(0,0,0,0.15)] md:shadow-sm flex flex-col shrink-0 h-[85vh] md:h-full overflow-hidden z-[100] md:z-10 transition-transform duration-300 translate-y-full md:translate-y-0">
             
             <div class="md:hidden flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100 bg-slate-50/50">
                 <h3 class="font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-sliders text-slate-400"></i> Setări Generare</h3>
@@ -214,7 +214,7 @@
                     </div>
                 </div>
 
-<div id="img-options">
+                <div id="img-options">
                     <div class="panel-s pt-0">
                         <label class="field-label">Format Imagine</label>
                         <div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
@@ -263,15 +263,26 @@
                 </div>
 
                 <div class="panel-s pt-0 border-none mt-2">
-                    <label class="field-label">Imagine de Referință <span class="normal-case text-slate-400 font-medium">(opțional)</span></label>
-                    <input type="file" id="ref-file" class="hidden" accept="image/*">
-                    <div id="ref-zone" class="dropzone flex flex-col items-center justify-center text-center p-6 relative min-h-[100px]" onclick="document.getElementById('ref-file').click()">
-                        <div id="ref-ph" class="flex flex-col items-center gap-2">
-                            <div class="w-10 h-10 rounded-xl bg-slate-200/50 flex items-center justify-center text-slate-500"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-                            <span class="text-xs font-bold text-slate-600">Încarcă o imagine</span>
+                    <label class="field-label flex justify-between items-center mb-3">
+                        <span>Imagini de Referință <span class="normal-case text-slate-400 font-medium">(opțional)</span></span>
+                    </label>
+                    
+                    <input type="file" id="ref-file" class="hidden" accept="image/*" multiple onchange="handleFileSelect(event)">
+                    
+                    <div id="ref-gallery" class="flex flex-wrap gap-2 mb-3 hidden"></div>
+
+                    <div id="ref-zone" class="dropzone flex flex-col items-center justify-center text-center p-5 relative min-h-[90px] mb-3" onclick="document.getElementById('ref-file').click()">
+                        <div class="flex flex-col items-center gap-1.5 pointer-events-none">
+                            <div class="w-8 h-8 rounded-xl bg-slate-200/50 flex items-center justify-center text-slate-500"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                            <span class="text-xs font-bold text-slate-600">Încarcă referințe</span>
                         </div>
-                        <img id="ref-prev" src="" class="hidden absolute inset-0 w-full h-full object-cover rounded-[14px]">
-                        <button id="ref-rm" onclick="event.stopPropagation();removeRef()" class="hidden absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-xl text-red-500 items-center justify-center shadow-md border border-slate-200 z-10 hover:bg-red-50"><i class="fa-solid fa-trash text-sm"></i></button>
+                    </div>
+                    
+                    <div class="bg-indigo-50/50 border border-indigo-100/60 rounded-xl p-3 flex items-start gap-2.5">
+                        <i class="fa-solid fa-lightbulb text-amber-500 mt-0.5 text-sm"></i>
+                        <p class="text-[0.65rem] text-slate-600 font-medium leading-relaxed">
+                            <strong class="text-slate-800">Sistem Nou:</strong> Apasă pe pozele încărcate pentru a insera eticheta <span class="bg-indigo-500 text-white px-1 py-0.5 rounded font-bold">@img1</span> direct în textul tău!<br>
+                        </p>
                     </div>
                 </div>
 
@@ -293,30 +304,30 @@
 
                 <div id="action-area" class="w-full mb-10 min-h-[40vh] flex flex-col items-center justify-center">
                     
-<div id="st-empty" class="w-full flex items-center justify-center animate-slide-up px-2 py-8 md:py-16">
-    <div class="flex flex-col md:flex-row items-center justify-center gap-6 max-w-2xl bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_15px_50px_-12px_rgba(0,0,0,0.08)] border border-slate-100 relative overflow-hidden">
-        <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl"></div>
-        
-        <div class="flex items-center gap-4 md:border-r border-slate-100 md:pr-8 relative z-10">
-            <div class="w-12 h-20 bg-indigo-50/80 rounded-full flex flex-col items-center justify-center border border-indigo-100/50 shrink-0 text-indigo-500 shadow-sm relative overflow-hidden">
-                <i class="fa-solid fa-layer-group relative z-10 text-xl"></i>
-            </div>
-            <h2 class="text-[2rem] md:text-[2.5rem] font-black text-slate-800 tracking-tight leading-[1.05]">
-                <span class="block">Studio</span>
-                <span class="block text-slate-900">Creativ</span>
-            </h2>
-        </div>
-<p class="text-slate-500 font-medium text-[0.85rem] leading-relaxed text-center md:text-left relative z-10 max-w-[300px]">
-    <span class="hidden md:block">
-        Scrie un prompt în meniul din stânga,<br> alege setările și lasă inteligența artificială<br> să genereze imagini sau videoclipuri<br> cinematice.
-    </span>
-    
-    <span class="block md:hidden">
-        Apasă pe butonul <strong class="text-slate-700">Setări Generare</strong> de mai jos, scrie un prompt și lasă inteligența artificială să genereze imagini sau videoclipuri cinematice.
-    </span>
-</p>
-    </div>
-</div>
+                    <div id="st-empty" class="w-full flex items-center justify-center animate-slide-up px-2 py-8 md:py-16">
+                        <div class="flex flex-col md:flex-row items-center justify-center gap-6 max-w-2xl bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_15px_50px_-12px_rgba(0,0,0,0.08)] border border-slate-100 relative overflow-hidden">
+                            <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl"></div>
+                            
+                            <div class="flex items-center gap-4 md:border-r border-slate-100 md:pr-8 relative z-10">
+                                <div class="w-12 h-20 bg-indigo-50/80 rounded-full flex flex-col items-center justify-center border border-indigo-100/50 shrink-0 text-indigo-500 shadow-sm relative overflow-hidden">
+                                    <i class="fa-solid fa-layer-group relative z-10 text-xl"></i>
+                                </div>
+                                <h2 class="text-[2rem] md:text-[2.5rem] font-black text-slate-800 tracking-tight leading-[1.05]">
+                                    <span class="block">Studio</span>
+                                    <span class="block text-slate-900">Creativ</span>
+                                </h2>
+                            </div>
+                            <p class="text-slate-500 font-medium text-[0.85rem] leading-relaxed text-center md:text-left relative z-10 max-w-[300px]">
+                                <span class="hidden md:block">
+                                    Scrie un prompt în meniul din stânga,<br> alege setările și lasă inteligența artificială<br> să genereze imagini sau videoclipuri<br> cinematice.
+                                </span>
+                                
+                                <span class="block md:hidden">
+                                    Apasă pe butonul <strong class="text-slate-700">Setări Generare</strong> de mai jos, scrie un prompt și lasă inteligența artificială să genereze imagini sau videoclipuri cinematice.
+                                </span>
+                            </p>
+                        </div>
+                    </div>
 
                     <div id="st-loading" class="hidden text-center w-full max-w-md flex-col items-center">
                         <div class="relative w-32 h-32 mb-6 mx-auto">
@@ -374,7 +385,7 @@
             </div>
         </section>
     </main>
-	
+
 <script>
 const MODEL_META = {
     'nano-banana-pro':  { type:'image', cost:1 },
@@ -413,7 +424,6 @@ function updateUI(user) {
     document.getElementById('nav-name').innerText = user.name.split(' ')[0];
     document.getElementById('nav-avatar').src = user.picture;
     document.getElementById('nav-credits').innerText = user.credits;
-    loadHistory()
 }
 function logout(){ removeToken(); location.reload(); }
 
@@ -458,12 +468,8 @@ function refreshBadges(){
     const sel=document.getElementById('model-sel');
     const m=MODEL_META[sel?.value]||{type:'image',cost:1};
     const n=mode==='image'?imgCount:vidCount;
-    
-    const costEl = document.getElementById('total-cost');
-    if (costEl) costEl.textContent=m.cost*n;
-    
-    const typeEl = document.getElementById('m-type');
-    if (typeEl) typeEl.textContent=m.type==='image'?'IMAGE':'VIDEO';
+    document.getElementById('total-cost').textContent=m.cost*n;
+    document.getElementById('m-type').textContent=m.type==='image'?'IMAGE':'VIDEO';
 }
 function onModelChange(){ refreshBadges(); }
 
@@ -484,34 +490,83 @@ function switchMode(m){
     if(getToken()) loadHistory();
 }
 
-document.getElementById('ref-file').addEventListener('change',function(e){
-    const f=e.target.files[0]; if(!f)return;
-    const r=new FileReader(); r.onload=ev=>{
-        document.getElementById('ref-prev').src=ev.target.result;
-        document.getElementById('ref-prev').classList.remove('hidden');
-        document.getElementById('ref-ph').style.display='none';
-        document.getElementById('ref-rm').classList.remove('hidden');
-        document.getElementById('ref-rm').classList.add('flex');
-    }; r.readAsDataURL(f);
-});
-function removeRef(){ document.getElementById('ref-file').value=''; document.getElementById('ref-prev').classList.add('hidden'); document.getElementById('ref-ph').style.display=''; document.getElementById('ref-rm').classList.add('hidden'); }
+// --- SISTEM NOU DE REFERINȚE MULTIPLE (@img1, @img2) ---
+let uploadedRefs = [];
 
-// --- LIGHTBOX ---
+function handleFileSelect(e) {
+    const files = Array.from(e.target.files);
+    files.forEach(f => {
+        if(uploadedRefs.length < 4) uploadedRefs.push(f);
+    });
+    renderRefGallery();
+    e.target.value = ''; 
+}
+
+function removeRef(index, e) {
+    e.stopPropagation();
+    uploadedRefs.splice(index, 1);
+    renderRefGallery();
+}
+
+function insertTag(index) {
+    const ta = document.getElementById('prompt-in');
+    const tag = `@img${index + 1}`;
+    ta.value += ` ${tag} `;
+    ta.focus();
+    updateCharCount();
+}
+
+function renderRefGallery() {
+    const gal = document.getElementById('ref-gallery');
+    const zone = document.getElementById('ref-zone');
+    
+    if (uploadedRefs.length > 0) {
+        gal.classList.remove('hidden');
+        zone.classList.add('hidden');
+    } else {
+        gal.classList.add('hidden');
+        zone.classList.remove('hidden');
+    }
+
+    gal.innerHTML = uploadedRefs.map((file, i) => {
+        const url = window.URL.createObjectURL(file);
+        return `
+            <div class="relative w-[4.5rem] h-[4.5rem] rounded-xl border-2 border-indigo-200 overflow-hidden group cursor-pointer shadow-sm" onclick="insertTag(${i})" title="Apasă pentru a insera @img${i+1} în prompt">
+                <img src="${url}" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-indigo-900/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
+                    <span class="text-white text-[0.55rem] font-bold text-center leading-tight">Adaugă<br>în text</span>
+                </div>
+                <span class="absolute top-1 left-1 bg-indigo-500 text-white text-[0.55rem] font-bold px-1.5 py-0.5 rounded shadow-sm">@img${i+1}</span>
+                <button onclick="removeRef(${i}, event)" class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[0.6rem] opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-sm"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        `;
+    }).join('');
+    
+    if (uploadedRefs.length > 0 && uploadedRefs.length < 4) {
+        gal.innerHTML += `
+            <div class="w-[4.5rem] h-[4.5rem] rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 cursor-pointer hover:bg-indigo-50 hover:text-indigo-500 hover:border-indigo-300 transition-all" onclick="document.getElementById('ref-file').click()">
+                <i class="fa-solid fa-plus text-xl"></i>
+            </div>
+        `;
+    }
+}
+
 // --- LIGHTBOX ---
 function openLightbox(url, type){ 
     const lb = document.getElementById('lightbox');
     const img = document.getElementById('lb-img');
     const vid = document.getElementById('lb-vid');
-    const dlBtn = document.getElementById('lb-download-btn'); // Butonul nou
+    const dlBtn = document.getElementById('lb-download-btn'); 
     
     img.classList.add('hidden'); vid.classList.add('hidden');
     
-    // Setăm funcția de descărcare direct de pe butonul din Fullscreen
     const ext = type === 'image' ? 'png' : 'mp4';
-    dlBtn.onclick = (e) => { 
-        e.stopPropagation(); // Oprește închiderea lightbox-ului când apeși download
-        downloadMedia(url, `viralio_media_${Date.now()}.${ext}`); 
-    };
+    if(dlBtn) {
+        dlBtn.onclick = (e) => { 
+            e.stopPropagation(); 
+            downloadMedia(url, `viralio_media_${Date.now()}.${ext}`); 
+        };
+    }
     
     if(type === 'image') {
         img.src = url; img.classList.remove('hidden');
@@ -527,7 +582,7 @@ function closeLightbox(){
     setTimeout(() => { document.getElementById('lb-vid').pause(); }, 300);
 }
 
-// --- LOGICĂ NOUĂ PENTRU GRID INTELIGENT ---
+// --- GENERATION LOGIC ---
 function cancelGen(){ genAborted=true; if(activeReader)activeReader.cancel(); clearFakeProgress(); showState('empty'); resetBtn(); }
 function resetBtn(){ document.getElementById('gen-btn').disabled=false; document.getElementById('gen-btn').innerHTML='<i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> GENEREAZĂ'; }
 
@@ -559,14 +614,11 @@ function aspectClass(r){ return r.includes('LANDSCAPE') ? 'aspect-video' : (r.in
 function getGridClass(count, ratio) {
     const isLandscape = ratio.includes('LANDSCAPE');
     if (count === 1) {
-        // O imagine/video centrat (mai mare pt landscape, mai mic pt portrait sa nu ocupe tot ecranul vertical)
         return isLandscape ? 'grid grid-cols-1 max-w-4xl mx-auto' : 'grid grid-cols-1 max-w-sm mx-auto';
     }
     if (isLandscape) {
-        // Landscape: maxim 2 pe rând (ex: 2x2 pentru 4 imagini)
         return 'grid grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto';
     } else {
-        // Portrait: 4 pe un rând pe desktop, 2 pe rând pe mobil
         return `grid grid-cols-2 ${count > 2 ? 'md:grid-cols-4' : 'md:grid-cols-2'} max-w-5xl mx-auto`;
     }
 }
@@ -613,7 +665,7 @@ function buildVideoGrid(urls, ratioVal){
     `);
 }
 
-// --- SSE & GENERATOARE ---
+// --- SSE & PROGRESS LOGIC ---
 function updateCircleProgress(percent, text) {
     const circle = document.getElementById('circular-progress');
     const textEl = document.getElementById('progress-text');
@@ -651,13 +703,12 @@ function clearFakeProgress(){
     document.getElementById('progress-text').classList.add('hidden');
 }
 
-// --- SSE READER BLINDAT (FIX DEFINITIV) ---
 async function readSSE(response) {
     const reader = response.body.getReader();
     activeReader = reader;
     const dec = new TextDecoder();
     let buf = ''; let finalData = {};
-    let rawText = ''; // Păstrăm și textul brut în caz că e un JSON simplu
+    let rawText = ''; 
 
     const processLine = (line) => {
         const t = line.trim();
@@ -694,14 +745,14 @@ async function readSSE(response) {
             }
 
             const lines = buf.split('\n');
-            buf = lines.pop(); // Păstrează bucata neterminată în buffer
+            buf = lines.pop(); 
 
             for (const line of lines) {
                 processLine(line);
             }
 
             if (done) {
-                if (buf.trim()) processLine(buf); // FORȚEAZĂ procesarea textului rămas la final!
+                if (buf.trim()) processLine(buf); 
                 break;
             }
         }
@@ -709,12 +760,15 @@ async function readSSE(response) {
 
     if (Object.keys(finalData).length > 0) return finalData;
 
-    // Fallback suprem: Dacă serverul nu a trimis prefixul "data:" ci doar un JSON direct
     try {
         const parsed = JSON.parse(rawText);
+        if (parsed.error) throw new Error(parsed.error);
         if (parsed["0"]) return parsed["0"];
         return parsed;
     } catch (e) {
+        if (e.message !== "Unexpected token u in JSON at position 0" && !e.message.includes("JSON")) {
+            throw e;
+        }
         console.error("Text brut primit de la server:", rawText);
     }
 
@@ -723,14 +777,11 @@ async function readSSE(response) {
 
 function extractUrls(data) {
     if (!data) return [];
-    
-    // 1. Regula simplă care mergea de la început
     if (data.file_urls && Array.isArray(data.file_urls) && data.file_urls.length > 0) return data.file_urls;
     if (data.file_url) return [data.file_url];
     if (data.video_url) return [data.video_url];
     if (data.url) return [data.url];
 
-    // 2. Dacă URL-urile sunt băgate adânc în alte obiecte, căutăm orice se termină în mp4/png sau începe cu http
     let found = [];
     const scanObj = (obj) => {
         for (let k in obj) {
@@ -742,7 +793,6 @@ function extractUrls(data) {
         }
     };
     scanObj(data);
-    
     return found;
 }
 
@@ -752,7 +802,6 @@ async function genImage(){
     const prompt = document.getElementById('prompt-in').value.trim();
     const ratio  = document.querySelector('input[name="ratio"]:checked')?.value || 'IMAGE_ASPECT_RATIO_LANDSCAPE';
     const model_id = document.getElementById('model-sel').value;
-    const refFile = document.getElementById('ref-file').files[0]; // AM ADĂUGAT CITIREA FIȘIERULUI
 
     showState('loading');
     buildSkeletons(imgCount, ratio);
@@ -764,7 +813,11 @@ async function genImage(){
     fd.append('aspect_ratio', ratio); 
     fd.append('number_of_images', imgCount); 
     fd.append('model_id', model_id); 
-    if(refFile) fd.append('start_image', refFile); // AM ADĂUGAT TRIMITEREA LUI CĂTRE SERVER
+    
+    // Trimitem pozele colectate din vectorul uploadedRefs
+    uploadedRefs.forEach(file => {
+        fd.append('ref_images', file, file.name);
+    });
 
     const resp = await fetch('/api/media/image', { method:'POST', headers:{'Authorization':'Bearer '+ token}, body: fd });
     
@@ -777,10 +830,7 @@ async function genImage(){
     const data = await readSSE(resp);
     let urls = extractUrls(data);
     
-    if(!urls || !urls.length) {
-        console.error("RAW DATA EȘUAT:", data);
-        throw new Error('Lipsă URL! Răspuns primit: ' + JSON.stringify(data).substring(0, 120));
-    }
+    if(!urls || !urls.length) throw new Error('Lipsă URL! Răspuns primit: ' + JSON.stringify(data).substring(0, 120));
     return {urls, ratio};
 }
 
@@ -789,7 +839,6 @@ async function genVideo(){
     const prompt  = document.getElementById('prompt-in').value.trim();
     const vratio  = document.querySelector('input[name="vratio"]:checked')?.value || 'VIDEO_ASPECT_RATIO_LANDSCAPE';
     const model_id = document.getElementById('model-sel').value;
-    const refFile = document.getElementById('ref-file').files[0];
 
     showState('loading'); 
     document.getElementById('sk-grid').innerHTML = ''; 
@@ -800,7 +849,11 @@ async function genVideo(){
     fd.append('aspect_ratio', vratio); 
     fd.append('number_of_videos', vidCount); 
     fd.append('model_id', model_id);
-    if(refFile) fd.append('start_image', refFile);
+    
+    // Trimitem pozele colectate din vectorul uploadedRefs
+    uploadedRefs.forEach(file => {
+        fd.append('ref_images', file, file.name);
+    });
 
     const resp = await fetch('/api/media/video', { method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd });
     
@@ -813,10 +866,7 @@ async function genVideo(){
     const data = await readSSE(resp);
     let urls = extractUrls(data);
     
-    if(!urls || !urls.length) {
-        console.error("RAW DATA EȘUAT:", data);
-        throw new Error('Lipsă URL! Răspuns primit: ' + JSON.stringify(data).substring(0, 120));
-    }
+    if(!urls || !urls.length) throw new Error('Lipsă URL! Răspuns primit: ' + JSON.stringify(data).substring(0, 120));
     return {urls, ratio: vratio}; 
 }
 
