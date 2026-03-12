@@ -177,9 +177,11 @@ if (hasNumericKeys) {
     }
 };
 
-app.post('/api/media/image', authenticate, upload.single('start_image'), async (req, res) => {
+// --- RUTA PENTRU IMAGINI CU SUPORT @IMG ---
+app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
+        let finalPrompt = prompt;
         const count = parseInt(number_of_images) || 1;
         const costPerImg = MODEL_PRICES[model_id] || 1;
         const totalCost = count * costPerImg;
@@ -187,16 +189,31 @@ app.post('/api/media/image', authenticate, upload.single('start_image'), async (
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
+        // Urcăm pozele temporar și băgăm URL-ul public direct în prompt
+        if (req.files && req.files.length > 0) {
+            for (let i = 0; i < req.files.length; i++) {
+                const file = req.files[i];
+                const fileName = `refs/${req.userId}_${Date.now()}_${i}.png`;
+                
+                const { error } = await supabase.storage.from('media-history').upload(fileName, file.buffer, { contentType: file.mimetype });
+                
+                if (!error) {
+                    const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
+                    const tag = `@img${i+1}`;
+                    
+                    if (finalPrompt.includes(tag)) {
+                        finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), publicData.publicUrl);
+                    } else {
+                        finalPrompt = `${publicData.publicUrl} ${finalPrompt}`;
+                    }
+                }
+            }
+        }
+
         const formData = new FormData();
-        formData.append('prompt', prompt);
+        formData.append('prompt', finalPrompt);
         formData.append('aspect_ratio', aspect_ratio);
         formData.append('number_of_images', count);
-        
-        // Dacă utilizatorul a încărcat o imagine de referință, o adăugăm în pachet
-        if (req.file) {
-            const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
-            formData.append('start_image', blob, req.file.originalname);
-        }
 
         const apiRes = await fetch(`${GENAIPRO_URL}/veo/create-image`, {
             method: 'POST',
@@ -210,7 +227,6 @@ app.post('/api/media/image', authenticate, upload.single('start_image'), async (
         }
 
         await Log.create({ userEmail: user.email, type: 'image', count, cost: totalCost });
-
         user.credits -= totalCost;
         await user.save();
 
@@ -220,9 +236,11 @@ app.post('/api/media/image', authenticate, upload.single('start_image'), async (
     }
 });
 
-app.post('/api/media/video', authenticate, upload.single('start_image'), async (req, res) => {
+// --- RUTA PENTRU VIDEO CU SUPORT @IMG ---
+app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_videos, model_id } = req.body;
+        let finalPrompt = prompt;
         const count = parseInt(number_of_videos) || 1;
         const costPerVid = MODEL_PRICES[model_id] || 3;
         const totalCost = count * costPerVid;
@@ -230,17 +248,37 @@ app.post('/api/media/video', authenticate, upload.single('start_image'), async (
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
+        let startImageFile = null;
+
+        if (req.files && req.files.length > 0) {
+            startImageFile = req.files[0]; 
+
+            for (let i = 0; i < req.files.length; i++) {
+                const file = req.files[i];
+                const fileName = `refs/vid_${req.userId}_${Date.now()}_${i}.png`;
+                const { error } = await supabase.storage.from('media-history').upload(fileName, file.buffer, { contentType: file.mimetype });
+                
+                if (!error) {
+                    const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
+                    const tag = `@img${i+1}`;
+                    if (finalPrompt.includes(tag)) {
+                        finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), publicData.publicUrl);
+                    }
+                }
+            }
+        }
+
         let endpoint, fetchOptions;
 
-        if (req.file) {
+        if (startImageFile) {
             endpoint = `${GENAIPRO_URL}/veo/frames-to-video`;
             const formData = new FormData();
-            formData.append('prompt', prompt);
+            formData.append('prompt', finalPrompt);
             formData.append('aspect_ratio', aspect_ratio);
             formData.append('number_of_videos', count);
             
-            const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
-            formData.append('start_image', blob, req.file.originalname);
+            const blob = new Blob([startImageFile.buffer], { type: startImageFile.mimetype });
+            formData.append('start_image', blob, startImageFile.originalname);
 
             fetchOptions = {
                 method: 'POST',
@@ -255,7 +293,7 @@ app.post('/api/media/video', authenticate, upload.single('start_image'), async (
                     'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
                     'Content-Type': 'application/json' 
                 },
-                body: JSON.stringify({ prompt, aspect_ratio, number_of_videos: count })
+                body: JSON.stringify({ prompt: finalPrompt, aspect_ratio, number_of_videos: count })
             };
         }
 
@@ -267,7 +305,6 @@ app.post('/api/media/video', authenticate, upload.single('start_image'), async (
         }
         
         await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
-
         user.credits -= totalCost;
         await user.save();
 
