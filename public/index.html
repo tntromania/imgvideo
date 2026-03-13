@@ -50,7 +50,7 @@
         
         .ratio-pill input[type=radio] { display: none; }
         .ratio-pill input:checked + span { background: white; color: #4f46e5; box-shadow: 0 2px 8px rgba(79,70,229,0.15); font-weight: 800; border-color: transparent; }
-.ratio-pill span { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.2s; user-select: none; border: 1px solid transparent; }
+        .ratio-pill span { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; border-radius: 12px; font-size: 0.7rem; font-weight: 800; color: #64748b; cursor: pointer; transition: all 0.2s; user-select: none; border: 1px solid transparent; }
         .ratio-pill span:hover { color: #4f46e5; }
         
         .count-btn { width: 36px; height: 36px; border-radius: 12px; background: white; border: 1px solid #e2e8f0; font-size: 1.2rem; font-weight: 800; color: #475569; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
@@ -127,14 +127,13 @@
         </div>
     </div>
 
-<div id="lightbox" onclick="closeLightbox()">
+    <div id="lightbox" onclick="closeLightbox()">
         <button onclick="closeLightbox()" class="absolute top-4 md:top-6 right-4 md:right-8 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-12 md:h-12 rounded-full text-lg md:text-xl backdrop-blur-md transition-all z-10 flex items-center justify-center">
             <i class="fa-solid fa-xmark"></i>
         </button>
         <button id="lb-download-btn" class="absolute top-4 md:top-6 right-16 md:right-24 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-12 md:h-12 rounded-full text-lg md:text-xl backdrop-blur-md transition-all z-10 flex items-center justify-center" title="Descarcă">
             <i class="fa-solid fa-download"></i>
         </button>
-
         <img id="lb-img" src="" alt="" class="hidden shadow-2xl" onclick="event.stopPropagation()">
         <video id="lb-vid" src="" controls class="hidden shadow-2xl" onclick="event.stopPropagation()"></video>
     </div>
@@ -143,7 +142,6 @@
 
     <div class="sticky top-0 z-50 flex w-full justify-center px-4 pt-4 pb-2 md:pt-5 md:pb-3 max-w-screen-2xl mx-auto">
         <nav class="w-full rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl shadow-sm px-4 md:px-8 py-3 flex justify-between items-center relative">
-            
             <a href="https://viralio.ro" class="flex items-center font-black text-xl tracking-tight text-slate-900 group">
                 <div class="w-9 h-9 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md group-hover:scale-105 transition-transform"><i class="fa-solid fa-bolt text-sm"></i></div>
                 <span class="hidden sm:block">Viralio</span>
@@ -172,7 +170,6 @@
     </div>
 
 <main class="flex-1 flex flex-col md:flex-row max-w-screen-2xl mx-auto w-full px-4 pb-4 gap-4 overflow-hidden z-10 relative">
-        
         <div id="mobile-overlay" onclick="toggleMobileSettings()" class="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[95] opacity-0 pointer-events-none transition-opacity duration-300"></div>
 
         <button id="mobile-settings-btn" onclick="toggleMobileSettings()" class="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] bg-slate-900 text-white px-6 py-3.5 rounded-full font-black text-sm shadow-[0_10px_30px_rgba(15,23,42,0.3)] flex items-center gap-2 border border-slate-700 w-[85%] justify-center">
@@ -192,12 +189,14 @@
                     <label class="field-label">Model AI</label>
                     <div class="select-wrap">
                         <select id="model-sel" class="styled-select" onchange="onModelChange()">
-                            <optgroup label="Generare Imagini (Banana)" id="og-img">
-                                <option value="nano-banana-pro" data-type="image" data-cost="1">Nano Banana Pro v2 🏆 — 1 Credit</option>
+                            <optgroup label="Generare Imagini (Nano Banana)" id="og-img">
+                                <option value="nano-banana-pro-1k" data-type="image" data-cost="1">Nano Banana PRO (1K) 🏆 — 1 Credit</option>
+                                <option value="nano-banana-pro-2k" data-type="image" data-cost="2">Nano Banana PRO (2K) ✨ — 2 Credite</option>
+                                <option value="nano-banana-pro-4k" data-type="image" data-cost="4">Nano Banana PRO (4K) 💎 — 4 Credite</option>
                             </optgroup>
-                            <optgroup label="Generare Video (Veo)" id="og-vid" style="display:none">
-                                <option value="veo-3-quality" data-type="video" data-cost="5">Veo 3.1 Quality 🏆 — 5 Credite</option>
-                                <option value="veo-3-fast"    data-type="video" data-cost="3">Veo 3.1 Fast ⚡ — 3 Credite</option>
+                            <optgroup label="Generare Video (Vertex AI)" id="og-vid" style="display:none">
+                                <option value="veo3.1" data-type="video" data-cost="5">Veo 3.1 (720p, 8s, Audio) 🏆 — 5 Credite</option>
+                                <option value="veo3.1fast" data-type="video" data-cost="3">Veo 3.1 Fast (720p, 8s, Audio) ⚡ — 3 Credite</option>
                             </optgroup>
                         </select>
                     </div>
@@ -214,17 +213,25 @@
                     </div>
                 </div>
 
-<div id="img-options">
+                <div id="img-options">
                     <div class="panel-s pt-0">
                         <label class="field-label">Format Imagine</label>
-                        <div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
-                            <label class="ratio-pill flex-1">
-                                <input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_LANDSCAPE" checked>
-                                <span><div class="w-[18px] h-[12px] border-[2px] border-current rounded-[3px] opacity-75"></div> 16:9</span>
+                        <div class="bg-slate-100 rounded-2xl p-1.5 grid grid-cols-4 gap-1">
+                            <label class="ratio-pill">
+                                <input type="radio" name="ratio" value="1:1">
+                                <span><div class="w-[14px] h-[14px] border-[2px] border-current rounded-[3px] opacity-75"></div> 1:1</span>
                             </label>
-                            <label class="ratio-pill flex-1">
-                                <input type="radio" name="ratio" value="IMAGE_ASPECT_RATIO_PORTRAIT">
-                                <span><div class="w-[12px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div> 9:16</span>
+                            <label class="ratio-pill">
+                                <input type="radio" name="ratio" value="16:9" checked>
+                                <span><div class="w-[18px] h-[10px] border-[2px] border-current rounded-[3px] opacity-75"></div> 16:9</span>
+                            </label>
+                            <label class="ratio-pill">
+                                <input type="radio" name="ratio" value="9:16">
+                                <span><div class="w-[10px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div> 9:16</span>
+                            </label>
+                            <label class="ratio-pill">
+                                <input type="radio" name="ratio" value="21:9">
+                                <span><div class="w-[22px] h-[8px] border-[2px] border-current rounded-[3px] opacity-75"></div> 21:9</span>
                             </label>
                         </div>
                     </div>
@@ -241,14 +248,22 @@
                 <div id="vid-options" class="hidden">
                     <div class="panel-s pt-0">
                         <label class="field-label">Format Video</label>
-                        <div class="bg-slate-100 rounded-2xl p-1.5 flex gap-1">
-                            <label class="ratio-pill flex-1">
-                                <input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_LANDSCAPE" checked>
-                                <span><div class="w-[18px] h-[12px] border-[2px] border-current rounded-[3px] opacity-75"></div> 16:9</span>
+                        <div class="bg-slate-100 rounded-2xl p-1.5 grid grid-cols-4 gap-1">
+                            <label class="ratio-pill">
+                                <input type="radio" name="vratio" value="1:1">
+                                <span><div class="w-[14px] h-[14px] border-[2px] border-current rounded-[3px] opacity-75"></div> 1:1</span>
                             </label>
-                            <label class="ratio-pill flex-1">
-                                <input type="radio" name="vratio" value="VIDEO_ASPECT_RATIO_PORTRAIT">
-                                <span><div class="w-[12px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div> 9:16</span>
+                            <label class="ratio-pill">
+                                <input type="radio" name="vratio" value="16:9" checked>
+                                <span><div class="w-[18px] h-[10px] border-[2px] border-current rounded-[3px] opacity-75"></div> 16:9</span>
+                            </label>
+                            <label class="ratio-pill">
+                                <input type="radio" name="vratio" value="9:16">
+                                <span><div class="w-[10px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div> 9:16</span>
+                            </label>
+                            <label class="ratio-pill">
+                                <input type="radio" name="vratio" value="21:9">
+                                <span><div class="w-[22px] h-[8px] border-[2px] border-current rounded-[3px] opacity-75"></div> 21:9</span>
                             </label>
                         </div>
                     </div>
@@ -262,9 +277,10 @@
                     </div>
                 </div>
 
-<div class="panel-s pt-0 border-none mt-2">
+                <div class="panel-s pt-0 border-none mt-2">
                     <label class="field-label flex justify-between items-center mb-3">
                         <span>Imagini de Referință <span class="normal-case text-slate-400 font-medium">(opțional)</span></span>
+                        <span class="text-[0.65rem] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg cursor-pointer hover:bg-indigo-100 transition-colors font-bold shadow-sm border border-indigo-100" onclick="document.getElementById('ref-file').click()">+ Adaugă</span>
                     </label>
                     
                     <input type="file" id="ref-file" class="hidden" accept="image/*" multiple onchange="handleFileSelect(event)">
@@ -276,6 +292,13 @@
                             <div class="w-8 h-8 rounded-xl bg-slate-200/50 flex items-center justify-center text-slate-500"><i class="fa-solid fa-cloud-arrow-up"></i></div>
                             <span class="text-xs font-bold text-slate-600">Încarcă referințe</span>
                         </div>
+                    </div>
+                    
+                    <div class="bg-indigo-50/50 border border-indigo-100/60 rounded-xl p-3 flex items-start gap-2.5">
+                        <i class="fa-solid fa-lightbulb text-amber-500 mt-0.5 text-sm"></i>
+                        <p class="text-[0.65rem] text-slate-600 font-medium leading-relaxed">
+                            <strong class="text-slate-800">Sistem Nou:</strong> Când tastezi <span class="font-bold text-indigo-600">@</span> în prompt, se va adăuga automat <span class="bg-indigo-500 text-white px-1 py-0.5 rounded font-bold">@img1</span> pentru a folosi poza selectată!
+                        </p>
                     </div>
                 </div>
 
@@ -297,30 +320,30 @@
 
                 <div id="action-area" class="w-full mb-10 min-h-[40vh] flex flex-col items-center justify-center">
                     
-<div id="st-empty" class="w-full flex items-center justify-center animate-slide-up px-2 py-8 md:py-16">
-    <div class="flex flex-col md:flex-row items-center justify-center gap-6 max-w-2xl bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_15px_50px_-12px_rgba(0,0,0,0.08)] border border-slate-100 relative overflow-hidden">
-        <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl"></div>
-        
-        <div class="flex items-center gap-4 md:border-r border-slate-100 md:pr-8 relative z-10">
-            <div class="w-12 h-20 bg-indigo-50/80 rounded-full flex flex-col items-center justify-center border border-indigo-100/50 shrink-0 text-indigo-500 shadow-sm relative overflow-hidden">
-                <i class="fa-solid fa-layer-group relative z-10 text-xl"></i>
-            </div>
-            <h2 class="text-[2rem] md:text-[2.5rem] font-black text-slate-800 tracking-tight leading-[1.05]">
-                <span class="block">Studio</span>
-                <span class="block text-slate-900">Creativ</span>
-            </h2>
-        </div>
-<p class="text-slate-500 font-medium text-[0.85rem] leading-relaxed text-center md:text-left relative z-10 max-w-[300px]">
-    <span class="hidden md:block">
-        Scrie un prompt în meniul din stânga,<br> alege setările și lasă inteligența artificială<br> să genereze imagini sau videoclipuri<br> cinematice.
-    </span>
-    
-    <span class="block md:hidden">
-        Apasă pe butonul <strong class="text-slate-700">Setări Generare</strong> de mai jos, scrie un prompt și lasă inteligența artificială să genereze imagini sau videoclipuri cinematice.
-    </span>
-</p>
-    </div>
-</div>
+                    <div id="st-empty" class="w-full flex items-center justify-center animate-slide-up px-2 py-8 md:py-16">
+                        <div class="flex flex-col md:flex-row items-center justify-center gap-6 max-w-2xl bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_15px_50px_-12px_rgba(0,0,0,0.08)] border border-slate-100 relative overflow-hidden">
+                            <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl"></div>
+                            
+                            <div class="flex items-center gap-4 md:border-r border-slate-100 md:pr-8 relative z-10">
+                                <div class="w-12 h-20 bg-indigo-50/80 rounded-full flex flex-col items-center justify-center border border-indigo-100/50 shrink-0 text-indigo-500 shadow-sm relative overflow-hidden">
+                                    <i class="fa-solid fa-layer-group relative z-10 text-xl"></i>
+                                </div>
+                                <h2 class="text-[2rem] md:text-[2.5rem] font-black text-slate-800 tracking-tight leading-[1.05]">
+                                    <span class="block">Studio</span>
+                                    <span class="block text-slate-900">Creativ</span>
+                                </h2>
+                            </div>
+                            <p class="text-slate-500 font-medium text-[0.85rem] leading-relaxed text-center md:text-left relative z-10 max-w-[300px]">
+                                <span class="hidden md:block">
+                                    Scrie un prompt în meniul din stânga,<br> alege setările și lasă inteligența artificială<br> să genereze imagini sau videoclipuri<br> cinematice.
+                                </span>
+                                
+                                <span class="block md:hidden">
+                                    Apasă pe butonul <strong class="text-slate-700">Setări Generare</strong> de mai jos, scrie un prompt și lasă inteligența artificială să genereze imagini sau videoclipuri cinematice.
+                                </span>
+                            </p>
+                        </div>
+                    </div>
 
                     <div id="st-loading" class="hidden text-center w-full max-w-md flex-col items-center">
                         <div class="relative w-32 h-32 mb-6 mx-auto">
@@ -378,12 +401,14 @@
             </div>
         </section>
     </main>
-	
+
 <script>
 const MODEL_META = {
-    'nano-banana-pro':  { type:'image', cost:1 },
-    'veo-3-quality':    { type:'video', cost:5 },
-    'veo-3-fast':       { type:'video', cost:3 }
+    'nano-banana-pro-1k':  { type:'image', cost:1 },
+    'nano-banana-pro-2k':  { type:'image', cost:2 },
+    'nano-banana-pro-4k':  { type:'image', cost:4 },
+    'veo3.1':              { type:'video', cost:5 },
+    'veo3.1fast':          { type:'video', cost:3 }
 };
 
 let mode = 'image'; let imgCount = 1; let vidCount = 1;
@@ -478,7 +503,7 @@ function switchMode(m){
     
     document.getElementById('og-img').style.display = isVid ? 'none' : '';
     document.getElementById('og-vid').style.display = isVid ? '' : 'none';
-    document.getElementById('model-sel').value = isVid ? 'veo-3-quality' : 'nano-banana-pro';
+    document.getElementById('model-sel').value = isVid ? 'veo3.1' : 'nano-banana-pro-1k';
     
     document.getElementById('img-options').classList.toggle('hidden', isVid);
     document.getElementById('vid-options').classList.toggle('hidden', !isVid);
@@ -542,7 +567,6 @@ function renderRefGallery() {
     }).join('');
 }
 
-// Magia: Când apeși pe tasta @ îți pune direct @img1 !
 document.getElementById('prompt-in').addEventListener('input', function(e) {
     if (e.data === '@' && uploadedRefs.length > 0) {
         const start = this.selectionStart;
@@ -551,19 +575,19 @@ document.getElementById('prompt-in').addEventListener('input', function(e) {
         updateCharCount();
     }
 });
+
 // --- LIGHTBOX ---
 function openLightbox(url, type){ 
     const lb = document.getElementById('lightbox');
     const img = document.getElementById('lb-img');
     const vid = document.getElementById('lb-vid');
-    const dlBtn = document.getElementById('lb-download-btn'); // Butonul nou
+    const dlBtn = document.getElementById('lb-download-btn'); 
     
     img.classList.add('hidden'); vid.classList.add('hidden');
     
-    // Setăm funcția de descărcare direct de pe butonul din Fullscreen
     const ext = type === 'image' ? 'png' : 'mp4';
     dlBtn.onclick = (e) => { 
-        e.stopPropagation(); // Oprește închiderea lightbox-ului când apeși download
+        e.stopPropagation(); 
         downloadMedia(url, `viralio_media_${Date.now()}.${ext}`); 
     };
     
@@ -608,19 +632,21 @@ async function downloadMedia(url, filename) {
     }
 }
 
-function aspectClass(r){ return r.includes('LANDSCAPE') ? 'aspect-video' : (r.includes('PORTRAIT') ? 'aspect-[9/16]' : 'aspect-square'); }
+function aspectClass(r){ 
+    if(r === '16:9') return 'aspect-video';
+    if(r === '9:16') return 'aspect-[9/16]';
+    if(r === '21:9') return 'aspect-[21/9]';
+    return 'aspect-square';
+}
 
 function getGridClass(count, ratio) {
-    const isLandscape = ratio.includes('LANDSCAPE');
+    const isLandscape = (ratio === '16:9' || ratio === '21:9');
     if (count === 1) {
-        // O imagine/video centrat (mai mare pt landscape, mai mic pt portrait sa nu ocupe tot ecranul vertical)
         return isLandscape ? 'grid grid-cols-1 max-w-4xl mx-auto' : 'grid grid-cols-1 max-w-sm mx-auto';
     }
     if (isLandscape) {
-        // Landscape: maxim 2 pe rând (ex: 2x2 pentru 4 imagini)
         return 'grid grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto';
     } else {
-        // Portrait: 4 pe un rând pe desktop, 2 pe rând pe mobil
         return `grid grid-cols-2 ${count > 2 ? 'md:grid-cols-4' : 'md:grid-cols-2'} max-w-5xl mx-auto`;
     }
 }
@@ -705,13 +731,12 @@ function clearFakeProgress(){
     document.getElementById('progress-text').classList.add('hidden');
 }
 
-// --- SSE READER BLINDAT (FIX DEFINITIV) ---
 async function readSSE(response) {
     const reader = response.body.getReader();
     activeReader = reader;
     const dec = new TextDecoder();
     let buf = ''; let finalData = {};
-    let rawText = ''; // Păstrăm și textul brut în caz că e un JSON simplu
+    let rawText = ''; 
 
     const processLine = (line) => {
         const t = line.trim();
@@ -748,14 +773,14 @@ async function readSSE(response) {
             }
 
             const lines = buf.split('\n');
-            buf = lines.pop(); // Păstrează bucata neterminată în buffer
+            buf = lines.pop(); 
 
             for (const line of lines) {
                 processLine(line);
             }
 
             if (done) {
-                if (buf.trim()) processLine(buf); // FORȚEAZĂ procesarea textului rămas la final!
+                if (buf.trim()) processLine(buf); 
                 break;
             }
         }
@@ -763,7 +788,6 @@ async function readSSE(response) {
 
     if (Object.keys(finalData).length > 0) return finalData;
 
-    // Fallback suprem: Dacă serverul nu a trimis prefixul "data:" ci doar un JSON direct
     try {
         const parsed = JSON.parse(rawText);
         if (parsed["0"]) return parsed["0"];
@@ -778,13 +802,11 @@ async function readSSE(response) {
 function extractUrls(data) {
     if (!data) return [];
     
-    // 1. Regula simplă care mergea de la început
     if (data.file_urls && Array.isArray(data.file_urls) && data.file_urls.length > 0) return data.file_urls;
     if (data.file_url) return [data.file_url];
     if (data.video_url) return [data.video_url];
     if (data.url) return [data.url];
 
-    // 2. Dacă URL-urile sunt băgate adânc în alte obiecte, căutăm orice se termină în mp4/png sau începe cu http
     let found = [];
     const scanObj = (obj) => {
         for (let k in obj) {
@@ -796,7 +818,6 @@ function extractUrls(data) {
         }
     };
     scanObj(data);
-    
     return found;
 }
 
@@ -804,7 +825,7 @@ function extractUrls(data) {
 async function genImage(){
     const token = getToken();
     const prompt = document.getElementById('prompt-in').value.trim();
-    const ratio  = document.querySelector('input[name="ratio"]:checked')?.value || 'IMAGE_ASPECT_RATIO_LANDSCAPE';
+    const ratio  = document.querySelector('input[name="ratio"]:checked')?.value || '16:9';
     const model_id = document.getElementById('model-sel').value;
 
     showState('loading');
@@ -840,7 +861,7 @@ async function genImage(){
 async function genVideo(){
     const token = getToken();
     const prompt  = document.getElementById('prompt-in').value.trim();
-    const vratio  = document.querySelector('input[name="vratio"]:checked')?.value || 'VIDEO_ASPECT_RATIO_LANDSCAPE';
+    const vratio  = document.querySelector('input[name="vratio"]:checked')?.value || '16:9';
     const model_id = document.getElementById('model-sel').value;
 
     showState('loading'); 
