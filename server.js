@@ -152,7 +152,7 @@ const pipeStream = async (apiRes, res) => {
 // Folosește direct adresa ta de API
 const VERTEX_ENDPOINT = "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1/publishers/google/models/"; 
 
-// --- RUTA PENTRU IMAGINI VERTEX AI (NANO BANANA PRO / GEMINI 3 PRO IMAGE) ---
+// --- RUTA PENTRU IMAGINI VERTEX AI (GEMINI 3 PRO IMAGE / NANO BANANA PRO) ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -174,26 +174,25 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                 if (!error) {
                     const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
                     const tag = `@img${i+1}`;
-                    if (finalPrompt.includes(tag)) finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), '').trim();
+                    if (finalPrompt.includes(tag)) {
+                        finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), '').trim();
+                    }
                     crefUrls.push(publicData.publicUrl);
                 }
             }
         }
 
-        // Adăugăm referința de personaj în prompt
+        // Google nu folosește "--cref". Îi explicăm în engleză să folosească imaginea!
         if (crefUrls.length > 0) {
-            finalPrompt = `${finalPrompt} --cref ${crefUrls.join(' ')} --cw 100`;
-            finalPrompt = finalPrompt.replace(/\s+/g, ' ').trim();
+            finalPrompt = `${finalPrompt}. Use this image as exact character/style reference: ${crefUrls.join(', ')}`;
         }
 
-        // Traducem formatul tău de UI (21:9) în ceva ce Google acceptă, dacă e cazul
+        // Adaptare pentru formatele Google
         let googleAspect = aspect_ratio;
-        if (googleAspect === "21:9") googleAspect = "16:9";
+        if (googleAspect === "21:9") googleAspect = "16:9"; // Evităm crăparea dacă Google nu știe 21:9
 
-        // ==========================================
-        // NOUL API OFICIAL BAZAT PE DOCUMENTAȚIA TA
-        // ==========================================
-        const MODEL_ID = 'gemini-3-pro-image-preview';
+        // Numele oficial din documentația ta
+        const MODEL_ID = 'gemini-3-pro-image-preview'; 
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateImages?key=${process.env.VERTEX_API_KEY}`;
         
         const fetchOptions = {
@@ -204,21 +203,28 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                 parameters: {
                     sampleCount: count,
                     aspectRatio: googleAspect
-                    // Nano Banana știe 4K nativ din modelul de mai sus, deci resolutionParam e implicit
                 }
             })
         };
         
         const apiRes = await fetch(endpoint, fetchOptions);
-        const data = await apiRes.json();
+        
+        // CITIM TEXTUL BRUT PRIMA DATĂ CA SĂ EVITĂM "Unexpected end of JSON"
+        const rawText = await apiRes.text();
+        let data;
+        try {
+            data = JSON.parse(rawText);
+        } catch (err) {
+            throw new Error(`Eroare de la serverele Google: ${rawText.substring(0, 150)}`);
+        }
 
         if (!apiRes.ok) {
-            throw new Error(`Eroare Gemini 3 Pro API: ${data.error?.message || 'Verifică API Key sau permisiunile.'}`);
+            throw new Error(`Eroare Gemini 3 Pro API: ${data.error?.message || rawText}`);
         }
 
         let urls = [];
         
-        // Salvăm Base64-ul primit de la Google pe Supabase-ul tău
+        // Google trimite pozele în Base64. Le urcăm pe Supabase.
         if (data.predictions) {
             for (let i = 0; i < data.predictions.length; i++) {
                 const b64 = data.predictions[i].bytesBase64Encoded;
@@ -235,9 +241,102 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             }
         }
 
-        if (urls.length === 0) throw new Error("Google a răspuns cu succes, dar nu a returnat date pentru imagine.");
+        if (urls.length === 0) throw new Error("Google a procesat, dar nu a returnat nicio imagine (posibil filtru de siguranță activat de ei).");
 
         await Log.create({ userEmail: user.email, type: 'image', count, cost: totalCost });
+        user.credits -= totalCost;
+        await user.save();
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+
+// --- RUTA PENTRU VIDEO VERTEX AI (VEO 3.1) ---
+app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async (req, res) => {
+    try {
+        const { prompt, aspect_ratio, number_of_videos, model_id } = req.body;
+        let finalPrompt = prompt;
+        const count = parseInt(number_of_videos) || 1;
+        const costPerVid = MODEL_PRICES[model_id] || 3;
+        const totalCost = count * costPerVid;
+
+        const user = await User.findById(req.userId);
+        if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
+
+        let startImageBase64 = null;
+        if (req.files && req.files.length > 0) {
+            startImageBase64 = req.files[0].buffer.toString('base64');
+            for (let i = 0; i < req.files.length; i++) {
+                finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
+            }
+            finalPrompt = finalPrompt.replace(/\s+/g, ' ').trim();
+        }
+
+        const payload = {
+            instances: [ { prompt: finalPrompt } ],
+            parameters: {
+                aspectRatio: aspect_ratio,
+                resolution: "720p",
+                duration: "8s",
+                includeAudio: true,
+                sampleCount: count
+            }
+        };
+
+        if (startImageBase64) {
+            payload.instances[0].image = { bytesBase64Encoded: startImageBase64 };
+        }
+
+        const fetchOptions = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        };
+
+        const googleModelId = model_id === 'veo3.1fast' ? 'veo-3.1-fast' : 'veo-3.1';
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${googleModelId}:predict?key=${process.env.VERTEX_API_KEY}`;
+        
+        const apiRes = await fetch(endpoint, fetchOptions);
+        
+        // CITIM TEXTUL BRUT PRIMA DATĂ
+        const rawText = await apiRes.text();
+        let data;
+        try {
+            data = JSON.parse(rawText);
+        } catch (err) {
+            throw new Error(`Eroare de la serverele Google Veo: ${rawText.substring(0, 150)}`);
+        }
+
+        if (!apiRes.ok) {
+            throw new Error(`Eroare Veo API: ${data.error?.message || rawText}`);
+        }
+
+        let urls = [];
+        if (data.predictions) {
+            for (let i = 0; i < data.predictions.length; i++) {
+                const b64 = data.predictions[i].bytesBase64Encoded || data.predictions[i].video;
+                if (!b64) continue;
+                
+                const buffer = Buffer.from(b64, 'base64');
+                const fileName = `generated/vid_${req.userId}_${Date.now()}_${i}.mp4`;
+                const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: 'video/mp4' });
+                
+                if (!supaErr) {
+                    const { data: pData } = supabase.storage.from('media-history').getPublicUrl(fileName);
+                    urls.push(pData.publicUrl);
+                }
+            }
+        }
+
+        if (urls.length === 0) throw new Error("Modelul Veo nu a putut genera video-ul.");
+
+        await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
         user.credits -= totalCost;
         await user.save();
 
