@@ -202,16 +202,16 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             })
         };
 
-        // FIXED: URL-ul corect pentru API Key!
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/nano-banana-pro:predict?key=${process.env.VERTEX_API_KEY}`;
+        // URL-ul EXACT cerut de platforma ta Vertex AI
+        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/nano-banana-pro:predict?key=${process.env.VERTEX_API_KEY}`;
+        
         const apiRes = await fetch(endpoint, fetchOptions);
         
         if (!apiRes.ok) {
             const errorDetails = await apiRes.text();
-            throw new Error(`Eroare Nano Banana API: ${errorDetails}`);
+            throw new Error(`Eroare AI Platform: ${errorDetails}`);
         }
 
-        // Extragem rezultatul Base64 și îl urcăm pe Supabase
         const data = await apiRes.json();
         let urls = [];
         
@@ -286,11 +286,11 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
             body: JSON.stringify(payload)
         };
 
-        // Selectăm modelul Veo corect pe baza dropdown-ului tău
         const googleModelId = model_id === 'veo3.1fast' ? 'veo-3.1-fast' : 'veo-3.1';
         
-        // FIXED: URL-ul corect pentru API Key!
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${googleModelId}:predict?key=${process.env.VERTEX_API_KEY}`;
+        // URL-ul EXACT cerut de platforma ta Vertex AI
+        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${googleModelId}:predict?key=${process.env.VERTEX_API_KEY}`;
+        
         const apiRes = await fetch(endpoint, fetchOptions);
         
         if (!apiRes.ok) {
@@ -303,7 +303,6 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         
         if (data.predictions) {
             for (let i = 0; i < data.predictions.length; i++) {
-                // Veo returnează de obicei bytesBase64Encoded la fel ca imaginile
                 const b64 = data.predictions[i].bytesBase64Encoded || data.predictions[i].video;
                 if (!b64) continue;
                 const buffer = Buffer.from(b64, 'base64');
