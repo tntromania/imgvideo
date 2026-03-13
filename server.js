@@ -152,7 +152,7 @@ const pipeStream = async (apiRes, res) => {
 // Folosește direct adresa ta de API
 const VERTEX_ENDPOINT = "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1/publishers/google/models/"; 
 
-// --- RUTA PENTRU IMAGINI VERTEX AI ---
+// --- RUTA PENTRU IMAGINI VERTEX AI / NANO BANANA ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -179,6 +179,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             }
         }
 
+        // Adăugăm referința de personaj în prompt
         if (crefUrls.length > 0) {
             finalPrompt = `${finalPrompt} --cref ${crefUrls.join(' ')} --cw 100`;
             finalPrompt = finalPrompt.replace(/\s+/g, ' ').trim();
@@ -188,18 +189,11 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         if (model_id.includes('2k')) resolutionParam = "2k";
         if (model_id.includes('4k')) resolutionParam = "4k";
 
-        // IMPORTANT: Adaptează modelul la denumirile oficiale Vertex dacă este necesar (ex: imagegeneration@006)
-        // Aici trimitem strict JSON-ul de care are nevoie Vertex
         const fetchOptions = {
             method: 'POST',
-            headers: { 
-                'Authorization': `Bearer ${process.env.VERTEX_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                instances: [
-                    { prompt: finalPrompt }
-                ],
+                instances: [ { prompt: finalPrompt } ],
                 parameters: {
                     sampleCount: count,
                     aspectRatio: aspect_ratio,
@@ -208,19 +202,43 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             })
         };
 
-        // Vom face un apel direct cu cheia ta:
-        const apiRes = await fetch("https://generativeai.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=" + process.env.VERTEX_API_KEY, fetchOptions);
-
+        // FIXED: URL-ul corect pentru API Key!
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/nano-banana-pro:predict?key=${process.env.VERTEX_API_KEY}`;
+        const apiRes = await fetch(endpoint, fetchOptions);
+        
         if (!apiRes.ok) {
             const errorDetails = await apiRes.text();
-            throw new Error(`Eroare Vertex AI: ${errorDetails}`);
+            throw new Error(`Eroare Nano Banana API: ${errorDetails}`);
         }
+
+        // Extragem rezultatul Base64 și îl urcăm pe Supabase
+        const data = await apiRes.json();
+        let urls = [];
+        
+        if (data.predictions) {
+            for (let i = 0; i < data.predictions.length; i++) {
+                const b64 = data.predictions[i].bytesBase64Encoded;
+                if (!b64) continue;
+                const buffer = Buffer.from(b64, 'base64');
+                const fileName = `generated/${req.userId}_${Date.now()}_${i}.png`;
+                const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: 'image/png' });
+                if (!supaErr) {
+                    const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
+                    urls.push(publicData.publicUrl);
+                }
+            }
+        }
+
+        if (urls.length === 0) throw new Error("Modelul nu a putut genera imaginile. Verifică promptul.");
 
         await Log.create({ userEmail: user.email, type: 'image', count, cost: totalCost });
         user.credits -= totalCost;
         await user.save();
 
-        pipeStream(apiRes, res);
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -239,7 +257,6 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
         let startImageBase64 = null;
-
         if (req.files && req.files.length > 0) {
             startImageBase64 = req.files[0].buffer.toString('base64');
             for (let i = 0; i < req.files.length; i++) {
@@ -248,11 +265,8 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
             finalPrompt = finalPrompt.replace(/\s+/g, ' ').trim();
         }
 
-        // Structura oficială JSON pentru Veo
         const payload = {
-            instances: [
-                { prompt: finalPrompt }
-            ],
+            instances: [ { prompt: finalPrompt } ],
             parameters: {
                 aspectRatio: aspect_ratio,
                 resolution: "720p",
@@ -268,27 +282,50 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
 
         const fetchOptions = {
             method: 'POST',
-            headers: { 
-                'Authorization': `Bearer ${process.env.VERTEX_API_KEY}`,
-                'Content-Type': 'application/json' 
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         };
 
-        // Apel către modelul Veo 
-        // Observație: Asigură-te că folosești ID-ul corect pentru Veo de la Google
-        const apiRes = await fetch("https://generativeai.googleapis.com/v1beta/models/veo-3.1-generate-001:predict?key=" + process.env.VERTEX_API_KEY, fetchOptions);
+        // Selectăm modelul Veo corect pe baza dropdown-ului tău
+        const googleModelId = model_id === 'veo3.1fast' ? 'veo-3.1-fast' : 'veo-3.1';
+        
+        // FIXED: URL-ul corect pentru API Key!
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${googleModelId}:predict?key=${process.env.VERTEX_API_KEY}`;
+        const apiRes = await fetch(endpoint, fetchOptions);
         
         if (!apiRes.ok) {
             const errorDetails = await apiRes.text();
-            throw new Error(`Eroare Vertex AI: ${errorDetails}`);
+            throw new Error(`Eroare Veo 3.1 API: ${errorDetails}`);
         }
+
+        const data = await apiRes.json();
+        let urls = [];
         
+        if (data.predictions) {
+            for (let i = 0; i < data.predictions.length; i++) {
+                // Veo returnează de obicei bytesBase64Encoded la fel ca imaginile
+                const b64 = data.predictions[i].bytesBase64Encoded || data.predictions[i].video;
+                if (!b64) continue;
+                const buffer = Buffer.from(b64, 'base64');
+                const fileName = `generated/vid_${req.userId}_${Date.now()}_${i}.mp4`;
+                const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: 'video/mp4' });
+                if (!supaErr) {
+                    const { data: pData } = supabase.storage.from('media-history').getPublicUrl(fileName);
+                    urls.push(pData.publicUrl);
+                }
+            }
+        }
+
+        if (urls.length === 0) throw new Error("Modelul nu a putut genera video-ul.");
+
         await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
         user.credits -= totalCost;
         await user.save();
 
-        pipeStream(apiRes, res);
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
