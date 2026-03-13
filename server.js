@@ -152,7 +152,7 @@ const pipeStream = async (apiRes, res) => {
 // Folosește direct adresa ta de API
 const VERTEX_ENDPOINT = "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1/publishers/google/models/"; 
 
-// --- RUTA PENTRU IMAGINI VERTEX AI / NANO BANANA ---
+// --- RUTA PENTRU IMAGINI VERTEX AI (NANO BANANA PRO) ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -170,21 +170,27 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                 const file = req.files[i];
                 const fileName = `refs/${req.userId}_${Date.now()}_${i}.png`;
                 const { error } = await supabase.storage.from('media-history').upload(fileName, file.buffer, { contentType: file.mimetype });
+                
                 if (!error) {
                     const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
                     const tag = `@img${i+1}`;
-                    if (finalPrompt.includes(tag)) finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), '').trim();
+                    
+                    // Ștergem @img1 din text și îl păstrăm ca referință oficială
+                    if (finalPrompt.includes(tag)) {
+                        finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), '').trim();
+                    }
                     crefUrls.push(publicData.publicUrl);
                 }
             }
         }
 
-        // Adăugăm referința de personaj în prompt
+        // Adăugăm referința de personaj în prompt la final
         if (crefUrls.length > 0) {
             finalPrompt = `${finalPrompt} --cref ${crefUrls.join(' ')} --cw 100`;
             finalPrompt = finalPrompt.replace(/\s+/g, ' ').trim();
         }
 
+        // Extragem rezoluția din model_id (ex: nano-banana-pro-4k devine 4k)
         let resolutionParam = "1k";
         if (model_id.includes('2k')) resolutionParam = "2k";
         if (model_id.includes('4k')) resolutionParam = "4k";
@@ -202,26 +208,28 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             })
         };
 
-        // URL-ul EXACT cerut de platforma ta Vertex AI
-        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/nano-banana-pro:predict?key=${process.env.VERTEX_API_KEY}`;
+        // Folosim domeniul corect pentru API Keys și numele oficial din panoul tău
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/nano-banana-pro:predict?key=${process.env.VERTEX_API_KEY}`;
         
         const apiRes = await fetch(endpoint, fetchOptions);
+        const data = await apiRes.json();
         
         if (!apiRes.ok) {
-            const errorDetails = await apiRes.text();
-            throw new Error(`Eroare AI Platform: ${errorDetails}`);
+            throw new Error(`Eroare Nano Banana API: ${data.error?.message || 'Nu uita să activezi API-ul din consolă!'}`);
         }
 
-        const data = await apiRes.json();
         let urls = [];
         
+        // Google returnează imaginile în Base64. Le urcăm pe Supabase-ul tău.
         if (data.predictions) {
             for (let i = 0; i < data.predictions.length; i++) {
                 const b64 = data.predictions[i].bytesBase64Encoded;
                 if (!b64) continue;
+                
                 const buffer = Buffer.from(b64, 'base64');
                 const fileName = `generated/${req.userId}_${Date.now()}_${i}.png`;
                 const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: 'image/png' });
+                
                 if (!supaErr) {
                     const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
                     urls.push(publicData.publicUrl);
@@ -257,7 +265,9 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
         let startImageBase64 = null;
+
         if (req.files && req.files.length > 0) {
+            // Veo citește poza de start în Base64
             startImageBase64 = req.files[0].buffer.toString('base64');
             for (let i = 0; i < req.files.length; i++) {
                 finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
@@ -288,26 +298,25 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
 
         const googleModelId = model_id === 'veo3.1fast' ? 'veo-3.1-fast' : 'veo-3.1';
         
-        // URL-ul EXACT cerut de platforma ta Vertex AI
-        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${googleModelId}:predict?key=${process.env.VERTEX_API_KEY}`;
-        
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${googleModelId}:predict?key=${process.env.VERTEX_API_KEY}`;
         const apiRes = await fetch(endpoint, fetchOptions);
+        const data = await apiRes.json();
         
         if (!apiRes.ok) {
-            const errorDetails = await apiRes.text();
-            throw new Error(`Eroare Veo 3.1 API: ${errorDetails}`);
+            throw new Error(`Eroare Veo 3.1 API: ${data.error?.message || 'Eroare necunoscută.'}`);
         }
 
-        const data = await apiRes.json();
         let urls = [];
         
         if (data.predictions) {
             for (let i = 0; i < data.predictions.length; i++) {
                 const b64 = data.predictions[i].bytesBase64Encoded || data.predictions[i].video;
                 if (!b64) continue;
+                
                 const buffer = Buffer.from(b64, 'base64');
                 const fileName = `generated/vid_${req.userId}_${Date.now()}_${i}.mp4`;
                 const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: 'video/mp4' });
+                
                 if (!supaErr) {
                     const { data: pData } = supabase.storage.from('media-history').getPublicUrl(fileName);
                     urls.push(pData.publicUrl);
