@@ -1086,37 +1086,70 @@ async function loadHistory() {
         const grid = document.getElementById('history-grid');
 
         if (data.history && data.history.length > 0) {
-            grid.innerHTML = data.history.map((item, i) => {
-                const url = item.supabaseUrl || item.originalUrl;
-                const prompt = item.prompt || "Fără prompt disponibil";
+            // 1. Grupăm generările bazat pe prompt și tip (ca să apară la un loc dacă au fost generate simultan)
+            let groupedHistory = [];
+            
+            data.history.forEach(item => {
+                let lastGroup = groupedHistory[groupedHistory.length - 1];
+                let promptSafe = item.prompt || "Fără prompt disponibil";
                 
-                if (item.type === 'image') {
-                    return `
-                    <div class="flex bg-slate-50 border border-slate-200 rounded-2xl p-3 gap-4 animate-slide-up hover:border-c7d2fe transition-colors" style="animation-delay: ${i*0.05}s">
-                        <div class="w-24 h-24 shrink-0 rounded-xl overflow-hidden cursor-pointer" onclick="openLightbox('${url}', 'image')">
-                            <img src="${url}" loading="lazy" class="w-full h-full object-cover hover:scale-105 transition-transform">
-                        </div>
-                        <div class="flex-1 flex flex-col justify-center">
-                            <p class="text-sm font-medium text-slate-700 line-clamp-3">"${prompt}"</p>
-                            <span class="text-xs font-bold text-slate-400 mt-2"><i class="fa-solid fa-clock mr-1"></i> Generat anterior</span>
-                        </div>
-                    </div>`;
+                // Dacă e același prompt și s-a generat în aceeași sesiune, le punem împreună
+                if (lastGroup && lastGroup.prompt === promptSafe && lastGroup.type === item.type) {
+                    lastGroup.urls.push(item.supabaseUrl || item.originalUrl);
                 } else {
-                    return `
-                    <div class="flex bg-slate-900 border border-slate-800 rounded-2xl p-3 gap-4 animate-slide-up" style="animation-delay: ${i*0.05}s">
-                        <div class="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden cursor-pointer" onclick="openLightbox('${url}', 'video')">
-                            <video src="${url}" preload="metadata" class="w-full h-full object-cover"></video>
-                            <div class="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/20 transition-colors"><i class="fa-solid fa-play text-white text-xl opacity-80"></i></div>
-                        </div>
-                        <div class="flex-1 flex flex-col justify-center">
-                            <p class="text-sm font-medium text-slate-300 line-clamp-3">"${prompt}"</p>
-                            <span class="text-xs font-bold text-slate-500 mt-2"><i class="fa-solid fa-video mr-1"></i> Video</span>
-                        </div>
-                    </div>`;
+                    groupedHistory.push({
+                        prompt: promptSafe,
+                        type: item.type,
+                        urls: [item.supabaseUrl || item.originalUrl]
+                    });
                 }
+            });
+
+            // 2. Construim HTML-ul grupat
+            grid.innerHTML = groupedHistory.map((group, i) => {
+                
+                // Construim HTML-ul pentru pozele/videoclipurile din interiorul grupului
+                let mediaHtml = group.urls.map(url => {
+                    if (group.type === 'image') {
+                        return `
+                        <div class="aspect-square rounded-xl overflow-hidden cursor-pointer border border-slate-200 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox('${url}', 'image')">
+                            <img src="${url}" loading="lazy" class="w-full h-full object-cover">
+                        </div>`;
+                    } else {
+                        return `
+                        <div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer border border-slate-800 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox('${url}', 'video')">
+                            <video src="${url}" class="w-full h-full object-cover"></video>
+                            <div class="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/20 transition-colors">
+                                <i class="fa-solid fa-play text-white text-2xl opacity-90 drop-shadow-md"></i>
+                            </div>
+                        </div>`;
+                    }
+                }).join('');
+
+                // Containerul principal al grupului (Rândul alb din poza ta)
+                return `
+                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] animate-slide-up transition-colors hover:border-viralio-200 flex flex-col gap-4" style="animation-delay: ${i*0.05}s">
+                    <div class="flex items-start gap-3 border-b border-slate-100 pb-3">
+                        <div class="w-8 h-8 rounded-full bg-viralio-50 text-viralio-500 flex items-center justify-center shrink-0">
+                            <i class="fa-solid ${group.type === 'image' ? 'fa-image' : 'fa-clapperboard'} text-sm"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-[0.85rem] font-medium text-slate-700 leading-relaxed">"${group.prompt}"</p>
+                            <span class="text-[0.65rem] font-bold text-slate-400 mt-1 block uppercase tracking-wider"><i class="fa-solid fa-clock mr-1"></i> Generat anterior</span>
+                        </div>
+                        <button onclick="document.getElementById('prompt-in').value='${group.prompt.replace(/'/g, "\\'")}'; updateCharCount();" class="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-viralio-50 hover:text-viralio-600 transition-colors" title="Refolosește promptul">
+                            <i class="fa-solid fa-rotate-right text-xs"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        ${mediaHtml}
+                    </div>
+                </div>`;
             }).join('');
+            
         } else {
-            grid.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Nu ai nicio generare recentă.</p>';
+            grid.innerHTML = '<p class="text-sm text-slate-400 text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">Nu ai nicio generare recentă.</p>';
         }
     } catch (e) { console.error("Eroare istoric:", e); }
 }
