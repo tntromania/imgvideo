@@ -152,7 +152,7 @@ const pipeStream = async (apiRes, res) => {
 // Folosește direct adresa ta de API
 const VERTEX_ENDPOINT = "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1/publishers/google/models/"; 
 
-// --- RUTA PENTRU IMAGINI (GEMINI 3 PRO IMAGE / NANO BANANA PRO) ---
+// --- RUTA PENTRU IMAGINI VERTEX AI (GEMINI 3 PRO / NANO BANANA PRO) ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -164,59 +164,53 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
-        let crefUrls = [];
+        // Aici construim structura nativă pentru Google Gemini
+        let parts = [];
+
+        // Dacă ai pus poze, le dăm direct lui Gemini ca "inlineData" (cel mai bun mod)
         if (req.files && req.files.length > 0) {
             for (let i = 0; i < req.files.length; i++) {
-                const file = req.files[i];
-                const fileName = `refs/${req.userId}_${Date.now()}_${i}.png`;
-                const { error } = await supabase.storage.from('media-history').upload(fileName, file.buffer, { contentType: file.mimetype });
-                
-                if (!error) {
-                    const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                    const tag = `@img${i+1}`;
-                    if (finalPrompt.includes(tag)) {
-                        finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), '').trim();
+                parts.push({
+                    inlineData: {
+                        mimeType: req.files[i].mimetype,
+                        data: req.files[i].buffer.toString('base64')
                     }
-                    crefUrls.push(publicData.publicUrl);
-                }
+                });
+                // Curățăm @img1 din text ca să nu încurce
+                finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
             }
+            finalPrompt = finalPrompt + `\n\n[Instruction: Use the provided images as exact character and style references. Aspect Ratio: ${aspect_ratio}]`;
+        } else {
+            finalPrompt = finalPrompt + `\n\n[Instruction: Aspect Ratio: ${aspect_ratio}]`;
         }
 
-        // Google nu folosește comenzi de Midjourney. Îi dăm linkul direct în text ca referință.
-        if (crefUrls.length > 0) {
-            finalPrompt = `${finalPrompt}. Use this exact image URL as reference: ${crefUrls.join(', ')}`;
-        }
+        // Adăugăm promptul de text
+        parts.push({ text: finalPrompt });
 
-        // Adaptăm formatul ca Google să nu crape
-        let googleAspect = aspect_ratio;
-        if (googleAspect === "21:9") googleAspect = "16:9"; 
-
-        // ========================================================
-        // FIXUL TĂU DIN DOCUMENTAȚIE: :generateImages în loc de :predict
-        // ========================================================
+        // EXACT MODELUL TĂU
         const MODEL_ID = 'gemini-3-pro-image-preview'; 
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateImages?key=${process.env.VERTEX_API_KEY}`;
+        
+        // FOLOSIM EXACT DOMENIUL ȘI METODA :generateContent DIN CURL-UL TĂU FUNCȚIONAL!!!
+        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
         
         const fetchOptions = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                instances: [ { prompt: finalPrompt } ],
-                parameters: {
-                    sampleCount: count,
-                    aspectRatio: googleAspect
-                }
+                contents: [{ role: "user", parts: parts }],
+                generationConfig: { candidateCount: count }
             })
         };
         
         const apiRes = await fetch(endpoint, fetchOptions);
         
+        // Citim textul brut ca să nu mai crăpăm la "Unexpected JSON input"
         const rawText = await apiRes.text();
         let data;
         try {
             data = JSON.parse(rawText);
         } catch (err) {
-            throw new Error(`Eroare de la serverele Google (fără JSON): ${rawText.substring(0, 150)}`);
+            throw new Error(`Google a returnat o eroare fără JSON (probabil 404). Răspuns brut: ${rawText.substring(0, 150)}`);
         }
 
         if (!apiRes.ok) {
@@ -225,24 +219,32 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
 
         let urls = [];
         
-        // Decodăm Base64-ul primit exact cum e în documentația ta
-        if (data.predictions) {
-            for (let i = 0; i < data.predictions.length; i++) {
-                const b64 = data.predictions[i].bytesBase64Encoded;
-                if (!b64) continue;
-                
-                const buffer = Buffer.from(b64, 'base64');
-                const fileName = `generated/${req.userId}_${Date.now()}_${i}.png`;
-                const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: 'image/png' });
-                
-                if (!supaErr) {
-                    const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                    urls.push(publicData.publicUrl);
+        // Extragem rezultatele native Gemini (din parts -> inlineData)
+        if (data.candidates) {
+            for (const candidate of data.candidates) {
+                if (candidate.content && candidate.content.parts) {
+                    for (const part of candidate.content.parts) {
+                        if (part.inlineData && part.inlineData.data) {
+                            const b64 = part.inlineData.data;
+                            const mime = part.inlineData.mimeType || 'image/png';
+                            const ext = mime.split('/')[1] || 'png';
+                            
+                            const buffer = Buffer.from(b64, 'base64');
+                            const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+                            
+                            // Urcăm poza decodată pe Supabase
+                            const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
+                            if (!supaErr) {
+                                const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
+                                urls.push(publicData.publicUrl);
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        if (urls.length === 0) throw new Error("Google a răspuns, dar nu a returnat nicio imagine (posibil filtru de siguranță activat).");
+        if (urls.length === 0) throw new Error("Google a răspuns cu succes, dar nu ne-a dat nicio imagine (posibil filtru de siguranță).");
 
         await Log.create({ userEmail: user.email, type: 'image', count, cost: totalCost });
         user.credits -= totalCost;
@@ -270,40 +272,40 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
-        let startImageBase64 = null;
+        let parts = [];
+
+        // Integrăm imaginea direct în ochiul AI-ului
         if (req.files && req.files.length > 0) {
-            startImageBase64 = req.files[0].buffer.toString('base64');
+            parts.push({
+                inlineData: {
+                    mimeType: req.files[0].mimetype,
+                    data: req.files[0].buffer.toString('base64')
+                }
+            });
             for (let i = 0; i < req.files.length; i++) {
                 finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
             }
-            finalPrompt = finalPrompt.replace(/\s+/g, ' ').trim();
+            finalPrompt = finalPrompt + `\n\n[Instruction: Use the provided image as the starting frame. Resolution: 720p, Duration: 8s, Audio: true, Aspect Ratio: ${aspect_ratio}]`;
+        } else {
+            finalPrompt = finalPrompt + `\n\n[Instruction: Resolution: 720p, Duration: 8s, Audio: true, Aspect Ratio: ${aspect_ratio}]`;
         }
 
-        const payload = {
-            instances: [ { prompt: finalPrompt } ],
-            parameters: {
-                aspectRatio: aspect_ratio,
-                resolution: "720p",
-                duration: "8s",
-                includeAudio: true,
-                sampleCount: count
-            }
-        };
+        parts.push({ text: finalPrompt });
 
-        if (startImageBase64) {
-            payload.instances[0].image = { bytesBase64Encoded: startImageBase64 };
-        }
-
+        const googleModelId = model_id === 'veo3.1fast' ? 'veo-3.1-fast' : 'veo-3.1';
+        
+        // FOLOSIM :generateContent
+        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${googleModelId}:generateContent?key=${process.env.VERTEX_API_KEY}`;
+        
         const fetchOptions = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                contents: [{ role: "user", parts: parts }],
+                generationConfig: { candidateCount: count }
+            })
         };
 
-        // Păstrăm predict pentru video, pentru că Veo are altă logică
-        const googleModelId = model_id === 'veo3.1fast' ? 'veo-3.1-fast-generate-001' : 'veo-3.1-generate-001';
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${googleModelId}:predict?key=${process.env.VERTEX_API_KEY}`;
-        
         const apiRes = await fetch(endpoint, fetchOptions);
         const rawText = await apiRes.text();
         
@@ -311,7 +313,7 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         try {
             data = JSON.parse(rawText);
         } catch (err) {
-            throw new Error(`Eroare server Veo (fără JSON). Răspuns brut: ${rawText.substring(0, 150)}`);
+            throw new Error(`Răspuns invalid server Veo. Răspuns brut: ${rawText.substring(0, 150)}`);
         }
 
         if (!apiRes.ok) {
@@ -319,23 +321,30 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         }
 
         let urls = [];
-        if (data.predictions) {
-            for (let i = 0; i < data.predictions.length; i++) {
-                const b64 = data.predictions[i].bytesBase64Encoded || data.predictions[i].video;
-                if (!b64) continue;
-                
-                const buffer = Buffer.from(b64, 'base64');
-                const fileName = `generated/vid_${req.userId}_${Date.now()}_${i}.mp4`;
-                const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: 'video/mp4' });
-                
-                if (!supaErr) {
-                    const { data: pData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                    urls.push(pData.publicUrl);
+        if (data.candidates) {
+            for (const candidate of data.candidates) {
+                if (candidate.content && candidate.content.parts) {
+                    for (const part of candidate.content.parts) {
+                        if (part.inlineData && part.inlineData.data) {
+                            const b64 = part.inlineData.data;
+                            const mime = part.inlineData.mimeType || 'video/mp4';
+                            const ext = mime.split('/')[1] || 'mp4';
+                            
+                            const buffer = Buffer.from(b64, 'base64');
+                            const fileName = `generated/vid_${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+                            
+                            const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
+                            if (!supaErr) {
+                                const { data: pData } = supabase.storage.from('media-history').getPublicUrl(fileName);
+                                urls.push(pData.publicUrl);
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        if (urls.length === 0) throw new Error("Modelul Veo a procesat, dar nu ne-a dat niciun video.");
+        if (urls.length === 0) throw new Error("Modelul Veo nu a returnat niciun video valid.");
 
         await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
         user.credits -= totalCost;
