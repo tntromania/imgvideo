@@ -34,11 +34,8 @@ const UserSchema = new mongoose.Schema({
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
 const { createClient } = require('@supabase/supabase-js');
-
-// Configurare Supabase (Asigură-te că ai adăugat aceste variabile în .env)
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
-// Model MongoDB pentru Istoric
 const HistorySchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     type: { type: String, enum: ['image', 'video'], required: true },
@@ -49,7 +46,6 @@ const HistorySchema = new mongoose.Schema({
 });
 const History = mongoose.models.History || mongoose.model('History', HistorySchema);
 
-// Model MongoDB pentru Log-uri (adăugat pentru a repara eroarea 500)
 const LogSchema = new mongoose.Schema({
     userEmail: { type: String, required: true },
     type: { type: String, enum: ['image', 'video'], required: true },
@@ -69,30 +65,21 @@ const authenticate = (req, res, next) => {
     } catch (e) { return res.status(401).json({ error: "Sesiune expirată." }); }
 };
 
-// ADMIN MIDDLEWARE
 const ADMIN_EMAILS = ['banicualex3@gmail.com']; 
-
 const authenticateAdmin = async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: "Acces interzis!" });
-
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decoded.userId);
-        
         if (!user) return res.status(403).json({ error: "Cont inexistent." });
-
-        const isAdmin = ADMIN_EMAILS.some(e => e.toLowerCase() === user.email.toLowerCase());
-        
-        if (isAdmin) {
+        if (ADMIN_EMAILS.some(e => e.toLowerCase() === user.email.toLowerCase())) {
             req.userId = decoded.userId;
             next();
         } else {
-            res.status(403).json({ error: `Ești logat cu [${user.email}], dar e nevoie de [${ADMIN_EMAILS[0]}]. Ai greșit contul?` });
+            res.status(403).json({ error: "Ai greșit contul?" });
         }
-    } catch (e) { 
-        return res.status(401).json({ error: "Sesiune invalidă." }); 
-    }
+    } catch (e) { return res.status(401).json({ error: "Sesiune invalidă." }); }
 };
 
 app.post('/api/auth/google', async (req, res) => {
@@ -100,12 +87,10 @@ app.post('/api/auth/google', async (req, res) => {
         const ticket = await googleClient.verifyIdToken({ idToken: req.body.credential, audience: process.env.GOOGLE_CLIENT_ID });
         const payload = ticket.getPayload();
         let user = await User.findOne({ googleId: payload.sub });
-        
         if (!user) {
             user = new User({ googleId: payload.sub, email: payload.email, name: payload.name, picture: payload.picture });
             await user.save();
         }
-        
         const sessionToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
         res.json({ token: sessionToken, user });
     } catch (error) { res.status(400).json({ error: "Eroare Google" }); }
@@ -116,18 +101,16 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
     res.json({ user });
 });
 
-const GENAIPRO_URL = 'https://genaipro.vn/api/v1';
-
+// PREȚURILE NOI SETATE DE TINE PENTRU VERTEX
 const MODEL_PRICES = {
-    'nano-banana-pro': 1,
-    'veo-3-quality': 5,
-    'veo-3-fast': 3,
-    'veo-2': 3,
+    'nano-banana-pro-1k': 1,
+    'nano-banana-pro-2k': 2,
+    'nano-banana-pro-4k': 4,
+    'veo3.1': 5,
+    'veo3.1fast': 3,
 };
 
-const sendSSE = (res, data) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-};
+const sendSSE = (res, data) => { res.write(`data: ${JSON.stringify(data)}\n\n`); };
 
 const pipeStream = async (apiRes, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -135,49 +118,41 @@ const pipeStream = async (apiRes, res) => {
     res.setHeader('Connection', 'keep-alive');
 
     const contentType = apiRes.headers.get('content-type') || '';
-
-    // Dacă API-ul returnează JSON direct (nu SSE), normalizăm la format SSE
     if (contentType.includes('application/json')) {
         try {
             const json = await apiRes.json();
-            // Normalizăm obiectele cu chei "0","1",... (array-like objects)
             const normalized = {};
             let hasNumericKeys = false;
-            for (const key of Object.keys(json)) {
-                if (!isNaN(key)) { hasNumericKeys = true; break; }
-            }
-if (hasNumericKeys) {
+            for (const key of Object.keys(json)) { if (!isNaN(key)) { hasNumericKeys = true; break; } }
+            if (hasNumericKeys) {
                 const items = Object.values(json);
-                const first = items[0] || {};
-                Object.assign(normalized, first);
-                
-                // Căutăm orice fel de URL (video sau imagine)
+                Object.assign(normalized, items[0] || {});
                 const allUrls = [];
                 items.forEach(i => {
                     if (i.file_url) allUrls.push(i.file_url);
                     if (i.video_url) allUrls.push(i.video_url);
                     if (i.url) allUrls.push(i.url);
                 });
-                
-                if (allUrls.length > 0) {
-                    normalized.file_urls = allUrls;
-                }
+                if (allUrls.length > 0) normalized.file_urls = allUrls;
             } else {
                 Object.assign(normalized, json);
             }
             sendSSE(res, normalized);
             res.write('data: [DONE]\n\n');
         } catch (e) {
-            sendSSE(res, { error: 'Eroare la parsarea răspunsului API' });
+            sendSSE(res, { error: 'Eroare parsare JSON Vertex' });
         }
         res.end();
     } else {
-        // SSE real — pipe direct
         Readable.fromWeb(apiRes.body).pipe(res);
     }
 };
 
-// --- RUTA PENTRU IMAGINI CU SUPORT @IMG (CHARACTER CONSISTENCY) ---
+// --- FUNCTIE AJUTATOARE PENTRU APELUL VERTEX REST ---
+// Folosește direct adresa ta de API
+const VERTEX_ENDPOINT = "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1/publishers/google/models/"; 
+
+// --- RUTA PENTRU IMAGINI VERTEX AI ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -190,51 +165,55 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
         let crefUrls = [];
-
-        // Urcăm pozele temporar și extragem URL-urile
         if (req.files && req.files.length > 0) {
             for (let i = 0; i < req.files.length; i++) {
                 const file = req.files[i];
                 const fileName = `refs/${req.userId}_${Date.now()}_${i}.png`;
-                
                 const { error } = await supabase.storage.from('media-history').upload(fileName, file.buffer, { contentType: file.mimetype });
-                
                 if (!error) {
                     const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
                     const tag = `@img${i+1}`;
-                    
-                    // ȘTERGEM @img1 din propoziție ca să nu dăm peste cap engleza AI-ului!
-                    if (finalPrompt.includes(tag)) {
-                        finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), '').trim();
-                    }
-                    // Adăugăm link-ul curat în lista de referințe
+                    if (finalPrompt.includes(tag)) finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), '').trim();
                     crefUrls.push(publicData.publicUrl);
                 }
             }
         }
 
-        // MAGIA: Dacă avem poze de referință, adăugăm comanda oficială pentru Clonare Personaj la final!
         if (crefUrls.length > 0) {
-            // --cref = Character Reference / --cw 100 = Forțează reținerea feței
             finalPrompt = `${finalPrompt} --cref ${crefUrls.join(' ')} --cw 100`;
-            // Curățăm spațiile în plus
             finalPrompt = finalPrompt.replace(/\s+/g, ' ').trim();
         }
 
-        const formData = new FormData();
-        formData.append('prompt', finalPrompt);
-        formData.append('aspect_ratio', aspect_ratio);
-        formData.append('number_of_images', count);
+        let resolutionParam = "1k";
+        if (model_id.includes('2k')) resolutionParam = "2k";
+        if (model_id.includes('4k')) resolutionParam = "4k";
 
-        const apiRes = await fetch(`${GENAIPRO_URL}/veo/create-image`, {
+        // IMPORTANT: Adaptează modelul la denumirile oficiale Vertex dacă este necesar (ex: imagegeneration@006)
+        // Aici trimitem strict JSON-ul de care are nevoie Vertex
+        const fetchOptions = {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` },
-            body: formData
-        });
+            headers: { 
+                'Authorization': `Bearer ${process.env.VERTEX_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                instances: [
+                    { prompt: finalPrompt }
+                ],
+                parameters: {
+                    sampleCount: count,
+                    aspectRatio: aspect_ratio,
+                    outputOptions: { resolution: resolutionParam }
+                }
+            })
+        };
+
+        // Vom face un apel direct cu cheia ta:
+        const apiRes = await fetch("https://generativeai.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=" + process.env.VERTEX_API_KEY, fetchOptions);
 
         if (!apiRes.ok) {
             const errorDetails = await apiRes.text();
-            throw new Error(`Eroare GenAIPro: ${errorDetails}`);
+            throw new Error(`Eroare Vertex AI: ${errorDetails}`);
         }
 
         await Log.create({ userEmail: user.email, type: 'image', count, cost: totalCost });
@@ -247,7 +226,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
     }
 });
 
-// --- RUTA PENTRU VIDEO CU SUPORT @IMG ---
+// --- RUTA PENTRU VIDEO VERTEX AI (VEO 3.1) ---
 app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_videos, model_id } = req.body;
@@ -259,60 +238,50 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
-        let startImageFile = null;
+        let startImageBase64 = null;
 
         if (req.files && req.files.length > 0) {
-            startImageFile = req.files[0]; 
-
+            startImageBase64 = req.files[0].buffer.toString('base64');
             for (let i = 0; i < req.files.length; i++) {
-                const file = req.files[i];
-                const fileName = `refs/vid_${req.userId}_${Date.now()}_${i}.png`;
-                const { error } = await supabase.storage.from('media-history').upload(fileName, file.buffer, { contentType: file.mimetype });
-                
-                if (!error) {
-                    const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                    const tag = `@img${i+1}`;
-                    if (finalPrompt.includes(tag)) {
-                        finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), publicData.publicUrl);
-                    }
-                }
+                finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
             }
+            finalPrompt = finalPrompt.replace(/\s+/g, ' ').trim();
         }
 
-        let endpoint, fetchOptions;
+        // Structura oficială JSON pentru Veo
+        const payload = {
+            instances: [
+                { prompt: finalPrompt }
+            ],
+            parameters: {
+                aspectRatio: aspect_ratio,
+                resolution: "720p",
+                duration: "8s",
+                includeAudio: true,
+                sampleCount: count
+            }
+        };
 
-        if (startImageFile) {
-            endpoint = `${GENAIPRO_URL}/veo/frames-to-video`;
-            const formData = new FormData();
-            formData.append('prompt', finalPrompt);
-            formData.append('aspect_ratio', aspect_ratio);
-            formData.append('number_of_videos', count);
-            
-            const blob = new Blob([startImageFile.buffer], { type: startImageFile.mimetype });
-            formData.append('start_image', blob, startImageFile.originalname);
-
-            fetchOptions = {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` },
-                body: formData
-            };
-        } else {
-            endpoint = `${GENAIPRO_URL}/veo/text-to-video`;
-            fetchOptions = {
-                method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
-                    'Content-Type': 'application/json' 
-                },
-                body: JSON.stringify({ prompt: finalPrompt, aspect_ratio, number_of_videos: count })
-            };
+        if (startImageBase64) {
+            payload.instances[0].image = { bytesBase64Encoded: startImageBase64 };
         }
 
-        const apiRes = await fetch(endpoint, fetchOptions);
+        const fetchOptions = {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${process.env.VERTEX_API_KEY}`,
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify(payload)
+        };
+
+        // Apel către modelul Veo 
+        // Observație: Asigură-te că folosești ID-ul corect pentru Veo de la Google
+        const apiRes = await fetch("https://generativeai.googleapis.com/v1beta/models/veo-3.1-generate-001:predict?key=" + process.env.VERTEX_API_KEY, fetchOptions);
         
         if (!apiRes.ok) {
             const errorDetails = await apiRes.text();
-            throw new Error(`Eroare GenAIPro: ${errorDetails}`);
+            throw new Error(`Eroare Vertex AI: ${errorDetails}`);
         }
         
         await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
@@ -329,98 +298,43 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     try {
         const totalUsers = await User.countDocuments();
         const logs = await Log.find().sort({ createdAt: -1 }).limit(100);
-        
         const totalImages = await Log.aggregate([{ $match: { type: 'image' } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
         const totalVideos = await Log.aggregate([{ $match: { type: 'video' } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
-
-        res.json({
-            totalUsers,
-            totalImages: totalImages[0]?.total || 0,
-            totalVideos: totalVideos[0]?.total || 0,
-            recentLogs: logs
-        });
+        res.json({ totalUsers, totalImages: totalImages[0]?.total || 0, totalVideos: totalVideos[0]?.total || 0, recentLogs: logs });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/api-quota', authenticateAdmin, async (req, res) => {
-    try {
-        const [meRes, veoRes] = await Promise.all([
-            fetch(`${GENAIPRO_URL}/me`, { headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` } }),
-            fetch(`${GENAIPRO_URL}/veo/me`, { headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` } })
-        ]);
-
-        const meData = meRes.ok ? await meRes.json() : { balance: 0 };
-        const veoData = veoRes.ok ? await veoRes.json() : { total_quota: 0, used_quota: 0, available_quota: 0 };
-
-        res.json({
-            balance: meData.balance,
-            veoTotal: veoData.total_quota,
-            veoUsed: veoData.used_quota,
-            veoAvail: veoData.available_quota
-        });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    res.json({ balance: 0, veoTotal: 0, veoUsed: 0, veoAvail: 0 }); 
 });
 
-if (!process.env.GENAIPRO_API_KEY) console.error("Lipsește cheia API GenAIPro!");
-
-// RUTELE DE API PENTRU ISTORIC (Mutate mai sus pentru a nu fi blocate de catch-all)
-
-// Preia istoricul în funcție de tip (image sau video)
 app.get('/api/media/history', authenticate, async (req, res) => {
     try {
         const type = req.query.type || 'image';
-        const history = await History.find({ userId: req.userId, type: type })
-                                     .sort({ createdAt: -1 })
-                                     .limit(50); // Limităm la ultimele 50 pentru performanță
+        const history = await History.find({ userId: req.userId, type: type }).sort({ createdAt: -1 }).limit(50);
         res.json({ history });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Salvează rezultatele generate în Supabase și în MongoDB
 app.post('/api/media/save-history', authenticate, async (req, res) => {
     const { urls, type, prompt } = req.body;
     if (!urls || !urls.length) return res.status(400).json({ error: 'Fără URL-uri.' });
-
-    // Răspundem imediat clientului pentru a nu bloca interfața
     res.status(202).json({ message: 'Salvare pornită în fundal' });
 
     try {
         for (const url of urls) {
-            // 1. Descărcăm fișierul generat temporar
             const response = await fetch(url);
             const buffer = await response.arrayBuffer();
             const extension = type === 'video' ? 'mp4' : 'png';
             const fileName = `${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
-
-            // 2. Upload în Supabase (bucket-ul trebuie să se numească 'media-history')
-            const { data, error } = await supabase.storage
-                .from('media-history')
-                .upload(fileName, buffer, { 
-                    contentType: type === 'video' ? 'video/mp4' : 'image/png' 
-                });
-
+            const { data, error } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: type === 'video' ? 'video/mp4' : 'image/png' });
             if (error) throw error;
-
-            // 3. Obținem URL-ul public
             const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-
-            // 4. Salvăm în MongoDB
-            await History.create({
-                userId: req.userId,
-                type: type,
-                originalUrl: url,
-                supabaseUrl: publicData.publicUrl,
-                prompt: prompt
-            });
+            await History.create({ userId: req.userId, type: type, originalUrl: url, supabaseUrl: publicData.publicUrl, prompt: prompt });
         }
-    } catch (err) {
-        console.error('Eroare la salvarea în Supabase:', err.message);
-    }
+    } catch (err) { console.error('Eroare la salvarea în Supabase:', err.message); }
 });
 
-// CATCH-ALL PENTRU FRONTEND (Mutate la final)
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
