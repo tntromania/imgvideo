@@ -107,6 +107,41 @@
         .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
         @keyframes premiumShine { 0% { transform: translateX(-150%) skewX(-20deg); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(250%) skewX(-20deg); opacity: 0; } }
         .animate-shine-fast { animation: premiumShine 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+		/* Dropdown Auto-complete pentru Imagini */
+        #autocomplete-menu {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 5px);
+            left: 10px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            z-index: 50;
+            max-height: 200px;
+            overflow-y: auto;
+            width: max-content;
+            min-width: 150px;
+        }
+        #autocomplete-menu.show {
+            display: block;
+            animation: slideUp 0.2s ease-out forwards;
+        }
+        .autocomplete-item {
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        .autocomplete-item:hover {
+            background: #f8fafc;
+        }
     </style>
 </head>
 <body class="h-[100dvh] flex flex-col relative overflow-hidden selection:bg-viralio-500 selection:text-white">
@@ -148,9 +183,12 @@
                 <span class="hidden sm:inline-flex items-center text-xs font-medium text-slate-400 ml-2 border-l border-slate-200 pl-2 mt-0.5"><i class="fa-solid fa-wand-magic-sparkles text-viralio-500 mr-1.5 text-[0.7rem]"></i>Video/Image Generator</span>
             </a>
 
-            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-100/80 p-1.5 rounded-2xl flex gap-1 border border-slate-200/50 backdrop-blur-sm">
+<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-100/80 p-1.5 rounded-2xl flex gap-1 border border-slate-200/50 backdrop-blur-sm">
                 <button class="mode-tab active" id="tab-image" onclick="switchMode('image')"><i class="fa-solid fa-image text-viralio-500"></i><span class="hidden sm:inline">Imagini</span></button>
-                <button class="mode-tab" id="tab-video" onclick="switchMode('video')"><i class="fa-solid fa-clapperboard"></i><span class="hidden sm:inline">Video</span></button>
+                <button class="mode-tab relative opacity-60 cursor-not-allowed" id="tab-video" onclick="event.preventDefault()">
+                    <i class="fa-solid fa-clapperboard"></i><span class="hidden sm:inline">Video</span>
+                    <span class="absolute -top-2 -right-2 bg-amber-500 text-white text-[0.5rem] font-black px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">ÎN LUCRU</span>
+                </button>
             </div>
 
             <div class="flex items-center gap-2">
@@ -190,9 +228,7 @@
                     <div class="select-wrap">
                         <select id="model-sel" class="styled-select" onchange="onModelChange()">
                             <optgroup label="Generare Imagini (Nano Banana)" id="og-img">
-                                <option value="nano-banana-pro-1k" data-type="image" data-cost="1">Nano Banana PRO (1K) 🏆 — 1 Credit</option>
-                                <option value="nano-banana-pro-2k" data-type="image" data-cost="2">Nano Banana PRO (2K) ✨ — 2 Credite</option>
-                                <option value="nano-banana-pro-4k" data-type="image" data-cost="4">Nano Banana PRO (4K) 💎 — 4 Credite</option>
+                                <option value="nano-banana-pro-1k" data-type="image" data-cost="1">Nano Banana PRO (4k) 💎 — 1 Credit</option>
                             </optgroup>
                             <optgroup label="Generare Video (Vertex AI)" id="og-vid" style="display:none">
                                 <option value="veo3.1" data-type="video" data-cost="5">Veo 3.1 (720p, 8s, Audio) 🏆 — 5 Credite</option>
@@ -213,21 +249,45 @@
                     </div>
                 </div>
 
-                <div id="img-options">
+<div id="img-options">
                     <div class="panel-s pt-0">
                         <label class="field-label">Format Imagine</label>
-                        <div class="bg-slate-100 rounded-2xl p-1.5 grid grid-cols-4 gap-1">
+                        <div class="bg-slate-100 rounded-2xl p-2 grid grid-cols-5 gap-1.5">
+                            <label class="ratio-pill">
+                                <input type="radio" name="ratio" value="9:16" checked>
+                                <span><div class="w-[10px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div> 9:16</span>
+                            </label>
+                            <label class="ratio-pill">
+                                <input type="radio" name="ratio" value="3:4">
+                                <span><div class="w-[12px] h-[16px] border-[2px] border-current rounded-[3px] opacity-75"></div> 3:4</span>
+                            </label>
+                            <label class="ratio-pill">
+                                <input type="radio" name="ratio" value="4:5">
+                                <span><div class="w-[14px] h-[16px] border-[2px] border-current rounded-[3px] opacity-75"></div> 4:5</span>
+                            </label>
+                            <label class="ratio-pill">
+                                <input type="radio" name="ratio" value="2:3">
+                                <span><div class="w-[12px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div> 2:3</span>
+                            </label>
                             <label class="ratio-pill">
                                 <input type="radio" name="ratio" value="1:1">
                                 <span><div class="w-[14px] h-[14px] border-[2px] border-current rounded-[3px] opacity-75"></div> 1:1</span>
                             </label>
                             <label class="ratio-pill">
-                                <input type="radio" name="ratio" value="16:9" checked>
-                                <span><div class="w-[18px] h-[10px] border-[2px] border-current rounded-[3px] opacity-75"></div> 16:9</span>
+                                <input type="radio" name="ratio" value="5:4">
+                                <span><div class="w-[16px] h-[14px] border-[2px] border-current rounded-[3px] opacity-75"></div> 5:4</span>
                             </label>
                             <label class="ratio-pill">
-                                <input type="radio" name="ratio" value="9:16">
-                                <span><div class="w-[10px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div> 9:16</span>
+                                <input type="radio" name="ratio" value="4:3">
+                                <span><div class="w-[16px] h-[12px] border-[2px] border-current rounded-[3px] opacity-75"></div> 4:3</span>
+                            </label>
+                            <label class="ratio-pill">
+                                <input type="radio" name="ratio" value="3:2">
+                                <span><div class="w-[18px] h-[12px] border-[2px] border-current rounded-[3px] opacity-75"></div> 3:2</span>
+                            </label>
+                            <label class="ratio-pill">
+                                <input type="radio" name="ratio" value="16:9">
+                                <span><div class="w-[18px] h-[10px] border-[2px] border-current rounded-[3px] opacity-75"></div> 16:9</span>
                             </label>
                             <label class="ratio-pill">
                                 <input type="radio" name="ratio" value="21:9">
@@ -297,7 +357,7 @@
                     <div class="bg-indigo-50/50 border border-indigo-100/60 rounded-xl p-3 flex items-start gap-2.5">
                         <i class="fa-solid fa-lightbulb text-amber-500 mt-0.5 text-sm"></i>
                         <p class="text-[0.65rem] text-slate-600 font-medium leading-relaxed">
-                            <strong class="text-slate-800">Sistem Nou:</strong> Când tastezi <span class="font-bold text-indigo-600">@</span> în prompt, se va adăuga automat <span class="bg-indigo-500 text-white px-1 py-0.5 rounded font-bold">@img1</span> pentru a folosi poza selectată!
+                            <strong class="text-slate-800">Sistem Nou:</strong> Când tastezi <span class="font-bold text-indigo-600">@</span> în prompt, se va adăuga automat <span class="bg-indigo-500 text-white px-1 py-0.5 rounded font-bold">@img</span> pentru a folosi poza selectată!
                         </p>
                     </div>
                 </div>
@@ -393,8 +453,9 @@
 
                 </div>
 
-                <div class="w-full mt-auto border-t border-slate-100 pt-8 pb-4">
-                    <div id="history-grid" class="grid gap-4 grid-cols-2 lg:grid-cols-4">
+<div class="w-full mt-auto border-t border-slate-100 pt-8 pb-4">
+                    <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Istoric Generări</h3>
+                    <div id="history-grid" class="flex flex-col gap-4">
                         </div>
                 </div>
 
@@ -567,15 +628,92 @@ function renderRefGallery() {
     }).join('');
 }
 
-document.getElementById('prompt-in').addEventListener('input', function(e) {
-    if (e.data === '@' && uploadedRefs.length > 0) {
-        const start = this.selectionStart;
-        this.value = this.value.substring(0, start - 1) + '@img1 ' + this.value.substring(start);
-        this.selectionStart = this.selectionEnd = start + 5;
-        updateCharCount();
+// --- SISTEM NOU: DROPDOWN PENTRU @ ---
+const promptIn = document.getElementById('prompt-in');
+
+// Trebuie să creăm meniul în HTML dacă nu există deja
+let autocompleteMenu = document.getElementById('autocomplete-menu');
+if (!autocompleteMenu) {
+    autocompleteMenu = document.createElement('div');
+    autocompleteMenu.id = 'autocomplete-menu';
+    // Îl atașăm la părintele textarea-ului pentru a fi poziționat corect
+    promptIn.parentNode.appendChild(autocompleteMenu);
+    promptIn.parentNode.style.position = 'relative'; // esențial pentru poziționare
+}
+
+// Ascundem meniul dacă dăm click în afara lui
+document.addEventListener('click', (e) => {
+    if (autocompleteMenu && !autocompleteMenu.contains(e.target) && e.target !== promptIn) {
+        autocompleteMenu.classList.remove('show');
     }
 });
 
+// Verificăm ce se tastează
+function handlePromptInput(e) {
+    updateCharCount();
+    
+    // Dacă nu avem poze încărcate, nu facem nimic
+    if (uploadedRefs.length === 0) {
+        autocompleteMenu.classList.remove('show');
+        return;
+    }
+
+    const val = promptIn.value;
+    const cursorPos = promptIn.selectionStart;
+    
+    // Verificăm dacă ultima tastă apăsată (înainte de cursor) este @
+    if (val.charAt(cursorPos - 1) === '@') {
+        showAutocompleteMenu();
+    } else {
+        autocompleteMenu.classList.remove('show');
+    }
+}
+
+// Atașăm evenimentul corect
+promptIn.removeEventListener('input', handlePromptInput); // Curățăm vechiul event
+promptIn.addEventListener('input', handlePromptInput);
+
+function showAutocompleteMenu() {
+    autocompleteMenu.innerHTML = '';
+    
+    uploadedRefs.forEach((file, index) => {
+        const url = window.URL.createObjectURL(file);
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.innerHTML = `
+            <img src="${url}" class="w-8 h-8 rounded-lg object-cover border border-slate-200">
+            <span class="text-sm font-bold text-slate-700">@img${index + 1}</span>
+            <span class="text-xs text-slate-400 ml-auto truncate max-w-[80px]">${file.name}</span>
+        `;
+        
+        // Când dai click pe un element din meniu
+        item.onclick = (e) => {
+            e.stopPropagation();
+            insertTagFromMenu(index);
+        };
+        
+        autocompleteMenu.appendChild(item);
+    });
+    
+    autocompleteMenu.classList.add('show');
+}
+
+function insertTagFromMenu(index) {
+    const tag = `img${index + 1} `; // fără @ pentru că a fost deja tastat
+    const cursorPos = promptIn.selectionStart;
+    const textBefore = promptIn.value.substring(0, cursorPos);
+    const textAfter = promptIn.value.substring(cursorPos);
+    
+    promptIn.value = textBefore + tag + textAfter;
+    
+    // Mutăm cursorul după tag
+    const newCursorPos = cursorPos + tag.length;
+    promptIn.setSelectionRange(newCursorPos, newCursorPos);
+    
+    autocompleteMenu.classList.remove('show');
+    promptIn.focus();
+    updateCharCount();
+}
 // --- LIGHTBOX ---
 function openLightbox(url, type){ 
     const lb = document.getElementById('lightbox');
@@ -938,7 +1076,6 @@ async function generate(){
 }
 function regen(){ generate(); }
 
-// --- HISTORY & MOBIL ---
 async function loadHistory() {
     const token = getToken();
     if (!token) return;
@@ -951,14 +1088,35 @@ async function loadHistory() {
         if (data.history && data.history.length > 0) {
             grid.innerHTML = data.history.map((item, i) => {
                 const url = item.supabaseUrl || item.originalUrl;
+                const prompt = item.prompt || "Fără prompt disponibil";
+                
                 if (item.type === 'image') {
-                    return `<div class="history-item animate-slide-up" style="animation-delay: ${i*0.05}s" onclick="openLightbox('${url}', 'image')"><img src="${url}" loading="lazy"></div>`;
+                    return `
+                    <div class="flex bg-slate-50 border border-slate-200 rounded-2xl p-3 gap-4 animate-slide-up hover:border-c7d2fe transition-colors" style="animation-delay: ${i*0.05}s">
+                        <div class="w-24 h-24 shrink-0 rounded-xl overflow-hidden cursor-pointer" onclick="openLightbox('${url}', 'image')">
+                            <img src="${url}" loading="lazy" class="w-full h-full object-cover hover:scale-105 transition-transform">
+                        </div>
+                        <div class="flex-1 flex flex-col justify-center">
+                            <p class="text-sm font-medium text-slate-700 line-clamp-3">"${prompt}"</p>
+                            <span class="text-xs font-bold text-slate-400 mt-2"><i class="fa-solid fa-clock mr-1"></i> Generat anterior</span>
+                        </div>
+                    </div>`;
                 } else {
-                    return `<div class="history-item animate-slide-up bg-slate-900" style="animation-delay: ${i*0.05}s" onclick="openLightbox('${url}', 'video')"><video src="${url}" preload="metadata" class="w-full h-full object-cover"></video><div class="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/10 transition-colors"><i class="fa-solid fa-play text-white text-3xl opacity-80 drop-shadow-md"></i></div></div>`;
+                    return `
+                    <div class="flex bg-slate-900 border border-slate-800 rounded-2xl p-3 gap-4 animate-slide-up" style="animation-delay: ${i*0.05}s">
+                        <div class="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden cursor-pointer" onclick="openLightbox('${url}', 'video')">
+                            <video src="${url}" preload="metadata" class="w-full h-full object-cover"></video>
+                            <div class="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/20 transition-colors"><i class="fa-solid fa-play text-white text-xl opacity-80"></i></div>
+                        </div>
+                        <div class="flex-1 flex flex-col justify-center">
+                            <p class="text-sm font-medium text-slate-300 line-clamp-3">"${prompt}"</p>
+                            <span class="text-xs font-bold text-slate-500 mt-2"><i class="fa-solid fa-video mr-1"></i> Video</span>
+                        </div>
+                    </div>`;
                 }
             }).join('');
         } else {
-            grid.innerHTML = '';
+            grid.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Nu ai nicio generare recentă.</p>';
         }
     } catch (e) { console.error("Eroare istoric:", e); }
 }
