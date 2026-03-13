@@ -152,7 +152,7 @@ const pipeStream = async (apiRes, res) => {
 // Folosește direct adresa ta de API
 const VERTEX_ENDPOINT = "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1/publishers/google/models/"; 
 
-// --- RUTA PENTRU IMAGINI VERTEX AI (GEMINI 3 PRO / NANO BANANA PRO) ---
+// --- RUTA PENTRU IMAGINI (GEMINI 3 PRO IMAGE / NANO BANANA PRO) ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -182,20 +182,20 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             }
         }
 
-        // Explicăm lui Google să folosească pozele ca referință (Google nu folosește comenzi tip Midjourney)
+        // Google nu folosește comenzi de Midjourney. Îi dăm linkul direct în text ca referință.
         if (crefUrls.length > 0) {
-            finalPrompt = `${finalPrompt}. Use this exact image URL as character/style reference: ${crefUrls.join(', ')}`;
+            finalPrompt = `${finalPrompt}. Use this exact image URL as reference: ${crefUrls.join(', ')}`;
         }
 
-        // Adaptăm formatul ca Google să nu crape (el preferă standarde ca 16:9, nu 21:9)
+        // Adaptăm formatul ca Google să nu crape
         let googleAspect = aspect_ratio;
         if (googleAspect === "21:9") googleAspect = "16:9"; 
 
         // ========================================================
-        // MODELUL DAT DE TINE ȘI METODA CORECTĂ (:predict)
+        // FIXUL TĂU DIN DOCUMENTAȚIE: :generateImages în loc de :predict
         // ========================================================
         const MODEL_ID = 'gemini-3-pro-image-preview'; 
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:predict?key=${process.env.VERTEX_API_KEY}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateImages?key=${process.env.VERTEX_API_KEY}`;
         
         const fetchOptions = {
             method: 'POST',
@@ -211,13 +211,12 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         
         const apiRes = await fetch(endpoint, fetchOptions);
         
-        // Citim textul brut ca SĂ NU MAI CRĂPĂM la "Unexpected JSON input"
         const rawText = await apiRes.text();
         let data;
         try {
             data = JSON.parse(rawText);
         } catch (err) {
-            throw new Error(`Google a returnat o eroare fără JSON (posibil rută greșită). Răspuns brut: ${rawText.substring(0, 150)}`);
+            throw new Error(`Eroare de la serverele Google (fără JSON): ${rawText.substring(0, 150)}`);
         }
 
         if (!apiRes.ok) {
@@ -226,7 +225,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
 
         let urls = [];
         
-        // Decodăm Base64-ul primit de la ei și îl urcăm pe Supabase
+        // Decodăm Base64-ul primit exact cum e în documentația ta
         if (data.predictions) {
             for (let i = 0; i < data.predictions.length; i++) {
                 const b64 = data.predictions[i].bytesBase64Encoded;
@@ -243,7 +242,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             }
         }
 
-        if (urls.length === 0) throw new Error("Google a răspuns, dar nu ne-a trimis imaginea. (Poate ai declanșat filtrul NSFW/Safety).");
+        if (urls.length === 0) throw new Error("Google a răspuns, dar nu a returnat nicio imagine (posibil filtru de siguranță activat).");
 
         await Log.create({ userEmail: user.email, type: 'image', count, cost: totalCost });
         user.credits -= totalCost;
@@ -301,6 +300,7 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
             body: JSON.stringify(payload)
         };
 
+        // Păstrăm predict pentru video, pentru că Veo are altă logică
         const googleModelId = model_id === 'veo3.1fast' ? 'veo-3.1-fast-generate-001' : 'veo-3.1-generate-001';
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${googleModelId}:predict?key=${process.env.VERTEX_API_KEY}`;
         
@@ -311,7 +311,7 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         try {
             data = JSON.parse(rawText);
         } catch (err) {
-            throw new Error(`Eroare server Veo (răspuns invalid). Răspuns brut: ${rawText.substring(0, 150)}`);
+            throw new Error(`Eroare server Veo (fără JSON). Răspuns brut: ${rawText.substring(0, 150)}`);
         }
 
         if (!apiRes.ok) {
