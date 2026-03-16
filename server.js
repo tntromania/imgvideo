@@ -223,61 +223,61 @@ const MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3.1-flash-image-preview' 
         // 2. Lansăm toate cererile în PARALEL (se fac simultan, deci scapi de eroarea 500 / Timeout)
         const fetchPromises = [];
 
-for (let j = 0; j < count; j++) {
-            // Secretul pentru poze diferite: Seed Random unic la fiecare iterație
+// 2. Executăm cererile SECVENȚIAL (una câte una) pentru a evita Eroarea 429 la Flash
+        for (let j = 0; j < count; j++) {
             let finalPrompt = cleanPrompt + `\n\n[Instruction: Variant ${j+1}. Apply unique artistic differences. Random Seed: ${Math.floor(Math.random() * 999999)}. Aspect Ratio: ${aspect_ratio}]`;
             
             let parts = [...baseParts, { text: finalPrompt }];
 
-            // Am șters "responseModalities" și "thinkingConfig" ca să nu mai crape API-ul
+            let genConfig = { candidateCount: 1 };
+            // Adăugăm configurările doar dacă e Flash
+            if (model_id === 'gemini-flash') {
+                genConfig.responseModalities = ["IMAGE"];
+            }
+
             const fetchOptions = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ role: "user", parts: parts }],
-                    generationConfig: { candidateCount: 1 } 
+                    generationConfig: genConfig
                 })
             };
-            
-            // Băgăm cererea în listă (fetchWithRetry o va proteja de faimosul 429)
-            fetchPromises.push(
-                fetchWithRetry(endpoint, fetchOptions)
-                    .then(async apiRes => {
-                        const rawText = await apiRes.text();
-                        const data = JSON.parse(rawText);
-                        
-                        if (data.candidates && data.candidates[0]?.content?.parts) {
-                            for (const part of data.candidates[0].content.parts) {
-                                if (part.inlineData && part.inlineData.data) {
-                                    const b64 = part.inlineData.data;
-                                    const mime = part.inlineData.mimeType || 'image/png';
-                                    const ext = mime.split('/')[1] || 'png';
-                                    
-                                    const buffer = Buffer.from(b64, 'base64');
-                                    const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-                                    
-                                    const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
-                                    if (!supaErr) {
-                                        const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                                        return publicData.publicUrl; // Succes!
-                                    }
-                                }
+
+            try {
+                // Așteptăm ca cererea curentă să se termine înainte de a trece la următoarea
+                const apiRes = await fetchWithRetry(endpoint, fetchOptions);
+                const rawText = await apiRes.text();
+                const data = JSON.parse(rawText);
+                
+                if (data.candidates && data.candidates[0]?.content?.parts) {
+                    for (const part of data.candidates[0].content.parts) {
+                        if (part.inlineData && part.inlineData.data) {
+                            const b64 = part.inlineData.data;
+                            const mime = part.inlineData.mimeType || 'image/png';
+                            const ext = mime.split('/')[1] || 'png';
+                            
+                            const buffer = Buffer.from(b64, 'base64');
+                            const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+                            
+                            const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
+                            if (!supaErr) {
+                                const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
+                                allUrls.push(publicData.publicUrl); // Succes!
                             }
                         }
-                        return null; // A eșuat extragerea
-                    })
-                    .catch(err => {
-                        console.error(`[Eroare Variația ${j+1}]:`, err.message);
-                        return null; // Nu blocăm restul pozelor dacă una dă eroare
-                    })
-            );
+                    }
+                }
+                
+                // Pauză de protecție de 3 SECUNDE între poze, ca să nu ne blocheze Google
+                if (j < count - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                }
+                
+            } catch (err) {
+                console.error(`[Eroare Variația ${j+1}]:`, err.message);
+            }
         }
-
-        // 3. Așteptăm să se termine TOATE cererile simultan
-        const results = await Promise.all(fetchPromises);
-        
-        // 4. Filtrăm doar pozele care au reușit
-        allUrls = results.filter(url => url !== null);
 
         if (allUrls.length === 0) throw new Error("Generarea a eșuat. Probabil imaginile sunt prea complexe sau serverul Google este ocupat. Mai încearcă o dată.");
 
