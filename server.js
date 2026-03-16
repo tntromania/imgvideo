@@ -223,33 +223,21 @@ const MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3.1-flash-image-preview' 
         // 2. Lansăm toate cererile în PARALEL (se fac simultan, deci scapi de eroarea 500 / Timeout)
         const fetchPromises = [];
 
-        for (let j = 0; j < count; j++) {
+for (let j = 0; j < count; j++) {
             // Secretul pentru poze diferite: Seed Random unic la fiecare iterație
             let finalPrompt = cleanPrompt + `\n\n[Instruction: Variant ${j+1}. Apply unique artistic differences. Random Seed: ${Math.floor(Math.random() * 999999)}. Aspect Ratio: ${aspect_ratio}]`;
             
             let parts = [...baseParts, { text: finalPrompt }];
 
-            // --- AICI ESTE MODIFICAREA PENTRU A SCĂPA DE EROAREA 500 ---
-            let genConfig = {
-                candidateCount: 1,
-                responseModalities: ["IMAGE"] // Obligatoriu pentru noile modele Google
-            };
-
-            // Dacă e modelul Flash, îi activăm opțiunea de gândire (thinking)
-            if (model_id === 'gemini-flash') {
-                genConfig.thinkingConfig = { thinkingLevel: "HIGH" };
-            }
-
+            // Am șters "responseModalities" și "thinkingConfig" ca să nu mai crape API-ul
             const fetchOptions = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ role: "user", parts: parts }],
-                    generationConfig: genConfig
+                    generationConfig: { candidateCount: 1 } 
                 })
             };
-            
-            // Băgăm cererea în listă (fetchWithRetry o va proteja de faimosul 429)
             
             // Băgăm cererea în listă (fetchWithRetry o va proteja de faimosul 429)
             fetchPromises.push(
