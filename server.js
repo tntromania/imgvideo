@@ -198,8 +198,8 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
-        const MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3-flash-image' : 'gemini-3-pro-image-preview';
-        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
+onst MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3.1-flash-image-preview' : 'gemini-3.1-pro-image-preview';
+        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
         
         let allUrls = [];
 
@@ -293,7 +293,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         console.error("Eroare Rută Imagini:", e);
         res.status(500).json({ error: e.message });
     }
-});let lbMediaList
+});
 
 
 // --- RUTA PENTRU VIDEO VERTEX AI ---
