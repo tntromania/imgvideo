@@ -807,13 +807,12 @@ function aspectClass(r){
 function getGridClass(count, ratio) {
     const isLandscape = (ratio === '16:9' || ratio === '21:9');
     if (count === 1) {
-        // Limităm drastic lățimea pt pozele portret ca să nu devină înalte cât ecranul
-        return isLandscape ? 'grid grid-cols-1 max-w-2xl mx-auto' : 'grid grid-cols-1 max-w-[320px] mx-auto';
+        // max-w-xs este o clasă fixă de 320px pe care Tailwind o încarcă garantat
+        return isLandscape ? 'grid grid-cols-1 max-w-2xl mx-auto' : 'grid grid-cols-1 max-w-xs mx-auto';
     }
     if (isLandscape) {
         return 'grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto';
     } else {
-        // Reducem max-width și pt gridul de 2 poze portret
         return `grid grid-cols-2 ${count > 2 ? 'md:grid-cols-4' : 'md:grid-cols-2'} ${count > 2 ? 'max-w-4xl' : 'max-w-xl'} mx-auto`;
     }
 }
@@ -1170,11 +1169,16 @@ async function loadHistory() {
                         <div class="w-8 h-8 rounded-full bg-viralio-50 text-viralio-500 flex items-center justify-center shrink-0">
                             <i class="fa-solid ${group.type === 'image' ? 'fa-image' : 'fa-clapperboard'} text-sm"></i>
                         </div>
-                        <div class="flex-1 overflow-hidden">
-                            <p class="text-[0.85rem] font-medium text-slate-700 truncate cursor-pointer" title="${group.prompt.replace(/"/g, '&quot;')}" onclick="document.getElementById('prompt-in').value='${group.prompt.replace(/'/g, "\\'")}'; updateCharCount();">"${group.prompt}"</p>
+<div class="flex-1 overflow-hidden">
+                            <p class="text-[0.85rem] font-medium text-slate-700 truncate cursor-pointer" 
+                               title="${group.prompt.replace(/"/g, '&quot;')}" 
+                               data-prompt="${group.prompt.replace(/"/g, '&quot;')}" 
+                               onclick="document.getElementById('prompt-in').value=this.dataset.prompt; updateCharCount();">"${group.prompt}"</p>
                             <span class="text-[0.65rem] font-bold text-slate-400 mt-1 block uppercase tracking-wider"><i class="fa-solid fa-clock mr-1"></i> Generat anterior</span>
                         </div>
-                        <button onclick="document.getElementById('prompt-in').value='${group.prompt.replace(/'/g, "\\'")}'; updateCharCount();" class="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-viralio-50 hover:text-viralio-600 transition-colors" title="Refolosește promptul">
+                        <button data-prompt="${group.prompt.replace(/"/g, '&quot;')}" 
+                                onclick="document.getElementById('prompt-in').value=this.dataset.prompt; updateCharCount();" 
+                                class="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-viralio-50 hover:text-viralio-600 transition-colors" title="Refolosește promptul">
                             <i class="fa-solid fa-rotate-right text-xs"></i>
                         </button>
                     </div>
