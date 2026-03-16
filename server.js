@@ -65,7 +65,7 @@ const authenticate = (req, res, next) => {
     } catch (e) { return res.status(401).json({ error: "Sesiune expirată." }); }
 };
 
-const ADMIN_EMAILS = ['banicualex3@gmail.com'];
+const ADMIN_EMAILS = ['banicualex3@gmail.com']; 
 const authenticateAdmin = async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: "Acces interzis!" });
@@ -103,33 +103,20 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 
 const MODEL_PRICES = {
     'gemini-flash': 1,
-    'nano-banana-pro-1k': 1,
+    'nano-banana-pro-1k': 1, // În caz că folosești id-ul ăsta în frontend
     'gemini-pro': 2,
-    'nano-banana-pro-2k': 2,
+    'nano-banana-pro-2k': 2, // ID-uri de siguranță
     'veo3.1': 5,
     'veo3.1fast': 3,
-};
-
-// Mapare ratio frontend → Gemini API
-const RATIO_MAP = {
-    '1:1':  '1:1',
-    '9:16': '9:16',
-    '16:9': '16:9',
-    '3:4':  '3:4',
-    '4:3':  '4:3',
-    '4:5':  '4:5',
-    '5:4':  '5:4',
-    '2:3':  '2:3',
-    '3:2':  '3:2',
-    '21:9': '21:9',
 };
 
 // --- SISTEM ANTI-Aglomerare Google ---
 const fetchWithRetry = async (url, options, maxRetries = 4, delayMs = 1500) => {
     for (let i = 0; i < maxRetries; i++) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 150000);
-
+        // Mărit la 150 secunde (150000ms) ca să nu mai taie conexiunea aiurea la modelul Pro
+        const timeoutId = setTimeout(() => controller.abort(), 150000); 
+        
         try {
             const response = await fetch(url, { ...options, signal: controller.signal });
             clearTimeout(timeoutId);
@@ -137,12 +124,12 @@ const fetchWithRetry = async (url, options, maxRetries = 4, delayMs = 1500) => {
             if (response.ok) return response;
 
             const text = await response.text();
-
+            
             if (response.status === 429 || response.status === 503 || text.toLowerCase().includes('exhausted')) {
                 console.warn(`[Vertex AI] Sistem aglomerat (Eroare ${response.status}). Încercarea ${i + 1}/${maxRetries}. Reîncerc în ${delayMs}ms...`);
                 await new Promise(res => setTimeout(res, delayMs));
-                delayMs *= 2;
-                continue;
+                delayMs *= 2; 
+                continue; 
             } else {
                 throw new Error(text);
             }
@@ -163,7 +150,7 @@ const fetchWithRetry = async (url, options, maxRetries = 4, delayMs = 1500) => {
     throw new Error("Sistemul AI este suprasolicitat de prea mulți utilizatori. Te rugăm să încerci din nou în 10 secunde.");
 };
 
-// --- RUTA PENTRU IMAGINI ---
+// --- RUTA PENTRU IMAGINI VERTEX AI (Integrare 2.5 Flash Python + 3 Pro) ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -175,10 +162,6 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
-        const mappedRatio = RATIO_MAP[aspect_ratio] || '1:1';
-        const isFlash = (model_id === 'gemini-flash' || model_id === 'nano-banana-pro-1k');
-        const MODEL_ID = isFlash ? 'gemini-2.5-flash-preview-05-20' : 'gemini-2.0-flash-exp';
-
         let parts = [];
 
         if (req.files && req.files.length > 0) {
@@ -189,46 +172,73 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                         data: req.files[i].buffer.toString('base64')
                     }
                 });
-                finalPrompt = finalPrompt.replace(new RegExp(`@img${i + 1}`, 'g'), '').trim();
+                finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
             }
-            finalPrompt = finalPrompt + `\n\nUse the provided images as exact character and style references. Generate in ${mappedRatio} aspect ratio.`;
+            finalPrompt = finalPrompt + `\n\n[Instruction: Use the provided images as exact character and style references. Aspect Ratio: ${aspect_ratio}]`;
         } else {
-            finalPrompt = finalPrompt + `\n\nGenerate in ${mappedRatio} aspect ratio.`;
+            finalPrompt = finalPrompt + `\n\n[Instruction: Aspect Ratio: ${aspect_ratio}]`;
         }
 
         parts.push({ text: finalPrompt });
 
-        // ✅ REQUEST BODY CURAT - fără duplicate, fără conflict
-        const requestBody = {
-            contents: [{ role: "user", parts: parts }],
-            generationConfig: {
-                responseModalities: ["IMAGE", "TEXT"],
-                imageGenerationConfig: {
-                    aspectRatio: mappedRatio,
-                    numberOfImages: count
-                }
-            },
-            safetySettings: [
-                { category: "HARM_CATEGORY_HATE_SPEECH",       threshold: "BLOCK_NONE" },
+        // Verificăm dacă user-ul cere modelul Flash sau Pro
+        const isFlash = (model_id === 'gemini-flash' || model_id === 'nano-banana-pro-1k');
+        
+        // Alegem exact modelele confirmate de tine
+        const MODEL_ID = isFlash ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview'; 
+        
+// Mapare ratio frontend → format acceptat de Gemini
+const RATIO_MAP = {
+    '1:1':  '1:1',
+    '9:16': '9:16',
+    '16:9': '16:9',
+    '3:4':  '3:4',
+    '4:3':  '4:3',
+    '4:5':  '4:5',
+    '5:4':  '5:4',
+    '2:3':  '2:3',
+    '3:2':  '3:2',
+    '21:9': '21:9',
+};
+const mappedRatio = RATIO_MAP[aspect_ratio] || '1:1';
+
+let requestBody = {
+    contents: [{ role: "user", parts: parts }],
+    generationConfig: {
+        candidateCount: count,
+        ...(isFlash && {
+            responseModalities: ["IMAGE"],
+            imageGenerationConfig: {
+                aspectRatio: mappedRatio,
+                numberOfImages: count
+            }
+        })
+    }
+};
+
+        // DACĂ E FLASH 2.5: Adăugăm exact setările din scriptul tău Python!
+        if (isFlash) {
+            requestBody.generationConfig.responseModalities = ["IMAGE"];
+            // În REST API, "OFF" din Python se traduce ca "BLOCK_NONE"
+            requestBody.safetySettings = [
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
                 { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
                 { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_HARASSMENT",        threshold: "BLOCK_NONE" }
-            ]
-        };
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }
+            ];
+        }
 
-        console.log(`[Image] Model: ${MODEL_ID} | Ratio: ${mappedRatio} | Count: ${count}`);
-
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
-
+        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
+        
         const fetchOptions = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
         };
-
+        
         const apiRes = await fetchWithRetry(endpoint, fetchOptions);
         const rawText = await apiRes.text();
-
+        
         let data;
         try {
             data = JSON.parse(rawText);
@@ -236,12 +246,13 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             throw new Error(`Google a returnat o eroare fără JSON. Răspuns brut: ${rawText.substring(0, 150)}`);
         }
 
-        if (data.error) {
-            throw new Error(`Eroare Gemini API: ${data.error?.message || JSON.stringify(data.error)}`);
+        if (!apiRes.ok) {
+            throw new Error(`Eroare Gemini API: ${data.error?.message || JSON.stringify(data)}`);
         }
 
         let urls = [];
-
+        
+        // Extragem imaginile generate de oricare din cele 2 modele
         if (data.candidates) {
             for (const candidate of data.candidates) {
                 if (candidate.content && candidate.content.parts) {
@@ -250,10 +261,10 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                             const b64 = part.inlineData.data;
                             const mime = part.inlineData.mimeType || 'image/png';
                             const ext = mime.split('/')[1] || 'png';
-
+                            
                             const buffer = Buffer.from(b64, 'base64');
                             const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-
+                            
                             const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
                             if (!supaErr) {
                                 const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
@@ -265,11 +276,9 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             }
         }
 
-        if (urls.length === 0) {
-            console.error('[Image] Răspuns complet de la Google:', JSON.stringify(data).substring(0, 500));
-            throw new Error("Google a răspuns cu succes, dar nu ne-a dat nicio imagine (posibil filtru de siguranță sau eroare la prompt).");
-        }
+        if (urls.length === 0) throw new Error("Google a răspuns cu succes, dar nu ne-a dat nicio imagine (posibil filtru de siguranță sau eroare la prompt).");
 
+        // Taxăm userul doar pentru pozele generate efectiv
         await Log.create({ userEmail: user.email, type: 'image', count: urls.length, cost: urls.length * costPerImg });
         user.credits -= (urls.length * costPerImg);
         await user.save();
@@ -284,7 +293,8 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
     }
 });
 
-// --- RUTA PENTRU VIDEO ---
+
+// --- RUTA PENTRU VIDEO VERTEX AI (VEO 3.1) ---
 app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_videos, model_id } = req.body;
@@ -306,7 +316,7 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
                 }
             });
             for (let i = 0; i < req.files.length; i++) {
-                finalPrompt = finalPrompt.replace(new RegExp(`@img${i + 1}`, 'g'), '').trim();
+                finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
             }
             finalPrompt = finalPrompt + `\n\n[Instruction: Use the provided image as the starting frame. Resolution: 720p, Duration: 8s, Audio: true, Aspect Ratio: ${aspect_ratio}]`;
         } else {
@@ -316,9 +326,9 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         parts.push({ text: finalPrompt });
 
         const googleModelId = model_id === 'veo3.1fast' ? 'veo-3.1-fast' : 'veo-3.1';
-
+        
         const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${googleModelId}:generateContent?key=${process.env.VERTEX_API_KEY}`;
-
+        
         const fetchOptions = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -330,7 +340,7 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
 
         const apiRes = await fetchWithRetry(endpoint, fetchOptions);
         const rawText = await apiRes.text();
-
+        
         let data;
         try {
             data = JSON.parse(rawText);
@@ -351,10 +361,10 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
                             const b64 = part.inlineData.data;
                             const mime = part.inlineData.mimeType || 'video/mp4';
                             const ext = mime.split('/')[1] || 'mp4';
-
+                            
                             const buffer = Buffer.from(b64, 'base64');
                             const fileName = `generated/vid_${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-
+                            
                             const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
                             if (!supaErr) {
                                 const { data: pData } = supabase.storage.from('media-history').getPublicUrl(fileName);
@@ -393,7 +403,7 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
 });
 
 app.get('/api/admin/api-quota', authenticateAdmin, async (req, res) => {
-    res.json({ balance: 0, veoTotal: 0, veoUsed: 0, veoAvail: 0 });
+    res.json({ balance: 0, veoTotal: 0, veoUsed: 0, veoAvail: 0 }); 
 });
 
 app.get('/api/media/history', authenticate, async (req, res) => {
@@ -410,16 +420,16 @@ app.post('/api/media/save-history', authenticate, async (req, res) => {
 
     try {
         for (const url of urls) {
-            await History.create({
-                userId: req.userId,
-                type: type,
-                originalUrl: url,
-                supabaseUrl: url,
-                prompt: prompt
+            await History.create({ 
+                userId: req.userId, 
+                type: type, 
+                originalUrl: url, 
+                supabaseUrl: url, 
+                prompt: prompt 
             });
         }
         res.status(200).json({ message: 'Istoric salvat cu succes' });
-    } catch (err) {
+    } catch (err) { 
         console.error('Eroare la salvarea istoricului în MongoDB:', err.message);
         res.status(500).json({ error: 'Eroare server' });
     }
