@@ -102,9 +102,8 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 });
 
 const MODEL_PRICES = {
-    'nano-banana-pro-1k': 1,
-    'nano-banana-pro-2k': 2,
-    'nano-banana-pro-4k': 4,
+    'gemini-flash': 1,
+    'gemini-pro': 2,
     'veo3.1': 5,
     'veo3.1fast': 3,
 };
@@ -189,7 +188,6 @@ const pipeStream = async (apiRes, res) => {
 const VERTEX_ENDPOINT = "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1/publishers/google/models/"; 
 
 // --- RUTA PENTRU IMAGINI VERTEX AI ---
-// --- RUTA PENTRU IMAGINI VERTEX AI ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -200,7 +198,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
-        const MODEL_ID = 'gemini-3-pro-image-preview'; 
+        const MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3-flash-image' : 'gemini-3-pro-image-preview';
         const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
         
         let allUrls = [];
@@ -295,7 +293,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         console.error("Eroare Rută Imagini:", e);
         res.status(500).json({ error: e.message });
     }
-});
+});let lbMediaList
 
 
 // --- RUTA PENTRU VIDEO VERTEX AI ---
