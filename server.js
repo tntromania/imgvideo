@@ -189,6 +189,7 @@ const pipeStream = async (apiRes, res) => {
 const VERTEX_ENDPOINT = "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1/publishers/google/models/"; 
 
 // --- RUTA PENTRU IMAGINI VERTEX AI ---
+// --- RUTA PENTRU IMAGINI VERTEX AI ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -204,77 +205,83 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         
         let allUrls = [];
 
-        // Facem un loop pentru a cere imaginile UNA CÂTE UNA. Așa forțăm variația (evităm pozele identice) și evităm eroarea 500 dată de un request prea greu.
-        for (let j = 0; j < count; j++) {
-            let finalPrompt = prompt;
-            let parts = [];
+        // 1. Pregătim pozele de referință O SINGURĂ DATĂ ca să nu consumăm RAM aiurea
+        let baseParts = [];
+        let cleanPrompt = prompt;
 
-            if (req.files && req.files.length > 0) {
-                for (let i = 0; i < req.files.length; i++) {
-                    parts.push({
-                        inlineData: {
-                            mimeType: req.files[i].mimetype,
-                            data: req.files[i].buffer.toString('base64')
-                        }
-                    });
-                    finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
-                }
-                // Adăugăm un "seed random" în prompt ca să forțăm creativitatea diferită
-                finalPrompt = finalPrompt + `\n\n[Instruction: Ensure unique artistic variation (Seed variant: ${Math.random()}). Use the provided images as exact character and style references. Aspect Ratio: ${aspect_ratio}]`;
-            } else {
-                finalPrompt = finalPrompt + `\n\n[Instruction: Ensure unique artistic variation (Seed variant: ${Math.random()}). Aspect Ratio: ${aspect_ratio}]`;
+        if (req.files && req.files.length > 0) {
+            for (let i = 0; i < req.files.length; i++) {
+                baseParts.push({
+                    inlineData: {
+                        mimeType: req.files[i].mimetype,
+                        data: req.files[i].buffer.toString('base64')
+                    }
+                });
+                cleanPrompt = cleanPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
             }
+        }
 
-            parts.push({ text: finalPrompt });
+        // 2. Lansăm toate cererile în PARALEL (se fac simultan, deci scapi de eroarea 500 / Timeout)
+        const fetchPromises = [];
+
+        for (let j = 0; j < count; j++) {
+            // Secretul pentru poze diferite: Seed Random unic la fiecare iterație
+            let finalPrompt = cleanPrompt + `\n\n[Instruction: Variant ${j+1}. Apply unique artistic differences. Random Seed: ${Math.floor(Math.random() * 999999)}. Aspect Ratio: ${aspect_ratio}]`;
+            
+            let parts = [...baseParts, { text: finalPrompt }];
 
             const fetchOptions = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ role: "user", parts: parts }],
-                    generationConfig: { candidateCount: 1 } // Cerem doar una pe rând
+                    generationConfig: { candidateCount: 1 } 
                 })
             };
             
-            // Trimitem cererea
-            const apiRes = await fetchWithRetry(endpoint, fetchOptions);
-            const rawText = await apiRes.text();
-            
-            let data;
-            try {
-                data = JSON.parse(rawText);
-            } catch (err) {
-                console.error(`Eroare JSON la poza ${j+1}:`, rawText.substring(0, 150));
-                continue; // Dacă una dă eroare, trecem la următoarea din loop
-            }
-
-            if (data.candidates) {
-                for (const candidate of data.candidates) {
-                    if (candidate.content && candidate.content.parts) {
-                        for (const part of candidate.content.parts) {
-                            if (part.inlineData && part.inlineData.data) {
-                                const b64 = part.inlineData.data;
-                                const mime = part.inlineData.mimeType || 'image/png';
-                                const ext = mime.split('/')[1] || 'png';
-                                
-                                const buffer = Buffer.from(b64, 'base64');
-                                const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-                                
-                                const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
-                                if (!supaErr) {
-                                    const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                                    allUrls.push(publicData.publicUrl);
+            // Băgăm cererea în listă (fetchWithRetry o va proteja de faimosul 429)
+            fetchPromises.push(
+                fetchWithRetry(endpoint, fetchOptions)
+                    .then(async apiRes => {
+                        const rawText = await apiRes.text();
+                        const data = JSON.parse(rawText);
+                        
+                        if (data.candidates && data.candidates[0]?.content?.parts) {
+                            for (const part of data.candidates[0].content.parts) {
+                                if (part.inlineData && part.inlineData.data) {
+                                    const b64 = part.inlineData.data;
+                                    const mime = part.inlineData.mimeType || 'image/png';
+                                    const ext = mime.split('/')[1] || 'png';
+                                    
+                                    const buffer = Buffer.from(b64, 'base64');
+                                    const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+                                    
+                                    const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
+                                    if (!supaErr) {
+                                        const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
+                                        return publicData.publicUrl; // Succes!
+                                    }
                                 }
                             }
                         }
-                    }
-                }
-            }
-        } // Sfârșit Loop
+                        return null; // A eșuat extragerea
+                    })
+                    .catch(err => {
+                        console.error(`[Eroare Variația ${j+1}]:`, err.message);
+                        return null; // Nu blocăm restul pozelor dacă una dă eroare
+                    })
+            );
+        }
 
-        if (allUrls.length === 0) throw new Error("Generarea a fost blocată complet (posibil filtru de siguranță sau timeout pe model).");
+        // 3. Așteptăm să se termine TOATE cererile simultan
+        const results = await Promise.all(fetchPromises);
+        
+        // 4. Filtrăm doar pozele care au reușit
+        allUrls = results.filter(url => url !== null);
 
-        // Taxăm utilizatorul la final în funcție de CÂTE poze au reușit
+        if (allUrls.length === 0) throw new Error("Generarea a eșuat. Probabil imaginile sunt prea complexe sau serverul Google este ocupat. Mai încearcă o dată.");
+
+        // Taxăm userul corect doar pe câte poze au ieșit cu succes
         const finalCost = allUrls.length * costPerImg;
         await Log.create({ userEmail: user.email, type: 'image', count: allUrls.length, cost: finalCost });
         user.credits -= finalCost;
@@ -285,6 +292,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         res.write('data: [DONE]\n\n');
         res.end();
     } catch (e) {
+        console.error("Eroare Rută Imagini:", e);
         res.status(500).json({ error: e.message });
     }
 });
