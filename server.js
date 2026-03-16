@@ -186,19 +186,25 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         // Alegem exact modelele confirmate de tine
         const MODEL_ID = isFlash ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview'; 
         
-// Corpul cererii de bază
-let requestBody = {
+// Corpul cererii de bază care merge pe ambele
+        let requestBody = {
             contents: [{ role: "user", parts: parts }],
-            generationConfig: { 
-                candidateCount: count
-            },
-            // MUTĂ ASTA AICI (în afara generationConfig)
-            aspectRatio: aspect_ratio 
+            generationConfig: { candidateCount: count }
         };
 
+        // DACĂ E FLASH 2.5: Adăugăm setările specifice
         if (isFlash) {
             requestBody.generationConfig.responseModalities = ["IMAGE"];
-            // Pentru Flash, ne asigurăm că setăm și restul parametrilor corect
+            
+            // --- AICI INTEGRĂM CONFIGURAȚIA PENTRU ASPECT RATIO ---
+            // Traducem image_config din Python în obiectul JSON corect
+            requestBody.generationConfig.imageConfig = {
+                aspectRatio: aspect_ratio || "1:1", // Preia valoarea din frontend ("16:9", "4:3", etc.)
+                imageSize: "1K",
+                outputMimeType: "image/png"
+            };
+
+            // În REST API, "OFF" din Python se traduce ca "BLOCK_NONE"
             requestBody.safetySettings = [
                 { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
                 { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
