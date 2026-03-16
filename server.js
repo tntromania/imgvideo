@@ -187,13 +187,13 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         const MODEL_ID = isFlash ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview'; 
         
 // Corpul cererii de bază
-        let requestBody = {
+let requestBody = {
             contents: [{ role: "user", parts: parts }],
             generationConfig: { 
-                candidateCount: count,
-                // ADAUGĂM ASTA: Forțăm aspect ratio la nivel de configurație
-                aspectRatio: aspect_ratio 
-            }
+                candidateCount: count
+            },
+            // MUTĂ ASTA AICI (în afara generationConfig)
+            aspectRatio: aspect_ratio 
         };
 
         if (isFlash) {
