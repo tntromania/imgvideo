@@ -66,28 +66,7 @@
         .gen-btn:not(:disabled):hover { box-shadow: 0 15px 35px rgba(79,70,229,0.3); transform: translateY(-2px); }
         .gen-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none!important; }
         
-.result-card { 
-    background: white; 
-    border-radius: 20px; 
-    overflow: hidden; 
-    border: 1px solid #e2e8f0; 
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
-    transition: all 0.3s; 
-    position: relative; 
-    
-    /* Reguli adăugate pentru a fixa problema imaginilor portret: */
-    max-height: 60vh; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-}
-
-/* Asigură-te că imaginea din interior nu depășește cardul */
-.result-card img {
-    max-height: 100%;
-    width: auto;
-    object-fit: contain;
-}
+        .result-card { background: white; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: all 0.3s; position: relative; }
         .result-card:hover { box-shadow: 0 20px 40px rgba(0,0,0,0.1); transform: translateY(-4px); border-color: #c7d2fe; }
         .card-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(9,9,11,0.8) 0%, transparent 60%); opacity: 0; transition: opacity 0.3s; display: flex; align-items: flex-end; justify-content: center; padding: 20px; gap: 10px; }
         .result-card:hover .card-overlay { opacity: 1; }
@@ -435,17 +414,53 @@
                         </div>
                     </div>
 <div id="st-loading" class="hidden text-center w-full max-w-md flex-col items-center mx-auto">
-                        <div class="relative flex items-center justify-center w-24 h-24 mb-6 mt-4">
-                            <div class="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-30 animate-pulse"></div>
-                            <div class="relative w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg border border-indigo-100">
-                                <i class="fa-solid fa-wand-magic-sparkles text-2xl text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-pink-500 animate-bounce"></i>
+                        
+                        <style>
+                        .magic-ring-outer { position:relative; width:80px; height:80px; margin:1.5rem auto 1.2rem; }
+                        .magic-ring { position:absolute; border-radius:50%; border:1.5px solid transparent; }
+                        .magic-ring-1 { inset:0; border-top-color:#a78bfa; border-right-color:rgba(167,139,250,0.25); animation:mSpinCW 1.8s linear infinite; }
+                        .magic-ring-2 { inset:10px; border-bottom-color:#818cf8; border-left-color:rgba(129,140,248,0.25); animation:mSpinCCW 2.4s linear infinite; }
+                        .magic-ring-3 { inset:20px; border-top-color:#c4b5fd; border-right-color:rgba(196,181,253,0.15); animation:mSpinCW 3s linear infinite; }
+                        .magic-icon-center { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+                        .magic-icon-center i { animation:mIconFloat 3s ease-in-out infinite; font-size:1.1rem; }
+                        @keyframes mSpinCW { to { transform:rotate(360deg); } }
+                        @keyframes mSpinCCW { to { transform:rotate(-360deg); } }
+                        @keyframes mIconFloat { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-2px) scale(1.08)} }
+                        .magic-dots { display:flex; gap:6px; justify-content:center; margin:0.5rem 0 1.5rem; }
+                        .magic-dot { width:5px; height:5px; border-radius:50%; background:#a78bfa; animation:mDotBounce 1.4s ease-in-out infinite; }
+                        .magic-dot:nth-child(2){animation-delay:.2s;background:#818cf8}
+                        .magic-dot:nth-child(3){animation-delay:.4s;background:#c4b5fd}
+                        @keyframes mDotBounce { 0%,80%,100%{transform:scale(0.6);opacity:0.35} 40%{transform:scale(1);opacity:1} }
+                        .magic-bar-wrap { width:180px; height:3px; background:#e2e8f0; border-radius:99px; overflow:hidden; margin:0 auto 1.5rem; }
+                        .magic-bar-fill { height:100%; border-radius:99px; background:linear-gradient(90deg,#a78bfa,#818cf8,#c4b5fd); background-size:200% 100%; animation:mBarSlide 2s ease-in-out infinite, mBarShimmer 1.5s linear infinite; }
+                        @keyframes mBarSlide { 0%{width:20%;margin-left:0} 50%{width:55%;margin-left:20%} 100%{width:20%;margin-left:80%} }
+                        @keyframes mBarShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+                        </style>
+
+                        <div class="magic-ring-outer">
+                            <div class="magic-ring magic-ring-1"></div>
+                            <div class="magic-ring magic-ring-2"></div>
+                            <div class="magic-ring magic-ring-3"></div>
+                            <div class="magic-icon-center">
+                                <i class="fa-solid fa-wand-magic-sparkles text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-indigo-400"></i>
                             </div>
                         </div>
-                        <h3 class="text-2xl font-black text-slate-800 tracking-tight" id="load-label">Creăm Magia...</h3>
-                        <p class="text-slate-500 font-medium text-sm mt-2 mb-6" id="sse-status">Se pregătește modelul AI...</p>
-                        
+
+                        <h3 class="text-xl font-black text-slate-800 tracking-tight" id="load-label">Creăm Magia...</h3>
+                        <p class="text-slate-400 font-medium text-sm mt-1.5" id="sse-status">Așteptăm server-ul...</p>
+
+                        <div class="magic-dots mt-3">
+                            <div class="magic-dot"></div>
+                            <div class="magic-dot"></div>
+                            <div class="magic-dot"></div>
+                        </div>
+
+                        <div class="magic-bar-wrap">
+                            <div class="magic-bar-fill"></div>
+                        </div>
+
                         <div id="sk-grid" class="grid gap-4 w-full"></div>
-                        <button onclick="cancelGen()" class="mt-8 text-sm font-bold text-slate-400 hover:text-red-500 transition-colors">Anulează Procesul</button>
+                        <button onclick="cancelGen()" class="mt-6 text-xs font-bold text-slate-400 hover:text-red-500 transition-colors">Anulează Procesul</button>
                         
                         <div class="hidden"><circle id="circular-progress"></circle><span id="progress-text"></span></div>
                     </div>
