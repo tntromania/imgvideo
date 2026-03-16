@@ -833,17 +833,21 @@ function buildImageGrid(urls, ratioVal){
     // LIMITARE LĂȚIME PENTRU O SINGURĂ IMAGINE
 if (urls.length === 1) {
         const isPortrait = (ratioVal === '9:16' || ratioVal === '2:3' || ratioVal === '3:4');
-        g.style.maxWidth = isPortrait ? '480px' : '750px';
+        g.style.maxWidth = isPortrait ? '420px' : '100%';
+        g.style.width = isPortrait ? '420px' : '100%';
         g.style.margin = '0 auto';
+        g.style.display = 'block';
     } else {
         g.style.maxWidth = 'none';
+        g.style.width = '100%';
+        g.style.display = '';
         g.style.margin = '0 auto';
     }
 
     g.innerHTML='';
     const urlsStr = JSON.stringify(urls).replace(/"/g, '&quot;');
-    urls.forEach((url,i)=> g.innerHTML += `
-        <div class="result-card animate-slide-up flex flex-col justify-between h-full" style="animation-delay: ${i*0.1}s">
+urls.forEach((url,i)=> g.innerHTML += `
+        <div class="result-card animate-slide-up flex flex-col justify-between w-full h-full" style="animation-delay: ${i*0.1}s">
             <div class="${aspectClass(ratioVal)} w-full relative group">
                 <img src="${url}" class="absolute inset-0 w-full h-full object-cover">
                 <div class="card-overlay">
