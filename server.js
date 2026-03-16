@@ -114,7 +114,8 @@ const MODEL_PRICES = {
 const fetchWithRetry = async (url, options, maxRetries = 4, delayMs = 1500) => {
     for (let i = 0; i < maxRetries; i++) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); 
+        // Mărim la 120000 (2 minute) pentru siguranță
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
         
         try {
             const response = await fetch(url, { ...options, signal: controller.signal });
@@ -193,25 +194,23 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         };
 
         // DACĂ E FLASH 2.5: Adăugăm setările specifice
-        if (isFlash) {
-            requestBody.generationConfig.responseModalities = ["IMAGE"];
-            
-            // --- AICI INTEGRĂM CONFIGURAȚIA PENTRU ASPECT RATIO ---
-            // Traducem image_config din Python în obiectul JSON corect
-            requestBody.generationConfig.imageConfig = {
-                aspectRatio: aspect_ratio || "1:1", // Preia valoarea din frontend ("16:9", "4:3", etc.)
-                imageSize: "1K",
-                outputMimeType: "image/png"
-            };
+if (isFlash) {
+    requestBody.generationConfig.responseModalities = ["IMAGE"];
+    
+    // Corecție aici: Scoatem outputMimeType dacă dă eroare 400
+    requestBody.generationConfig.imageConfig = {
+        aspectRatio: aspect_ratio || "1:1", 
+        imageSize: "1K"
+        // outputMimeType: "image/png" <-- Șterge sau comentează linia asta
+    };
 
-            // În REST API, "OFF" din Python se traduce ca "BLOCK_NONE"
-            requestBody.safetySettings = [
-                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }
-            ];
-        }
+    requestBody.safetySettings = [
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }
+    ];
+}
 
         const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
         
