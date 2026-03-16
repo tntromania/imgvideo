@@ -805,15 +805,19 @@ function aspectClass(r){
 }
 
 function getGridClass(count, ratio) {
-    const isLandscape = (ratio === '16:9' || ratio === '21:9');
+    const isPortrait = (ratio === '9:16' || ratio === '2:3' || ratio === '3:4');
+    
     if (count === 1) {
-        return 'grid grid-cols-1 justify-center'; // Eliminăm max-width-ul de aici
+        return 'flex justify-center w-full';
     }
-    if (isLandscape) {
-        return 'grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto';
-    } else {
-        return `grid grid-cols-2 ${count > 2 ? 'md:grid-cols-4' : 'md:grid-cols-2'} ${count > 2 ? 'max-w-4xl' : 'max-w-xl'} mx-auto`;
+    
+    // Dacă sunt portret, folosim 2 coloane pe mobil și 4 pe desktop
+    if (isPortrait) {
+        return `grid grid-cols-2 ${count > 2 ? 'md:grid-cols-4' : 'md:grid-cols-2'} max-w-4xl mx-auto`;
     }
+    
+    // Altfel (Landscape/Square)
+    return `grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto`;
 }
 
 function buildSkeletons(n, ratioVal){
@@ -1227,15 +1231,19 @@ function toggleMobileSettings() {
     const sidebar = document.getElementById('sidebar-settings');
     const overlay = document.getElementById('mobile-overlay');
     const btn = document.getElementById('mobile-settings-btn');
+    // Adaugă o referință către containerul butoanelor de suport (dă-i un ID în HTML mai întâi, ex: id="support-buttons")
+    const supportBtns = document.getElementById('support-buttons'); 
     
     if (sidebar.classList.contains('translate-y-full')) {
         sidebar.classList.remove('translate-y-full');
         overlay.classList.remove('opacity-0', 'pointer-events-none');
         btn.classList.add('translate-y-24', 'opacity-0'); 
+        if(supportBtns) supportBtns.classList.add('opacity-0', 'pointer-events-none');
     } else {
         sidebar.classList.add('translate-y-full');
         overlay.classList.add('opacity-0', 'pointer-events-none');
         btn.classList.remove('translate-y-24', 'opacity-0'); 
+        if(supportBtns) supportBtns.classList.remove('opacity-0', 'pointer-events-none');
     }
 }
 </script>
@@ -1250,7 +1258,7 @@ function toggleMobileSettings() {
     .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
 </style>
 
-<div class="fixed bottom-5 right-5 md:right-6 z-[100000] flex items-center bg-white/70 backdrop-blur-2xl glass-premium-fin rounded-full p-1.5 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_15px_40px_-10px_rgba(0,0,0,0.2)] hover:bg-white/90">
+<div id="support-buttons" class="fixed bottom-24 md:bottom-5 right-5 md:right-6 z-[90] flex items-center bg-white/70 backdrop-blur-2xl glass-premium-fin rounded-full p-1.5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_15px_40px_-10px_rgba(0,0,0,0.2)] hover:bg-white/90">
     
     <a href="https://discord.gg/h8Ah6VKDzm" target="_blank" class="group flex items-center gap-2 hover:bg-slate-100 rounded-full px-3 py-1.5 transition-all duration-300">
         <div class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-900 text-white shadow-sm group-hover:bg-[#5865F2] group-hover:scale-105 transition-all duration-300">
