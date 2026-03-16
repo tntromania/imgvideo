@@ -798,13 +798,14 @@ function aspectClass(r){
 function getGridClass(count, ratio) {
     const isLandscape = (ratio === '16:9' || ratio === '21:9');
     if (count === 1) {
-        // Am făcut max-w-xl în loc de max-w-4xl ca să nu fie gigantice
-        return isLandscape ? 'grid grid-cols-1 max-w-2xl mx-auto' : 'grid grid-cols-1 max-w-sm mx-auto';
+        // Limităm drastic lățimea pt pozele portret ca să nu devină înalte cât ecranul
+        return isLandscape ? 'grid grid-cols-1 max-w-2xl mx-auto' : 'grid grid-cols-1 max-w-[320px] mx-auto';
     }
     if (isLandscape) {
         return 'grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto';
     } else {
-        return `grid grid-cols-2 ${count > 2 ? 'md:grid-cols-4' : 'md:grid-cols-2'} max-w-4xl mx-auto`;
+        // Reducem max-width și pt gridul de 2 poze portret
+        return `grid grid-cols-2 ${count > 2 ? 'md:grid-cols-4' : 'md:grid-cols-2'} ${count > 2 ? 'max-w-4xl' : 'max-w-xl'} mx-auto`;
     }
 }
 
