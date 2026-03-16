@@ -818,18 +818,19 @@ function getGridClass(count, ratio) {
 }
 
 function buildSkeletons(n, ratioVal){
-    const g=document.getElementById('sk-grid'); 
+    const g = document.getElementById('sk-grid'); 
     g.className = `gap-4 w-full ${getGridClass(n, ratioVal)}`;
+    g.removeAttribute('style');
 
-    // Aplicăm aceeași lățime forțată și pentru "scheletul" de încărcare
-    if (n === 1 && ratioVal !== '16:9' && ratioVal !== '21:9') {
-        g.style.cssText = 'max-width: 360px !important; margin: 0 auto !important;';
-    } else {
-        g.style.cssText = ''; 
+    if (n === 1) {
+        const maxW = (ratioVal === '16:9' || ratioVal === '21:9') ? '672px' : '320px';
+        g.style.cssText = `max-width: ${maxW} !important; margin: 0 auto !important; width: 100% !important;`;
     }
 
     g.innerHTML = '';
-    for(let i=0; i<n; i++) { g.innerHTML += `<div class="skeleton ${aspectClass(ratioVal)} w-full flex items-center justify-center rounded-2xl"></div>`; }
+    for(let i = 0; i < n; i++) {
+        g.innerHTML += `<div class="skeleton ${aspectClass(ratioVal)} w-full flex items-center justify-center rounded-2xl"></div>`;
+    }
 }
 
 let lbMediaList = [];
@@ -837,19 +838,18 @@ let lbCurrentIndex = 0;
 let lbCurrentType = 'image';
 
 function buildImageGrid(urls, ratioVal){
-    const g=document.getElementById('res-grid'); 
+    const g = document.getElementById('res-grid'); 
     g.className = `gap-5 w-full ${getGridClass(urls.length, ratioVal)}`;
-    
-    // FIX NOU: Forțăm lățimea dinamic prin CSS inline pentru a ignora limitările Tailwind CDN
-    if (urls.length === 1 && ratioVal !== '16:9' && ratioVal !== '21:9') {
-        g.style.cssText = 'max-width: 360px !important; margin: 0 auto !important;';
-    } else {
-        g.style.cssText = ''; 
+    g.removeAttribute('style');
+
+    if (urls.length === 1) {
+        const maxW = (ratioVal === '16:9' || ratioVal === '21:9') ? '672px' : '320px';
+        g.style.cssText = `max-width: ${maxW} !important; margin: 0 auto !important; width: 100% !important;`;
     }
 
-    g.innerHTML='';
-    const urlsStr = JSON.stringify(urls).replace(/"/g, '&quot;'); // Pregătim array-ul pt onclick
-    urls.forEach((url,i)=> g.innerHTML += `
+    g.innerHTML = '';
+    const urlsStr = JSON.stringify(urls).replace(/"/g, '&quot;');
+    urls.forEach((url, i) => g.innerHTML += `
         <div class="result-card animate-slide-up flex flex-col justify-between h-full" style="animation-delay: ${i*0.1}s">
             <div class="${aspectClass(ratioVal)} w-full relative group">
                 <img src="${url}" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
