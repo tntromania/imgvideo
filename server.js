@@ -114,8 +114,7 @@ const MODEL_PRICES = {
 const fetchWithRetry = async (url, options, maxRetries = 4, delayMs = 1500) => {
     for (let i = 0; i < maxRetries; i++) {
         const controller = new AbortController();
-        // Mărit la 150 secunde (150000ms) ca să nu mai taie conexiunea aiurea la modelul Pro
-        const timeoutId = setTimeout(() => controller.abort(), 150000); 
+        const timeoutId = setTimeout(() => controller.abort(), 60000); 
         
         try {
             const response = await fetch(url, { ...options, signal: controller.signal });
@@ -187,34 +186,11 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         // Alegem exact modelele confirmate de tine
         const MODEL_ID = isFlash ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview'; 
         
-// Mapare ratio frontend → format acceptat de Gemini
-const RATIO_MAP = {
-    '1:1':  '1:1',
-    '9:16': '9:16',
-    '16:9': '16:9',
-    '3:4':  '3:4',
-    '4:3':  '4:3',
-    '4:5':  '4:5',
-    '5:4':  '5:4',
-    '2:3':  '2:3',
-    '3:2':  '3:2',
-    '21:9': '21:9',
-};
-const mappedRatio = RATIO_MAP[aspect_ratio] || '1:1';
-
-let requestBody = {
-    contents: [{ role: "user", parts: parts }],
-    generationConfig: {
-        candidateCount: count,
-        ...(isFlash && {
-            responseModalities: ["IMAGE"],
-            imageGenerationConfig: {
-                aspectRatio: mappedRatio,
-                numberOfImages: count
-            }
-        })
-    }
-};
+        // Corpul cererii de bază care merge pe ambele (fără erori de spam, dintr-un singur request)
+        let requestBody = {
+            contents: [{ role: "user", parts: parts }],
+            generationConfig: { candidateCount: count }
+        };
 
         // DACĂ E FLASH 2.5: Adăugăm exact setările din scriptul tău Python!
         if (isFlash) {
