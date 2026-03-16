@@ -824,13 +824,15 @@ function buildSkeletons(n, ratioVal){
     const g=document.getElementById('sk-grid'); 
     g.className = `gap-4 w-full ${getGridClass(n, ratioVal)}`;
     
-    // LIMITARE LĂȚIME PENTRU O SINGURĂ IMAGINE
     if (n === 1) {
         const isPortrait = (ratioVal === '9:16' || ratioVal === '2:3' || ratioVal === '3:4');
-        g.style.maxWidth = isPortrait ? '340px' : '650px';
+        // LIMITĂM ÎNĂLȚIMEA, NU DOAR LĂȚIMEA
+        g.style.maxHeight = isPortrait ? '70vh' : 'none';
+        g.style.maxWidth = isPortrait ? '400px' : '700px';
         g.style.margin = '0 auto';
     } else {
         g.style.maxWidth = 'none';
+        g.style.maxHeight = 'none';
     }
 
     g.innerHTML = '';
@@ -843,26 +845,28 @@ function buildImageGrid(urls, ratioVal){
     const g=document.getElementById('res-grid'); 
     g.className = `gap-5 w-full ${getGridClass(urls.length, ratioVal)}`;
     
-    // LIMITARE LĂȚIME PENTRU O SINGURĂ IMAGINE
     if (urls.length === 1) {
         const isPortrait = (ratioVal === '9:16' || ratioVal === '2:3' || ratioVal === '3:4');
-        g.style.maxWidth = isPortrait ? '340px' : '650px';
+        // REGLAJ PENTRU PORTRET SĂ NU MAI FIE PE TOT ECRANUL
+        g.style.maxHeight = isPortrait ? '70vh' : 'none';
+        g.style.maxWidth = isPortrait ? '380px' : '750px';
         g.style.margin = '0 auto';
     } else {
         g.style.maxWidth = 'none';
+        g.style.maxHeight = 'none';
     }
 
     g.innerHTML='';
     const urlsStr = JSON.stringify(urls).replace(/"/g, '&quot;');
     urls.forEach((url,i)=> g.innerHTML += `
-        <div class="result-card animate-slide-up flex flex-col justify-between h-full" style="animation-delay: ${i*0.1}s">
-            <div class="${aspectClass(ratioVal)} w-full relative group">
-                <img src="${url}" class="absolute inset-0 w-full h-full object-cover">
+        <div class="result-card animate-slide-up flex flex-col h-full bg-white shadow-xl" style="animation-delay: ${i*0.1}s">
+            <div class="${aspectClass(ratioVal)} w-full relative group overflow-hidden rounded-t-2xl">
+                <img src="${url}" class="absolute inset-0 w-full h-full object-contain bg-slate-100">
                 <div class="card-overlay">
                     <button onclick="openLightbox(${urlsStr}, ${i}, 'image')" class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-expand mr-1"></i>Mărește</button>
                 </div>
             </div>
-            <div class="p-3 bg-white border-t border-slate-100">
+            <div class="p-3 bg-white border-t border-slate-100 rounded-b-2xl">
                 <button onclick="downloadMedia('${url}', 'viralio_${Date.now()}.png')" class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
             </div>
         </div>`);
