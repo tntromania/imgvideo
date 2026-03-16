@@ -807,8 +807,7 @@ function aspectClass(r){
 function getGridClass(count, ratio) {
     const isLandscape = (ratio === '16:9' || ratio === '21:9');
     if (count === 1) {
-        // max-w-xs este o clasă fixă de 320px pe care Tailwind o încarcă garantat
-        return isLandscape ? 'grid grid-cols-1 max-w-2xl mx-auto' : 'grid grid-cols-1 max-w-xs mx-auto';
+        return 'grid grid-cols-1 justify-center'; // Eliminăm max-width-ul de aici
     }
     if (isLandscape) {
         return 'grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto';
@@ -818,50 +817,51 @@ function getGridClass(count, ratio) {
 }
 
 function buildSkeletons(n, ratioVal){
-    const g = document.getElementById('sk-grid'); 
+    const g=document.getElementById('sk-grid'); 
     g.className = `gap-4 w-full ${getGridClass(n, ratioVal)}`;
-    g.removeAttribute('style');
-
+    
+    // LIMITARE LĂȚIME PENTRU O SINGURĂ IMAGINE
     if (n === 1) {
-        const maxW = (ratioVal === '16:9' || ratioVal === '21:9') ? '672px' : '320px';
-        g.style.cssText = `max-width: ${maxW} !important; margin: 0 auto !important; width: 100% !important;`;
+        const isPortrait = (ratioVal === '9:16' || ratioVal === '2:3' || ratioVal === '3:4');
+        g.style.maxWidth = isPortrait ? '340px' : '650px';
+        g.style.margin = '0 auto';
+    } else {
+        g.style.maxWidth = 'none';
     }
 
     g.innerHTML = '';
-    for(let i = 0; i < n; i++) {
-        g.innerHTML += `<div class="skeleton ${aspectClass(ratioVal)} w-full flex items-center justify-center rounded-2xl"></div>`;
+    for(let i=0; i<n; i++) { 
+        g.innerHTML += `<div class="skeleton ${aspectClass(ratioVal)} w-full rounded-2xl"></div>`; 
     }
 }
 
-let lbMediaList = [];
-let lbCurrentIndex = 0;
-let lbCurrentType = 'image';
-
 function buildImageGrid(urls, ratioVal){
-    const g = document.getElementById('res-grid'); 
+    const g=document.getElementById('res-grid'); 
     g.className = `gap-5 w-full ${getGridClass(urls.length, ratioVal)}`;
-    g.removeAttribute('style');
-
+    
+    // LIMITARE LĂȚIME PENTRU O SINGURĂ IMAGINE
     if (urls.length === 1) {
-        const maxW = (ratioVal === '16:9' || ratioVal === '21:9') ? '672px' : '320px';
-        g.style.cssText = `max-width: ${maxW} !important; margin: 0 auto !important; width: 100% !important;`;
+        const isPortrait = (ratioVal === '9:16' || ratioVal === '2:3' || ratioVal === '3:4');
+        g.style.maxWidth = isPortrait ? '340px' : '650px';
+        g.style.margin = '0 auto';
+    } else {
+        g.style.maxWidth = 'none';
     }
 
-    g.innerHTML = '';
+    g.innerHTML='';
     const urlsStr = JSON.stringify(urls).replace(/"/g, '&quot;');
-    urls.forEach((url, i) => g.innerHTML += `
+    urls.forEach((url,i)=> g.innerHTML += `
         <div class="result-card animate-slide-up flex flex-col justify-between h-full" style="animation-delay: ${i*0.1}s">
             <div class="${aspectClass(ratioVal)} w-full relative group">
-                <img src="${url}" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
+                <img src="${url}" class="absolute inset-0 w-full h-full object-cover">
                 <div class="card-overlay">
                     <button onclick="openLightbox(${urlsStr}, ${i}, 'image')" class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-expand mr-1"></i>Mărește</button>
                 </div>
             </div>
-            <div class="p-3 bg-white mt-auto border-t border-slate-100">
+            <div class="p-3 bg-white border-t border-slate-100">
                 <button onclick="downloadMedia('${url}', 'viralio_${Date.now()}.png')" class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
             </div>
-        </div>
-    `);
+        </div>`);
 }
 
 function buildVideoGrid(urls, ratioVal){
