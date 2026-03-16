@@ -66,7 +66,28 @@
         .gen-btn:not(:disabled):hover { box-shadow: 0 15px 35px rgba(79,70,229,0.3); transform: translateY(-2px); }
         .gen-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none!important; }
         
-        .result-card { background: white; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: all 0.3s; position: relative; }
+.result-card { 
+    background: white; 
+    border-radius: 20px; 
+    overflow: hidden; 
+    border: 1px solid #e2e8f0; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
+    transition: all 0.3s; 
+    position: relative; 
+    
+    /* Reguli adăugate pentru a fixa problema imaginilor portret: */
+    max-height: 60vh; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+}
+
+/* Asigură-te că imaginea din interior nu depășește cardul */
+.result-card img {
+    max-height: 100%;
+    width: auto;
+    object-fit: contain;
+}
         .result-card:hover { box-shadow: 0 20px 40px rgba(0,0,0,0.1); transform: translateY(-4px); border-color: #c7d2fe; }
         .card-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(9,9,11,0.8) 0%, transparent 60%); opacity: 0; transition: opacity 0.3s; display: flex; align-items: flex-end; justify-content: center; padding: 20px; gap: 10px; }
         .result-card:hover .card-overlay { opacity: 1; }
