@@ -833,8 +833,9 @@ function buildImageGrid(urls, ratioVal){
     // LIMITARE LĂȚIME PENTRU O SINGURĂ IMAGINE
 if (urls.length === 1) {
         const isPortrait = (ratioVal === '9:16' || ratioVal === '2:3' || ratioVal === '3:4');
-        g.style.maxWidth = isPortrait ? '420px' : '100%';
-        g.style.width = isPortrait ? '420px' : '100%';
+        const isLandscape = (ratioVal === '16:9' || ratioVal === '21:9' || ratioVal === '3:2' || ratioVal === '4:3');
+        g.style.maxWidth = isPortrait ? '320px' : isLandscape ? '650px' : '420px';
+        g.style.width = '100%';
         g.style.margin = '0 auto';
         g.style.display = 'block';
     } else {
