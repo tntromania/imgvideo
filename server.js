@@ -229,14 +229,27 @@ const MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3.1-flash-image-preview' 
             
             let parts = [...baseParts, { text: finalPrompt }];
 
+            // --- AICI ESTE MODIFICAREA PENTRU A SCĂPA DE EROAREA 500 ---
+            let genConfig = {
+                candidateCount: 1,
+                responseModalities: ["IMAGE"] // Obligatoriu pentru noile modele Google
+            };
+
+            // Dacă e modelul Flash, îi activăm opțiunea de gândire (thinking)
+            if (model_id === 'gemini-flash') {
+                genConfig.thinkingConfig = { thinkingLevel: "HIGH" };
+            }
+
             const fetchOptions = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ role: "user", parts: parts }],
-                    generationConfig: { candidateCount: 1 } 
+                    generationConfig: genConfig
                 })
             };
+            
+            // Băgăm cererea în listă (fetchWithRetry o va proteja de faimosul 429)
             
             // Băgăm cererea în listă (fetchWithRetry o va proteja de faimosul 429)
             fetchPromises.push(
