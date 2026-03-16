@@ -831,6 +831,14 @@ let lbCurrentType = 'image';
 function buildImageGrid(urls, ratioVal){
     const g=document.getElementById('res-grid'); 
     g.className = `gap-5 w-full ${getGridClass(urls.length, ratioVal)}`;
+    
+    // FIX NOU: Forțăm lățimea dinamic prin CSS inline pentru a ignora limitările Tailwind CDN
+    if (urls.length === 1 && ratioVal !== '16:9' && ratioVal !== '21:9') {
+        g.style.cssText = 'max-width: 360px !important; margin: 0 auto !important;';
+    } else {
+        g.style.cssText = ''; 
+    }
+
     g.innerHTML='';
     const urlsStr = JSON.stringify(urls).replace(/"/g, '&quot;'); // Pregătim array-ul pt onclick
     urls.forEach((url,i)=> g.innerHTML += `
