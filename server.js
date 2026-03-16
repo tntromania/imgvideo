@@ -187,7 +187,7 @@ const pipeStream = async (apiRes, res) => {
 
 const VERTEX_ENDPOINT = "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1/publishers/google/models/"; 
 
-// --- RUTA PENTRU IMAGINI VERTEX AI ---
+// --- RUTA PENTRU IMAGINI VERTEX AI (SUPORTĂ GEMINI 3 PRO ȘI GEMINI 3.1 FLASH) ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -196,15 +196,24 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         const totalCost = count * costPerImg;
 
         const user = await User.findById(req.userId);
-        if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
+        if (user.credits < totalCost) {
+            return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
+        }
 
-// Exact numele care îți merg în Python
-const MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3.1-flash-image-preview' : 'gemini-3-pro-image-preview';
-        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
+        // 🔹 SELECTĂM MODELUL GOOGLE CORECT (Pro sau Flash)
+        let GOOGLE_MODEL_ID;
+        if (model_id === 'gemini-flash') {
+            GOOGLE_MODEL_ID = 'gemini-3.1-flash-image-preview';
+        } else {
+            // Pentru gemini-pro sau orice alt model din lista ta
+            GOOGLE_MODEL_ID = 'gemini-3-pro-image-preview';
+        }
+        
+        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${GOOGLE_MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
         
         let allUrls = [];
 
-        // 1. Pregătim pozele de referință O SINGURĂ DATĂ ca să nu consumăm RAM aiurea
+        // 1. Pregătim pozele de referință O SINGURĂ DATĂ
         let baseParts = [];
         let cleanPrompt = prompt;
 
@@ -220,17 +229,14 @@ const MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3.1-flash-image-preview' 
             }
         }
 
-        // 2. Lansăm toate cererile în PARALEL (se fac simultan, deci scapi de eroarea 500 / Timeout)
-        const fetchPromises = [];
-
-// 2. Executăm cererile SECVENȚIAL (una câte una) pentru a evita Eroarea 429 la Flash
+        // 2. Executăm cererile SECVENȚIAL (una câte una) pentru a evita Eroarea 429
         for (let j = 0; j < count; j++) {
             let finalPrompt = cleanPrompt + `\n\n[Instruction: Variant ${j+1}. Apply unique artistic differences. Random Seed: ${Math.floor(Math.random() * 999999)}. Aspect Ratio: ${aspect_ratio}]`;
             
             let parts = [...baseParts, { text: finalPrompt }];
 
+            // 🔹 CONFIGURARE SPECIFICĂ PENTRU FLASH
             let genConfig = { candidateCount: 1 };
-            // Adăugăm configurările doar dacă e Flash
             if (model_id === 'gemini-flash') {
                 genConfig.responseModalities = ["IMAGE"];
             }
@@ -245,9 +251,16 @@ const MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3.1-flash-image-preview' 
             };
 
             try {
-                // Așteptăm ca cererea curentă să se termine înainte de a trece la următoarea
-                const apiRes = await fetchWithRetry(endpoint, fetchOptions);
+                // Apelăm API-ul
+                const apiRes = await fetch(endpoint, fetchOptions);
                 const rawText = await apiRes.text();
+                
+                // Verificăm dacă răspunsul e valid
+                if (!apiRes.ok) {
+                    console.error(`[Eroare API Google ${GOOGLE_MODEL_ID}]:`, rawText.substring(0, 300));
+                    continue; // Sărim peste această imagine și continuăm
+                }
+                
                 const data = JSON.parse(rawText);
                 
                 if (data.candidates && data.candidates[0]?.content?.parts) {
@@ -260,16 +273,21 @@ const MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3.1-flash-image-preview' 
                             const buffer = Buffer.from(b64, 'base64');
                             const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
                             
-                            const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
+                            const { error: supaErr } = await supabase.storage
+                                .from('media-history')
+                                .upload(fileName, buffer, { contentType: mime });
+                            
                             if (!supaErr) {
-                                const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                                allUrls.push(publicData.publicUrl); // Succes!
+                                const { data: publicData } = supabase.storage
+                                    .from('media-history')
+                                    .getPublicUrl(fileName);
+                                allUrls.push(publicData.publicUrl);
                             }
                         }
                     }
                 }
                 
-                // Pauză de protecție de 3 SECUNDE între poze, ca să nu ne blocheze Google
+                // Pauză de 3 secunde între imagini pentru a evita rate limiting
                 if (j < count - 1) {
                     await new Promise(resolve => setTimeout(resolve, 3000));
                 }
@@ -279,11 +297,19 @@ const MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3.1-flash-image-preview' 
             }
         }
 
-        if (allUrls.length === 0) throw new Error("Generarea a eșuat. Probabil imaginile sunt prea complexe sau serverul Google este ocupat. Mai încearcă o dată.");
+        if (allUrls.length === 0) {
+            throw new Error("Generarea a eșuat. Verifică consola serverului pentru detalii.");
+        }
 
         // Taxăm userul corect doar pe câte poze au ieșit cu succes
         const finalCost = allUrls.length * costPerImg;
-        await Log.create({ userEmail: user.email, type: 'image', count: allUrls.length, cost: finalCost });
+        await Log.create({ 
+            userEmail: user.email, 
+            type: 'image', 
+            count: allUrls.length, 
+            cost: finalCost 
+        });
+        
         user.credits -= finalCost;
         await user.save();
 
@@ -291,6 +317,7 @@ const MODEL_ID = model_id === 'gemini-flash' ? 'gemini-3.1-flash-image-preview' 
         res.write(`data: ${JSON.stringify({ file_urls: allUrls })}\n\n`);
         res.write('data: [DONE]\n\n');
         res.end();
+        
     } catch (e) {
         console.error("Eroare Rută Imagini:", e);
         res.status(500).json({ error: e.message });
