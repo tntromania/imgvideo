@@ -101,13 +101,54 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
     res.json({ user });
 });
 
-// PREȚURILE NOI SETATE DE TINE PENTRU VERTEX
 const MODEL_PRICES = {
     'nano-banana-pro-1k': 1,
     'nano-banana-pro-2k': 2,
     'nano-banana-pro-4k': 4,
     'veo3.1': 5,
     'veo3.1fast': 3,
+};
+
+// --- SISTEM ANTI-Aglomerare Google (Exponential Backoff) CORECTAT ---
+const fetchWithRetry = async (url, options, maxRetries = 4, delayMs = 1500) => {
+    for (let i = 0; i < maxRetries; i++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // Timeout 60 secunde
+        
+        try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            clearTimeout(timeoutId);
+
+            // Dacă a mers cu succes, returnăm răspunsul
+            if (response.ok) return response;
+
+            // Dacă e eroare, citim ce ne zice Google
+            const text = await response.text();
+            
+            // 429 = Prea multe cereri (Quota), 503 = Server supraîncărcat
+            if (response.status === 429 || response.status === 503 || text.toLowerCase().includes('exhausted')) {
+                console.warn(`[Vertex AI] Sistem aglomerat (Eroare ${response.status}). Încercarea ${i + 1}/${maxRetries}. Reîncerc în ${delayMs}ms...`);
+                await new Promise(res => setTimeout(res, delayMs));
+                delayMs *= 2; 
+                continue; 
+            } else {
+                throw new Error(text);
+            }
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error("Timpul de așteptare a expirat. Procesul a durat prea mult.");
+            }
+            if (i < maxRetries - 1) {
+                console.warn(`[Network] Eroare la conexiune. Reîncerc în ${delayMs}ms...`);
+                await new Promise(res => setTimeout(res, delayMs));
+                delayMs *= 2;
+            } else {
+                throw error;
+            }
+        }
+    }
+    throw new Error("Sistemul AI este suprasolicitat de prea mulți utilizatori. Te rugăm să încerci din nou în 10 secunde.");
 };
 
 const sendSSE = (res, data) => { res.write(`data: ${JSON.stringify(data)}\n\n`); };
@@ -148,11 +189,9 @@ const pipeStream = async (apiRes, res) => {
     }
 };
 
-// --- FUNCTIE AJUTATOARE PENTRU APELUL VERTEX REST ---
-// Folosește direct adresa ta de API
 const VERTEX_ENDPOINT = "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1/publishers/google/models/"; 
 
-// --- RUTA PENTRU IMAGINI VERTEX AI (GEMINI 3 PRO / NANO BANANA PRO) ---
+// --- RUTA PENTRU IMAGINI VERTEX AI ---
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -164,10 +203,8 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
-        // Aici construim structura nativă pentru Google Gemini
         let parts = [];
 
-        // Dacă ai pus poze, le dăm direct lui Gemini ca "inlineData" (cel mai bun mod)
         if (req.files && req.files.length > 0) {
             for (let i = 0; i < req.files.length; i++) {
                 parts.push({
@@ -176,7 +213,6 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                         data: req.files[i].buffer.toString('base64')
                     }
                 });
-                // Curățăm @img1 din text ca să nu încurce
                 finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
             }
             finalPrompt = finalPrompt + `\n\n[Instruction: Use the provided images as exact character and style references. Aspect Ratio: ${aspect_ratio}]`;
@@ -184,13 +220,9 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             finalPrompt = finalPrompt + `\n\n[Instruction: Aspect Ratio: ${aspect_ratio}]`;
         }
 
-        // Adăugăm promptul de text
         parts.push({ text: finalPrompt });
 
-        // EXACT MODELUL TĂU
         const MODEL_ID = 'gemini-3-pro-image-preview'; 
-        
-        // FOLOSIM EXACT DOMENIUL ȘI METODA :generateContent DIN CURL-UL TĂU FUNCȚIONAL!!!
         const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
         
         const fetchOptions = {
@@ -202,24 +234,19 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             })
         };
         
-        const apiRes = await fetch(endpoint, fetchOptions);
-        
-        // Citim textul brut ca să nu mai crăpăm la "Unexpected JSON input"
+        // APELĂM FETCH-UL CARE ȘTIE SĂ AȘTEPTE
+        const apiRes = await fetchWithRetry(endpoint, fetchOptions);
         const rawText = await apiRes.text();
+        
         let data;
         try {
             data = JSON.parse(rawText);
         } catch (err) {
-            throw new Error(`Google a returnat o eroare fără JSON (probabil 404). Răspuns brut: ${rawText.substring(0, 150)}`);
-        }
-
-        if (!apiRes.ok) {
-            throw new Error(`Eroare Gemini API: ${data.error?.message || JSON.stringify(data)}`);
+            throw new Error(`Google a returnat o eroare fără JSON (probabil 404). Răspuns: ${rawText.substring(0, 150)}`);
         }
 
         let urls = [];
         
-        // Extragem rezultatele native Gemini (din parts -> inlineData)
         if (data.candidates) {
             for (const candidate of data.candidates) {
                 if (candidate.content && candidate.content.parts) {
@@ -232,7 +259,6 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                             const buffer = Buffer.from(b64, 'base64');
                             const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
                             
-                            // Urcăm poza decodată pe Supabase
                             const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
                             if (!supaErr) {
                                 const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
@@ -260,7 +286,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
 });
 
 
-// --- RUTA PENTRU VIDEO VERTEX AI (VEO 3.1) ---
+// --- RUTA PENTRU VIDEO VERTEX AI ---
 app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_videos, model_id } = req.body;
@@ -274,7 +300,6 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
 
         let parts = [];
 
-        // Integrăm imaginea direct în ochiul AI-ului
         if (req.files && req.files.length > 0) {
             parts.push({
                 inlineData: {
@@ -294,7 +319,6 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
 
         const googleModelId = model_id === 'veo3.1fast' ? 'veo-3.1-fast' : 'veo-3.1';
         
-        // FOLOSIM :generateContent
         const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${googleModelId}:generateContent?key=${process.env.VERTEX_API_KEY}`;
         
         const fetchOptions = {
@@ -306,18 +330,15 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
             })
         };
 
-        const apiRes = await fetch(endpoint, fetchOptions);
+        // APELĂM FETCH-UL CARE ȘTIE SĂ AȘTEPTE
+        const apiRes = await fetchWithRetry(endpoint, fetchOptions);
         const rawText = await apiRes.text();
         
         let data;
         try {
             data = JSON.parse(rawText);
         } catch (err) {
-            throw new Error(`Răspuns invalid server Veo. Răspuns brut: ${rawText.substring(0, 150)}`);
-        }
-
-        if (!apiRes.ok) {
-            throw new Error(`Eroare Veo API: ${data.error?.message || JSON.stringify(data)}`);
+            throw new Error(`Răspuns invalid server Veo. Răspuns: ${rawText.substring(0, 150)}`);
         }
 
         let urls = [];
@@ -384,20 +405,22 @@ app.get('/api/media/history', authenticate, async (req, res) => {
 app.post('/api/media/save-history', authenticate, async (req, res) => {
     const { urls, type, prompt } = req.body;
     if (!urls || !urls.length) return res.status(400).json({ error: 'Fără URL-uri.' });
-    res.status(202).json({ message: 'Salvare pornită în fundal' });
 
     try {
         for (const url of urls) {
-            const response = await fetch(url);
-            const buffer = await response.arrayBuffer();
-            const extension = type === 'video' ? 'mp4' : 'png';
-            const fileName = `${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
-            const { data, error } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: type === 'video' ? 'video/mp4' : 'image/png' });
-            if (error) throw error;
-            const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-            await History.create({ userId: req.userId, type: type, originalUrl: url, supabaseUrl: publicData.publicUrl, prompt: prompt });
+            await History.create({ 
+                userId: req.userId, 
+                type: type, 
+                originalUrl: url, 
+                supabaseUrl: url, 
+                prompt: prompt 
+            });
         }
-    } catch (err) { console.error('Eroare la salvarea în Supabase:', err.message); }
+        res.status(200).json({ message: 'Istoric salvat cu succes' });
+    } catch (err) { 
+        console.error('Eroare la salvarea istoricului în MongoDB:', err.message);
+        res.status(500).json({ error: 'Eroare server' });
+    }
 });
 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
