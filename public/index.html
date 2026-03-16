@@ -729,12 +729,21 @@ function updateLightboxContent() {
     
     img.classList.add('hidden'); vid.classList.add('hidden');
     
-    const url = lbMediaList[lbCurrentIndex];
-    const ext = lbCurrentType === 'image' ? 'png' : 'mp4';
+    let url, type;
+    // Acum lightbox-ul știe să citească dintr-o listă globală de obiecte
+    if (typeof lbMediaList[lbCurrentIndex] === 'object') {
+        url = lbMediaList[lbCurrentIndex].url;
+        type = lbMediaList[lbCurrentIndex].type;
+    } else {
+        url = lbMediaList[lbCurrentIndex];
+        type = lbCurrentType;
+    }
+
+    const ext = type === 'image' ? 'png' : 'mp4';
     
     dlBtn.onclick = (e) => { e.stopPropagation(); downloadMedia(url, `viralio_media_${Date.now()}.${ext}`); };
     
-    if (lbCurrentType === 'image') { img.src = url; img.classList.remove('hidden'); } 
+    if (type === 'image') { img.src = url; img.classList.remove('hidden'); } 
     else { vid.src = url; vid.classList.remove('hidden'); }
 }
 
@@ -1131,18 +1140,21 @@ async function loadHistory() {
             });
 
             // 2. Construim HTML-ul grupat
+// Creăm o listă globală cu TOATE generările pentru lightbox
+            window.currentHistoryMedia = groupedHistory.flatMap(g => g.urls.map(u => ({url: u, type: g.type})));
+            let absoluteMediaCounter = 0;
+
             grid.innerHTML = groupedHistory.map((group, i) => {
-                
-let urlsStr = JSON.stringify(group.urls).replace(/"/g, '&quot;');
                 let mediaHtml = group.urls.map((url, mediaIndex) => {
+                    let currentIndex = absoluteMediaCounter++; // Index global
                     if (group.type === 'image') {
                         return `
-                        <div class="aspect-square rounded-xl overflow-hidden cursor-pointer border border-slate-200 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox(${urlsStr}, ${mediaIndex}, 'image')">
+                        <div class="aspect-square rounded-xl overflow-hidden cursor-pointer border border-slate-200 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox(window.currentHistoryMedia, ${currentIndex}, 'dynamic')">
                             <img src="${url}" loading="lazy" class="w-full h-full object-cover">
                         </div>`;
                     } else {
                         return `
-                        <div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer border border-slate-800 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox(${urlsStr}, ${mediaIndex}, 'video')">
+                        <div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer border border-slate-800 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox(window.currentHistoryMedia, ${currentIndex}, 'dynamic')">
                             <video src="${url}" class="w-full h-full object-cover"></video>
                             <div class="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/20 transition-colors">
                                 <i class="fa-solid fa-play text-white text-2xl opacity-90 drop-shadow-md"></i>
@@ -1151,15 +1163,15 @@ let urlsStr = JSON.stringify(group.urls).replace(/"/g, '&quot;');
                     }
                 }).join('');
 
-                // Containerul principal al grupului (Rândul alb din poza ta)
+                // Am adăugat "truncate" și "overflow-hidden" pe div-ul promptului
                 return `
                 <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] animate-slide-up transition-colors hover:border-viralio-200 flex flex-col gap-4" style="animation-delay: ${i*0.05}s">
                     <div class="flex items-start gap-3 border-b border-slate-100 pb-3">
                         <div class="w-8 h-8 rounded-full bg-viralio-50 text-viralio-500 flex items-center justify-center shrink-0">
                             <i class="fa-solid ${group.type === 'image' ? 'fa-image' : 'fa-clapperboard'} text-sm"></i>
                         </div>
-                        <div class="flex-1">
-                            <p class="text-[0.85rem] font-medium text-slate-700 leading-relaxed">"${group.prompt}"</p>
+                        <div class="flex-1 overflow-hidden">
+                            <p class="text-[0.85rem] font-medium text-slate-700 truncate cursor-pointer" title="${group.prompt.replace(/"/g, '&quot;')}" onclick="document.getElementById('prompt-in').value='${group.prompt.replace(/'/g, "\\'")}'; updateCharCount();">"${group.prompt}"</p>
                             <span class="text-[0.65rem] font-bold text-slate-400 mt-1 block uppercase tracking-wider"><i class="fa-solid fa-clock mr-1"></i> Generat anterior</span>
                         </div>
                         <button onclick="document.getElementById('prompt-in').value='${group.prompt.replace(/'/g, "\\'")}'; updateCharCount();" class="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-viralio-50 hover:text-viralio-600 transition-colors" title="Refolosește promptul">
