@@ -162,15 +162,23 @@
         </div>
     </div>
 
-    <div id="lightbox" onclick="closeLightbox()">
-        <button onclick="closeLightbox()" class="absolute top-4 md:top-6 right-4 md:right-8 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-12 md:h-12 rounded-full text-lg md:text-xl backdrop-blur-md transition-all z-10 flex items-center justify-center">
+<div id="lightbox" onclick="closeLightbox()">
+        <button onclick="closeLightbox()" class="absolute top-4 md:top-6 right-4 md:right-8 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-12 md:h-12 rounded-full text-lg md:text-xl backdrop-blur-md transition-all z-20 flex items-center justify-center">
             <i class="fa-solid fa-xmark"></i>
         </button>
-        <button id="lb-download-btn" class="absolute top-4 md:top-6 right-16 md:right-24 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-12 md:h-12 rounded-full text-lg md:text-xl backdrop-blur-md transition-all z-10 flex items-center justify-center" title="Descarcă">
+        <button id="lb-download-btn" class="absolute top-4 md:top-6 right-16 md:right-24 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-12 md:h-12 rounded-full text-lg md:text-xl backdrop-blur-md transition-all z-20 flex items-center justify-center" title="Descarcă">
             <i class="fa-solid fa-download"></i>
         </button>
-        <img id="lb-img" src="" alt="" class="hidden shadow-2xl" onclick="event.stopPropagation()">
-        <video id="lb-vid" src="" controls class="hidden shadow-2xl" onclick="event.stopPropagation()"></video>
+
+        <button id="lb-prev" onclick="navLightbox(-1, event)" class="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-14 md:h-14 rounded-full text-lg md:text-2xl backdrop-blur-md transition-all z-20 flex items-center justify-center hidden">
+            <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button id="lb-next" onclick="navLightbox(1, event)" class="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-14 md:h-14 rounded-full text-lg md:text-2xl backdrop-blur-md transition-all z-20 flex items-center justify-center hidden">
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+
+        <img id="lb-img" src="" alt="" class="hidden max-w-[90vw] max-h-[85vh] md:max-w-[75vw] rounded-xl object-contain shadow-[0_20px_60px_rgba(0,0,0,0.6)]" onclick="event.stopPropagation()">
+        <video id="lb-vid" src="" controls class="hidden max-w-[90vw] max-h-[85vh] md:max-w-[75vw] rounded-xl object-contain shadow-[0_20px_60px_rgba(0,0,0,0.6)]" onclick="event.stopPropagation()"></video>
     </div>
     
     <div id="toast"></div>
@@ -226,9 +234,10 @@
                 <div class="panel-s">
                     <label class="field-label">Model AI</label>
                     <div class="select-wrap">
-                        <select id="model-sel" class="styled-select" onchange="onModelChange()">
-                            <optgroup label="Generare Imagini (Nano Banana)" id="og-img">
-                                <option value="nano-banana-pro-1k" data-type="image" data-cost="1">Nano Banana PRO (4k) 💎 — 1 Credit</option>
+<select id="model-sel" class="styled-select" onchange="onModelChange()">
+                            <optgroup label="Generare Imagini (Gemini 3)" id="og-img">
+                                <option value="gemini-flash" data-type="image" data-cost="1">Nano Banana 4k (Rapid) ⚡ — 1 Credit</option>
+                                <option value="gemini-pro" data-type="image" data-cost="2">Nano Banana 4k (Pro) 💎 — 2 Credite</option>
                             </optgroup>
                             <optgroup label="Generare Video (Vertex AI)" id="og-vid" style="display:none">
                                 <option value="veo3.1" data-type="video" data-cost="5">Veo 3.1 (720p, 8s, Audio) 🏆 — 5 Credite</option>
@@ -404,31 +413,20 @@
                             </p>
                         </div>
                     </div>
-
-                    <div id="st-loading" class="hidden text-center w-full max-w-md flex-col items-center">
-                        <div class="relative w-32 h-32 mb-6 mx-auto">
-                            <svg width="0" height="0">
-                                <defs>
-                                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="#4f46e5" />
-                                        <stop offset="100%" stop-color="#ec4899" />
-                                    </linearGradient>
-                                </defs>
-                            </svg>
-                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                                <circle class="circle-bg" cx="50" cy="50" r="45"></circle>
-                                <circle id="circular-progress" class="circle-progress" cx="50" cy="50" r="45"></circle>
-                            </svg>
-                            <div class="absolute inset-0 flex items-center justify-center flex-col">
-                                <i class="fa-solid fa-wand-magic-sparkles text-2xl text-viralio-500 animate-pulse mb-1"></i>
-                                <span id="progress-text" class="text-xs font-black text-slate-700 hidden">0%</span>
+<div id="st-loading" class="hidden text-center w-full max-w-md flex-col items-center mx-auto">
+                        <div class="relative flex items-center justify-center w-24 h-24 mb-6 mt-4">
+                            <div class="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-30 animate-pulse"></div>
+                            <div class="relative w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg border border-indigo-100">
+                                <i class="fa-solid fa-wand-magic-sparkles text-2xl text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-pink-500 animate-bounce"></i>
                             </div>
                         </div>
                         <h3 class="text-2xl font-black text-slate-800 tracking-tight" id="load-label">Creăm Magia...</h3>
-                        <p class="text-slate-500 font-medium text-sm mt-2 mb-6" id="sse-status">Inițializare server AI</p>
+                        <p class="text-slate-500 font-medium text-sm mt-2 mb-6" id="sse-status">Se pregătește modelul AI...</p>
                         
                         <div id="sk-grid" class="grid gap-4 w-full"></div>
                         <button onclick="cancelGen()" class="mt-8 text-sm font-bold text-slate-400 hover:text-red-500 transition-colors">Anulează Procesul</button>
+                        
+                        <div class="hidden"><circle id="circular-progress"></circle><span id="progress-text"></span></div>
                     </div>
 
                     <div id="st-result" class="hidden w-full flex-col animate-slide-up">
@@ -465,11 +463,10 @@
 
 <script>
 const MODEL_META = {
-    'nano-banana-pro-1k':  { type:'image', cost:1 },
-    'nano-banana-pro-2k':  { type:'image', cost:2 },
-    'nano-banana-pro-4k':  { type:'image', cost:4 },
-    'veo3.1':              { type:'video', cost:5 },
-    'veo3.1fast':          { type:'video', cost:3 }
+    'gemini-flash':  { type:'image', cost:1 },
+    'gemini-pro':    { type:'image', cost:2 },
+    'veo3.1':        { type:'video', cost:5 },
+    'veo3.1fast':    { type:'video', cost:3 }
 };
 
 let mode = 'image'; let imgCount = 1; let vidCount = 1;
@@ -564,8 +561,7 @@ function switchMode(m){
     
     document.getElementById('og-img').style.display = isVid ? 'none' : '';
     document.getElementById('og-vid').style.display = isVid ? '' : 'none';
-    document.getElementById('model-sel').value = isVid ? 'veo3.1' : 'nano-banana-pro-1k';
-    
+    document.getElementById('model-sel').value = isVid ? 'veo3.1' : 'gemini-flash';
     document.getElementById('img-options').classList.toggle('hidden', isVid);
     document.getElementById('vid-options').classList.toggle('hidden', !isVid);
     
@@ -714,33 +710,55 @@ function insertTagFromMenu(index) {
     promptIn.focus();
     updateCharCount();
 }
-// --- LIGHTBOX ---
-function openLightbox(url, type){ 
-    const lb = document.getElementById('lightbox');
+function openLightbox(urls, index, type) {
+    lbMediaList = Array.isArray(urls) ? urls : [urls];
+    lbCurrentIndex = Array.isArray(urls) ? index : 0;
+    lbCurrentType = type;
+
+    updateLightboxContent();
+
+    document.getElementById('lb-prev').classList.toggle('hidden', lbMediaList.length <= 1);
+    document.getElementById('lb-next').classList.toggle('hidden', lbMediaList.length <= 1);
+    document.getElementById('lightbox').classList.add('show');
+}
+
+function updateLightboxContent() {
     const img = document.getElementById('lb-img');
     const vid = document.getElementById('lb-vid');
-    const dlBtn = document.getElementById('lb-download-btn'); 
+    const dlBtn = document.getElementById('lb-download-btn');
     
     img.classList.add('hidden'); vid.classList.add('hidden');
     
-    const ext = type === 'image' ? 'png' : 'mp4';
-    dlBtn.onclick = (e) => { 
-        e.stopPropagation(); 
-        downloadMedia(url, `viralio_media_${Date.now()}.${ext}`); 
-    };
+    const url = lbMediaList[lbCurrentIndex];
+    const ext = lbCurrentType === 'image' ? 'png' : 'mp4';
     
-    if(type === 'image') {
-        img.src = url; img.classList.remove('hidden');
-    } else {
-        vid.src = url; vid.classList.remove('hidden');
-    }
-    lb.classList.add('show'); 
+    dlBtn.onclick = (e) => { e.stopPropagation(); downloadMedia(url, `viralio_media_${Date.now()}.${ext}`); };
+    
+    if (lbCurrentType === 'image') { img.src = url; img.classList.remove('hidden'); } 
+    else { vid.src = url; vid.classList.remove('hidden'); }
 }
 
-function closeLightbox(){ 
+function navLightbox(dir, e) {
+    if (e) e.stopPropagation();
+    lbCurrentIndex += dir;
+    if (lbCurrentIndex < 0) lbCurrentIndex = lbMediaList.length - 1;
+    if (lbCurrentIndex >= lbMediaList.length) lbCurrentIndex = 0;
+    updateLightboxContent();
+}
+
+// Navigare din tastatură pt slider
+document.addEventListener('keydown', (e) => {
     const lb = document.getElementById('lightbox');
-    lb.classList.remove('show'); 
-    setTimeout(() => { document.getElementById('lb-vid').pause(); }, 300);
+    if (lb.classList.contains('show')) {
+        if (e.key === 'ArrowLeft' && lbMediaList.length > 1) navLightbox(-1);
+        if (e.key === 'ArrowRight' && lbMediaList.length > 1) navLightbox(1);
+        if (e.key === 'Escape') closeLightbox();
+    }
+});
+
+function closeLightbox() { 
+    document.getElementById('lightbox').classList.remove('show'); 
+    setTimeout(() => { document.getElementById('lb-vid').pause(); }, 300); 
 }
 
 // --- LOGICĂ NOUĂ PENTRU GRID INTELIGENT ---
@@ -780,12 +798,13 @@ function aspectClass(r){
 function getGridClass(count, ratio) {
     const isLandscape = (ratio === '16:9' || ratio === '21:9');
     if (count === 1) {
-        return isLandscape ? 'grid grid-cols-1 max-w-4xl mx-auto' : 'grid grid-cols-1 max-w-sm mx-auto';
+        // Am făcut max-w-xl în loc de max-w-4xl ca să nu fie gigantice
+        return isLandscape ? 'grid grid-cols-1 max-w-2xl mx-auto' : 'grid grid-cols-1 max-w-sm mx-auto';
     }
     if (isLandscape) {
-        return 'grid grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto';
+        return 'grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto';
     } else {
-        return `grid grid-cols-2 ${count > 2 ? 'md:grid-cols-4' : 'md:grid-cols-2'} max-w-5xl mx-auto`;
+        return `grid grid-cols-2 ${count > 2 ? 'md:grid-cols-4' : 'md:grid-cols-2'} max-w-4xl mx-auto`;
     }
 }
 
@@ -796,16 +815,21 @@ function buildSkeletons(n, ratioVal){
     for(let i=0; i<n; i++) { g.innerHTML += `<div class="skeleton ${aspectClass(ratioVal)} w-full flex items-center justify-center rounded-2xl"></div>`; }
 }
 
+let lbMediaList = [];
+let lbCurrentIndex = 0;
+let lbCurrentType = 'image';
+
 function buildImageGrid(urls, ratioVal){
     const g=document.getElementById('res-grid'); 
     g.className = `gap-5 w-full ${getGridClass(urls.length, ratioVal)}`;
     g.innerHTML='';
+    const urlsStr = JSON.stringify(urls).replace(/"/g, '&quot;'); // Pregătim array-ul pt onclick
     urls.forEach((url,i)=> g.innerHTML += `
         <div class="result-card animate-slide-up flex flex-col justify-between h-full" style="animation-delay: ${i*0.1}s">
             <div class="${aspectClass(ratioVal)} w-full relative group">
                 <img src="${url}" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
                 <div class="card-overlay">
-                    <button onclick="openLightbox('${url}', 'image')" class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-expand mr-1"></i>Mărește</button>
+                    <button onclick="openLightbox(${urlsStr}, ${i}, 'image')" class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-expand mr-1"></i>Mărește</button>
                 </div>
             </div>
             <div class="p-3 bg-white mt-auto border-t border-slate-100">
@@ -1108,16 +1132,16 @@ async function loadHistory() {
             // 2. Construim HTML-ul grupat
             grid.innerHTML = groupedHistory.map((group, i) => {
                 
-                // Construim HTML-ul pentru pozele/videoclipurile din interiorul grupului
-                let mediaHtml = group.urls.map(url => {
+let urlsStr = JSON.stringify(group.urls).replace(/"/g, '&quot;');
+                let mediaHtml = group.urls.map((url, mediaIndex) => {
                     if (group.type === 'image') {
                         return `
-                        <div class="aspect-square rounded-xl overflow-hidden cursor-pointer border border-slate-200 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox('${url}', 'image')">
+                        <div class="aspect-square rounded-xl overflow-hidden cursor-pointer border border-slate-200 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox(${urlsStr}, ${mediaIndex}, 'image')">
                             <img src="${url}" loading="lazy" class="w-full h-full object-cover">
                         </div>`;
                     } else {
                         return `
-                        <div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer border border-slate-800 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox('${url}', 'video')">
+                        <div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer border border-slate-800 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox(${urlsStr}, ${mediaIndex}, 'video')">
                             <video src="${url}" class="w-full h-full object-cover"></video>
                             <div class="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/20 transition-colors">
                                 <i class="fa-solid fa-play text-white text-2xl opacity-90 drop-shadow-md"></i>
