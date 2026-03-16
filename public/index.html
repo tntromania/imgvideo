@@ -822,8 +822,9 @@ function getGridClass(count, ratio) {
 
 function buildSkeletons(n, ratioVal){
     const g=document.getElementById('sk-grid'); 
-    g.className = `gap-4 w-full ${getGridClass(n, ratioVal)}`;
-    
+    g.style.display = 'none';
+    g.innerHTML = '';
+}
     // LIMITARE LĂȚIME PENTRU O SINGURĂ IMAGINE
     if (n === 1) {
         const isPortrait = (ratioVal === '9:16' || ratioVal === '2:3' || ratioVal === '3:4');
@@ -844,12 +845,13 @@ function buildImageGrid(urls, ratioVal){
     g.className = `gap-5 w-full ${getGridClass(urls.length, ratioVal)}`;
     
     // LIMITARE LĂȚIME PENTRU O SINGURĂ IMAGINE
-    if (urls.length === 1) {
+if (urls.length === 1) {
         const isPortrait = (ratioVal === '9:16' || ratioVal === '2:3' || ratioVal === '3:4');
-        g.style.maxWidth = isPortrait ? '340px' : '650px';
+        g.style.maxWidth = isPortrait ? '480px' : '750px';
         g.style.margin = '0 auto';
     } else {
         g.style.maxWidth = 'none';
+        g.style.margin = '0 auto';
     }
 
     g.innerHTML='';
