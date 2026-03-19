@@ -65,7 +65,7 @@ const authenticate = (req, res, next) => {
     } catch (e) { return res.status(401).json({ error: "Sesiune expirată." }); }
 };
 
-const ADMIN_EMAILS = ['banicualex3@gmail.com']; 
+const ADMIN_EMAILS = ['banicualex3@gmail.com'];
 const authenticateAdmin = async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: "Acces interzis!" });
@@ -103,9 +103,9 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 
 const MODEL_PRICES = {
     'gemini-flash': 1,
-    'nano-banana-pro-1k': 1, // În caz că folosești id-ul ăsta în frontend
+    'nano-banana-pro-1k': 1,
     'gemini-pro': 2,
-    'nano-banana-pro-2k': 2, // ID-uri de siguranță
+    'nano-banana-pro-2k': 2,
     'veo3.1': 5,
     'veo3.1fast': 3,
 };
@@ -114,30 +114,23 @@ const MODEL_PRICES = {
 const fetchWithRetry = async (url, options, maxRetries = 4, delayMs = 1500) => {
     for (let i = 0; i < maxRetries; i++) {
         const controller = new AbortController();
-        // Mărim la 120000 (2 minute) pentru siguranță
         const timeoutId = setTimeout(() => controller.abort(), 120000);
-        
         try {
             const response = await fetch(url, { ...options, signal: controller.signal });
             clearTimeout(timeoutId);
-
             if (response.ok) return response;
-
             const text = await response.text();
-            
             if (response.status === 429 || response.status === 503 || text.toLowerCase().includes('exhausted')) {
                 console.warn(`[Vertex AI] Sistem aglomerat (Eroare ${response.status}). Încercarea ${i + 1}/${maxRetries}. Reîncerc în ${delayMs}ms...`);
                 await new Promise(res => setTimeout(res, delayMs));
-                delayMs *= 2; 
-                continue; 
+                delayMs *= 2;
+                continue;
             } else {
                 throw new Error(text);
             }
         } catch (error) {
             clearTimeout(timeoutId);
-            if (error.name === 'AbortError') {
-                throw new Error("Timpul de așteptare a expirat. Procesul a durat prea mult.");
-            }
+            if (error.name === 'AbortError') throw new Error("Timpul de așteptare a expirat. Procesul a durat prea mult.");
             if (i < maxRetries - 1) {
                 console.warn(`[Network] Eroare la conexiune. Reîncerc în ${delayMs}ms...`);
                 await new Promise(res => setTimeout(res, delayMs));
@@ -150,7 +143,9 @@ const fetchWithRetry = async (url, options, maxRetries = 4, delayMs = 1500) => {
     throw new Error("Sistemul AI este suprasolicitat de prea mulți utilizatori. Te rugăm să încerci din nou în 10 secunde.");
 };
 
-// --- RUTA PENTRU IMAGINI VERTEX AI (Integrare 2.5 Flash Python + 3 Pro) ---
+// =========================================================================
+// ==================== IMAGINI — NESCHIMBAT ===============================
+// =========================================================================
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -181,29 +176,20 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
 
         parts.push({ text: finalPrompt });
 
-        // Verificăm dacă user-ul cere modelul Flash sau Pro
         const isFlash = (model_id === 'gemini-flash' || model_id === 'nano-banana-pro-1k');
-        
-        // Alegem exact modelele confirmate de tine
-        const MODEL_ID = isFlash ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview'; 
-        
-        // Corpul cererii de bază care merge pe ambele
+        const MODEL_ID = isFlash ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview';
+
         let requestBody = {
             contents: [{ role: "user", parts: parts }],
             generationConfig: { candidateCount: count }
         };
 
-        // DACĂ E FLASH 2.5: Adăugăm setările specifice
         if (isFlash) {
             requestBody.generationConfig.responseModalities = ["IMAGE"];
-            
-            // Corecție aici: Scoatem outputMimeType dacă dă eroare 400
             requestBody.generationConfig.imageConfig = {
-                aspectRatio: aspect_ratio || "1:1", 
+                aspectRatio: aspect_ratio || "1:1",
                 imageSize: "1K"
-                // outputMimeType: "image/png" <-- Șterge sau comentează linia asta
             };
-
             requestBody.safetySettings = [
                 { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
                 { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
@@ -213,16 +199,15 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         }
 
         const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
-        
         const fetchOptions = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
         };
-        
+
         const apiRes = await fetchWithRetry(endpoint, fetchOptions);
         const rawText = await apiRes.text();
-        
+
         let data;
         try {
             data = JSON.parse(rawText);
@@ -235,8 +220,6 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         }
 
         let urls = [];
-        
-        // Extragem imaginile generate de oricare din cele 2 modele
         if (data.candidates) {
             for (const candidate of data.candidates) {
                 if (candidate.content && candidate.content.parts) {
@@ -245,10 +228,8 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                             const b64 = part.inlineData.data;
                             const mime = part.inlineData.mimeType || 'image/png';
                             const ext = mime.split('/')[1] || 'png';
-                            
                             const buffer = Buffer.from(b64, 'base64');
                             const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-                            
                             const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
                             if (!supaErr) {
                                 const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
@@ -262,7 +243,6 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
 
         if (urls.length === 0) throw new Error("Google a răspuns cu succes, dar nu ne-a dat nicio imagine (posibil filtru de siguranță sau eroare la prompt).");
 
-        // Taxăm userul doar pentru pozele generate efectiv
         await Log.create({ userEmail: user.email, type: 'image', count: urls.length, cost: urls.length * costPerImg });
         user.credits -= (urls.length * costPerImg);
         await user.save();
@@ -279,64 +259,126 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
 
 
 // =========================================================================
-// ==================== FUNCTII NECESARE PENTRU GENAIPRO ===================
+// ==================== VIDEO — GENAIPRO (REFĂCUT CORECT) ==================
 // =========================================================================
 
 const GENAIPRO_URL = 'https://genaipro.vn/api/v1';
 
-const sendSSE = (res, data) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+// Conversia aspect ratio la formatul GenAIPro
+const toGenAIProRatio = (ratio) => {
+    const portrait = ['9:16', '4:5', '3:4', '2:3'];
+    return portrait.includes(ratio) ? 'VIDEO_ASPECT_RATIO_PORTRAIT' : 'VIDEO_ASPECT_RATIO_LANDSCAPE';
 };
 
-const pipeStream = async (apiRes, res) => {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+// Citește SSE cu event: prefix de la GenAIPro și trimite rezultatul la client
+const readGenAIProSSE = (apiRes, res) => {
+    return new Promise((resolve, reject) => {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
 
-    const contentType = apiRes.headers.get('content-type') || '';
+        const reader = apiRes.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        let currentEvent = '';
+        let resolved = false;
 
-    // Dacă API-ul returnează JSON direct (nu SSE), normalizăm la format SSE
-    if (contentType.includes('application/json')) {
-        try {
-            const json = await apiRes.json();
-            // Normalizăm obiectele cu chei "0","1",... (array-like objects)
-            const normalized = {};
-            let hasNumericKeys = false;
-            for (const key of Object.keys(json)) {
-                if (!isNaN(key)) { hasNumericKeys = true; break; }
-            }
-            if (hasNumericKeys) {
-                const items = Object.values(json);
-                const first = items[0] || {};
-                Object.assign(normalized, first);
-                
-                // Căutăm orice fel de URL (video sau imagine)
-                const allUrls = [];
-                items.forEach(i => {
-                    if (i.file_url) allUrls.push(i.file_url);
-                    if (i.video_url) allUrls.push(i.video_url);
-                    if (i.url) allUrls.push(i.url);
-                });
-                
-                if (allUrls.length > 0) {
-                    normalized.file_urls = allUrls;
-                }
-            } else {
-                Object.assign(normalized, json);
-            }
-            sendSSE(res, normalized);
+        const finish = (urls) => {
+            if (resolved) return;
+            resolved = true;
+            res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
             res.write('data: [DONE]\n\n');
-        } catch (e) {
-            sendSSE(res, { error: 'Eroare la parsarea răspunsului API' });
-        }
-        res.end();
-    } else {
-        // SSE real — pipe direct
-        Readable.fromWeb(apiRes.body).pipe(res);
-    }
+            res.end();
+            resolve(urls);
+        };
+
+        const fail = (msg) => {
+            if (resolved) return;
+            resolved = true;
+            res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+            reject(new Error(msg));
+        };
+
+        const pump = async () => {
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buf += dec.decode(value, { stream: true });
+
+                    const lines = buf.split('\n');
+                    buf = lines.pop(); // linie incompletă, o păstrăm
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed) { currentEvent = ''; continue; }
+
+                        if (trimmed.startsWith('event:')) {
+                            currentEvent = trimmed.slice(6).trim();
+                            console.log(`[GenAIPro SSE] event: ${currentEvent}`);
+                            continue;
+                        }
+
+                        if (trimmed.startsWith('data:')) {
+                            const raw = trimmed.slice(5).trim();
+                            console.log(`[GenAIPro SSE] data (event=${currentEvent}): ${raw.substring(0, 120)}`);
+
+                            // Status updates — le trimitem ca progres la frontend
+                            if (currentEvent === 'video_generation_status') {
+                                res.write(`data: ${JSON.stringify({ status: raw })}\n\n`);
+                                continue;
+                            }
+
+                            // Eroare de la GenAIPro
+                            if (currentEvent === 'error') {
+                                try {
+                                    const errObj = JSON.parse(raw);
+                                    fail(errObj.error || `Eroare GenAIPro (${errObj.code || 'unknown'})`);
+                                } catch {
+                                    fail(`Eroare GenAIPro: ${raw}`);
+                                }
+                                return;
+                            }
+
+                            // Orice data: cu JSON — căutăm URL-uri
+                            if (raw.startsWith('{') || raw.startsWith('[')) {
+                                try {
+                                    const obj = JSON.parse(raw);
+                                    const urls = [];
+                                    if (obj.file_url)  urls.push(obj.file_url);
+                                    if (obj.video_url) urls.push(obj.video_url);
+                                    if (obj.url)       urls.push(obj.url);
+                                    if (Array.isArray(obj.file_urls)) urls.push(...obj.file_urls);
+
+                                    if (urls.length > 0) {
+                                        finish(urls);
+                                        return;
+                                    }
+
+                                    // E un obiect fără URL, e probabil status — ignorăm sau trimitem
+                                    if (obj.error) {
+                                        fail(obj.error);
+                                        return;
+                                    }
+                                } catch { /* ignorăm liniile ne-JSON */ }
+                            }
+                        }
+                    }
+                }
+
+                // Stream terminat fără URL — eroare
+                if (!resolved) fail('GenAIPro nu a returnat niciun URL de video.');
+            } catch (e) {
+                if (!resolved) fail(`Eroare citire SSE: ${e.message}`);
+            }
+        };
+
+        pump();
+    });
 };
 
-// --- RUTA PENTRU VIDEO CU SUPORT @IMG (GENAIPRO) ---
 app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_videos, model_id } = req.body;
@@ -344,15 +386,7 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         const count = parseInt(number_of_videos) || 1;
         const costPerVid = MODEL_PRICES[model_id] || 3;
         const totalCost = count * costPerVid;
-		const aspectRatioMap = {
-            '16:9': 'VIDEO_ASPECT_RATIO_LANDSCAPE',
-            '21:9': 'VIDEO_ASPECT_RATIO_LANDSCAPE',
-            '1:1':  'VIDEO_ASPECT_RATIO_LANDSCAPE',
-            '9:16': 'VIDEO_ASPECT_RATIO_PORTRAIT',
-            '4:5':  'VIDEO_ASPECT_RATIO_PORTRAIT',
-            '3:4':  'VIDEO_ASPECT_RATIO_PORTRAIT',
-        };
-        const genaipro_ratio = aspectRatioMap[aspect_ratio] || 'VIDEO_ASPECT_RATIO_LANDSCAPE';
+        const genaipro_ratio = toGenAIProRatio(aspect_ratio);
 
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
@@ -360,16 +394,16 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         let startImageFile = null;
 
         if (req.files && req.files.length > 0) {
-            startImageFile = req.files[0]; 
+            startImageFile = req.files[0];
 
+            // Înlocuim @img1, @img2... cu URL-uri publice din Supabase
             for (let i = 0; i < req.files.length; i++) {
                 const file = req.files[i];
                 const fileName = `refs/vid_${req.userId}_${Date.now()}_${i}.png`;
                 const { error } = await supabase.storage.from('media-history').upload(fileName, file.buffer, { contentType: file.mimetype });
-                
                 if (!error) {
                     const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                    const tag = `@img${i+1}`;
+                    const tag = `@img${i + 1}`;
                     if (finalPrompt.includes(tag)) {
                         finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), publicData.publicUrl);
                     }
@@ -380,12 +414,12 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         let endpoint, fetchOptions;
 
         if (startImageFile) {
+            // frames-to-video — trimitem ca multipart/form-data
             endpoint = `${GENAIPRO_URL}/veo/frames-to-video`;
             const formData = new FormData();
             formData.append('prompt', finalPrompt);
             formData.append('aspect_ratio', genaipro_ratio);
-            formData.append('number_of_videos', count);
-            
+            formData.append('number_of_videos', String(count));
             const blob = new Blob([startImageFile.buffer], { type: startImageFile.mimetype });
             formData.append('start_image', blob, startImageFile.originalname);
 
@@ -395,34 +429,52 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
                 body: formData
             };
         } else {
+            // text-to-video — JSON
             endpoint = `${GENAIPRO_URL}/veo/text-to-video`;
             fetchOptions = {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
-                    'Content-Type': 'application/json' 
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ prompt: finalPrompt, aspect_ratio: genaipro_ratio, number_of_videos: count })
+                body: JSON.stringify({
+                    prompt: finalPrompt,
+                    aspect_ratio: genaipro_ratio,
+                    number_of_videos: count   // int, nu string
+                })
             };
         }
 
+        console.log(`[Video] endpoint=${endpoint} ratio=${genaipro_ratio} count=${count}`);
+
         const apiRes = await fetch(endpoint, fetchOptions);
-        
+
         if (!apiRes.ok) {
             const errorDetails = await apiRes.text();
-            throw new Error(`Eroare GenAIPro: ${errorDetails}`);
+            throw new Error(`Eroare GenAIPro HTTP ${apiRes.status}: ${errorDetails}`);
         }
-        
+
+        // Taxăm userul înainte să citim SSE-ul (generarea a început)
         await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
         user.credits -= totalCost;
         await user.save();
 
-        pipeStream(apiRes, res);
+        // Citim SSE-ul și trimitem rezultatul la client
+        await readGenAIProSSE(apiRes, res);
+
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error('[Video] Eroare:', e.message);
+        // Dacă res nu e deja pornit, trimitem JSON de eroare
+        if (!res.headersSent) {
+            res.status(500).json({ error: e.message });
+        }
     }
 });
 
+
+// =========================================================================
+// ==================== ALTE RUTE ==========================================
+// =========================================================================
 
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     try {
@@ -435,7 +487,7 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
 });
 
 app.get('/api/admin/api-quota', authenticateAdmin, async (req, res) => {
-    res.json({ balance: 0, veoTotal: 0, veoUsed: 0, veoAvail: 0 }); 
+    res.json({ balance: 0, veoTotal: 0, veoUsed: 0, veoAvail: 0 });
 });
 
 app.get('/api/media/history', authenticate, async (req, res) => {
@@ -449,19 +501,18 @@ app.get('/api/media/history', authenticate, async (req, res) => {
 app.post('/api/media/save-history', authenticate, async (req, res) => {
     const { urls, type, prompt } = req.body;
     if (!urls || !urls.length) return res.status(400).json({ error: 'Fără URL-uri.' });
-
     try {
         for (const url of urls) {
-            await History.create({ 
-                userId: req.userId, 
-                type: type, 
-                originalUrl: url, 
-                supabaseUrl: url, 
-                prompt: prompt 
+            await History.create({
+                userId: req.userId,
+                type: type,
+                originalUrl: url,
+                supabaseUrl: url,
+                prompt: prompt
             });
         }
         res.status(200).json({ message: 'Istoric salvat cu succes' });
-    } catch (err) { 
+    } catch (err) {
         console.error('Eroare la salvarea istoricului în MongoDB:', err.message);
         res.status(500).json({ error: 'Eroare server' });
     }
