@@ -106,8 +106,8 @@ const MODEL_PRICES = {
     'nano-banana-pro-1k': 1,
     'gemini-pro': 2,
     'nano-banana-pro-2k': 2,
-    'veo3.1': 2,
-    'veo3.1fast': 3,
+    'veo3.1': 3,
+    'veo3.1fast': 2,
 };
 
 // --- SISTEM ANTI-Aglomerare Google ---
