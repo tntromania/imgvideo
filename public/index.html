@@ -192,10 +192,11 @@
             </a>
 
 <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-100/80 p-1.5 rounded-2xl flex gap-1 border border-slate-200/50 backdrop-blur-sm">
-                <button class="mode-tab active" id="tab-image" onclick="switchMode('image')"><i class="fa-solid fa-image text-viralio-500"></i><span class="hidden sm:inline">Imagini</span></button>
-                <button class="mode-tab relative opacity-60 cursor-not-allowed" id="tab-video" onclick="event.preventDefault()">
+                <button class="mode-tab active" id="tab-image" onclick="switchMode('image')">
+                    <i class="fa-solid fa-image text-viralio-500"></i><span class="hidden sm:inline">Imagini</span>
+                </button>
+                <button class="mode-tab relative" id="tab-video" onclick="switchMode('video')">
                     <i class="fa-solid fa-clapperboard"></i><span class="hidden sm:inline">Video</span>
-                    <span class="absolute -top-2 -right-2 bg-amber-500 text-white text-[0.5rem] font-black px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">ÎN LUCRU</span>
                 </button>
             </div>
 
