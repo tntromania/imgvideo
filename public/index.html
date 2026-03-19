@@ -719,25 +719,36 @@ function updateLightboxContent() {
     const img = document.getElementById('lb-img');
     const vid = document.getElementById('lb-vid');
     const dlBtn = document.getElementById('lb-download-btn');
-    
-    img.classList.add('hidden'); vid.classList.add('hidden');
-    
+
+    img.classList.add('hidden');
+    vid.classList.add('hidden');
+    vid.pause();
+
     let url, type;
-    // Acum lightbox-ul știe să citească dintr-o listă globală de obiecte
-    if (typeof lbMediaList[lbCurrentIndex] === 'object') {
-        url = lbMediaList[lbCurrentIndex].url;
-        type = lbMediaList[lbCurrentIndex].type;
+    const item = lbMediaList[lbCurrentIndex];
+    if (item && typeof item === 'object' && item.url) {
+        url = item.url;
+        type = item.type;
     } else {
-        url = lbMediaList[lbCurrentIndex];
+        url = item;
         type = lbCurrentType;
     }
 
-    const ext = type === 'image' ? 'png' : 'mp4';
-    
+    const ext = type === 'video' ? 'mp4' : 'png';
     dlBtn.onclick = (e) => { e.stopPropagation(); downloadMedia(url, `viralio_media_${Date.now()}.${ext}`); };
-    
-    if (type === 'image') { img.src = url; img.classList.remove('hidden'); } 
-    else { vid.src = url; vid.classList.remove('hidden'); }
+
+    if (type === 'video') {
+        vid.src = url;
+        vid.style.maxWidth = '90vw';
+        vid.style.maxHeight = '85vh';
+        vid.style.width = 'auto';
+        vid.style.height = 'auto';
+        vid.classList.remove('hidden');
+        vid.load();
+    } else {
+        img.src = url;
+        img.classList.remove('hidden');
+    }
 }
 
 function navLightbox(dir, e) {
@@ -855,16 +866,44 @@ urls.forEach((url,i)=> g.innerHTML += `
 }
 
 function buildVideoGrid(urls, ratioVal){
-    const g=document.getElementById('res-grid'); 
+    const g = document.getElementById('res-grid');
     g.className = `gap-5 w-full ${getGridClass(urls.length, ratioVal)}`;
-    g.innerHTML='';
-    urls.forEach((url,i)=> g.innerHTML += `
-        <div class="result-card animate-slide-up bg-slate-900 flex flex-col h-full" style="animation-delay: ${i*0.1}s">
-            <div class="${aspectClass(ratioVal)} w-full relative bg-black">
-                <video src="${url}" controls autoplay loop muted class="absolute inset-0 w-full h-full object-cover"></video>
+
+    if (urls.length === 1) {
+        const isPortrait = (ratioVal === '9:16');
+        const isLandscape = (ratioVal === '16:9' || ratioVal === '21:9');
+        g.style.maxWidth = isPortrait ? '320px' : isLandscape ? '650px' : '420px';
+        g.style.width = '100%';
+        g.style.margin = '0 auto';
+        g.style.display = 'block';
+    } else {
+        g.style.maxWidth = 'none';
+        g.style.width = '100%';
+        g.style.display = '';
+        g.style.margin = '0 auto';
+    }
+
+    g.innerHTML = '';
+    const urlsArr = urls.map(u => ({ url: u, type: 'video' }));
+    const urlsStr = JSON.stringify(urlsArr).replace(/"/g, '&quot;');
+
+    urls.forEach((url, i) => g.innerHTML += `
+        <div class="result-card animate-slide-up flex flex-col justify-between w-full h-full" style="animation-delay: ${i*0.1}s">
+            <div class="${aspectClass(ratioVal)} w-full relative group bg-black">
+                <video src="${url}" muted playsinline preload="metadata"
+                    class="absolute inset-0 w-full h-full object-contain"></video>
+                <div class="card-overlay">
+                    <button onclick="openLightbox(${urlsStr}, ${i}, 'video')"
+                        class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-4 py-2.5 rounded-xl transition-colors">
+                        <i class="fa-solid fa-expand mr-1"></i>Mărește
+                    </button>
+                </div>
             </div>
-            <div class="p-3 bg-white mt-auto">
-                <button onclick="downloadMedia('${url}', 'viralio_vid_${Date.now()}.mp4')" class="w-full block text-center text-xs font-black bg-slate-900 hover:bg-viralio-600 text-white px-4 py-3 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i> Descarcă Video</button>
+            <div class="p-3 bg-white border-t border-slate-100">
+                <button onclick="downloadMedia('${url}', 'viralio_vid_${Date.now()}.mp4')"
+                    class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors">
+                    <i class="fa-solid fa-download mr-1"></i>Descarcă
+                </button>
             </div>
         </div>
     `);
@@ -960,7 +999,7 @@ async function readSSE(response) {
                 }
             }
         }
-    };
+    };buildVideoGrid 
 
     try {
         while (true) {
