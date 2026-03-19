@@ -495,16 +495,13 @@ function createJobCard(jobId, promptText, currentMode){
                 <button onclick="cancelJob(${jobId})" class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center text-xs transition-all"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
-        <div id="job-body-${jobId}" class="p-8 flex flex-col items-center gap-3">
-            <div class="relative flex items-center justify-center w-14 h-14">
-                <div class="absolute inset-0 bg-indigo-400 rounded-full blur-xl opacity-20 animate-pulse"></div>
-                <div class="relative w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md border border-indigo-100">
-                    <i class="fa-solid fa-wand-magic-sparkles text-base text-viralio-500 animate-bounce"></i>
-                </div>
-            </div>
-            <p id="job-status-${jobId}" class="text-sm text-slate-500 font-medium">Se pregătește...</p>
-            <button onclick="cancelJob(${jobId})" class="text-xs text-slate-400 hover:text-red-500 transition-colors mt-1">Anulează</button>
+<div id="job-body-${jobId}" class="px-5 py-4 flex items-center gap-4">
+        <div class="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-wand-magic-sparkles text-sm text-viralio-500 animate-bounce"></i>
         </div>
+        <p id="job-status-${jobId}" class="text-sm text-slate-500 font-medium flex-1">Se pregătește...</p>
+        <button onclick="cancelJob(${jobId})" class="text-xs text-slate-400 hover:text-red-500 transition-colors shrink-0">Anulează</button>
+    </div>
     `;
     return el;
 }
@@ -630,7 +627,7 @@ async function runJob(jobId, promptText, currentMode, ratio, refs, token){
             if(!resp.ok){ const j=await resp.json().catch(()=>{}); throw new Error(j?.error||'Eroare server'); }
             const data=await readSSEJob(jobId,resp);
             const urls=extractUrls(data); if(!urls?.length) throw new Error('Nu s-au generat imagini.');
-            if(!activeJobs.get(jobId)?.aborted){ setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText); }
+            if(!activeJobs.get(jobId)?.aborted){ setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText,currentMode); }
         } else {
             const model_id=document.getElementById('model-sel').value;
             setJobStatus(jobId,'Se trimite la AI...');
@@ -683,9 +680,9 @@ async function generate(){
 }
 
 // ===================== HISTORY =====================
-async function saveToSupabase(urls,promptText){
+async function saveToSupabase(urls,promptText,jobMode){
     const token=getToken(); if(!token) return;
-    try { await fetch('/api/media/save-history',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({urls,type:mode,prompt:promptText})}); } catch(e){}
+    try { await fetch('/api/media/save-history',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({urls,type:jobMode||mode,prompt:promptText})}); } catch(e){}
 }
 
 async function loadHistory(){
