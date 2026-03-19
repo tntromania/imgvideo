@@ -187,30 +187,30 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         // Alegem exact modelele confirmate de tine
         const MODEL_ID = isFlash ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview'; 
         
-// Corpul cererii de bază care merge pe ambele
+        // Corpul cererii de bază care merge pe ambele
         let requestBody = {
             contents: [{ role: "user", parts: parts }],
             generationConfig: { candidateCount: count }
         };
 
         // DACĂ E FLASH 2.5: Adăugăm setările specifice
-if (isFlash) {
-    requestBody.generationConfig.responseModalities = ["IMAGE"];
-    
-    // Corecție aici: Scoatem outputMimeType dacă dă eroare 400
-    requestBody.generationConfig.imageConfig = {
-        aspectRatio: aspect_ratio || "1:1", 
-        imageSize: "1K"
-        // outputMimeType: "image/png" <-- Șterge sau comentează linia asta
-    };
+        if (isFlash) {
+            requestBody.generationConfig.responseModalities = ["IMAGE"];
+            
+            // Corecție aici: Scoatem outputMimeType dacă dă eroare 400
+            requestBody.generationConfig.imageConfig = {
+                aspectRatio: aspect_ratio || "1:1", 
+                imageSize: "1K"
+                // outputMimeType: "image/png" <-- Șterge sau comentează linia asta
+            };
 
-    requestBody.safetySettings = [
-        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }
-    ];
-}
+            requestBody.safetySettings = [
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }
+            ];
+        }
 
         const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
         
@@ -278,7 +278,65 @@ if (isFlash) {
 });
 
 
-// --- RUTA PENTRU VIDEO VERTEX AI (VEO 3.1) ---
+// =========================================================================
+// ==================== FUNCTII NECESARE PENTRU GENAIPRO ===================
+// =========================================================================
+
+const GENAIPRO_URL = 'https://genaipro.vn/api/v1';
+
+const sendSSE = (res, data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+};
+
+const pipeStream = async (apiRes, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const contentType = apiRes.headers.get('content-type') || '';
+
+    // Dacă API-ul returnează JSON direct (nu SSE), normalizăm la format SSE
+    if (contentType.includes('application/json')) {
+        try {
+            const json = await apiRes.json();
+            // Normalizăm obiectele cu chei "0","1",... (array-like objects)
+            const normalized = {};
+            let hasNumericKeys = false;
+            for (const key of Object.keys(json)) {
+                if (!isNaN(key)) { hasNumericKeys = true; break; }
+            }
+            if (hasNumericKeys) {
+                const items = Object.values(json);
+                const first = items[0] || {};
+                Object.assign(normalized, first);
+                
+                // Căutăm orice fel de URL (video sau imagine)
+                const allUrls = [];
+                items.forEach(i => {
+                    if (i.file_url) allUrls.push(i.file_url);
+                    if (i.video_url) allUrls.push(i.video_url);
+                    if (i.url) allUrls.push(i.url);
+                });
+                
+                if (allUrls.length > 0) {
+                    normalized.file_urls = allUrls;
+                }
+            } else {
+                Object.assign(normalized, json);
+            }
+            sendSSE(res, normalized);
+            res.write('data: [DONE]\n\n');
+        } catch (e) {
+            sendSSE(res, { error: 'Eroare la parsarea răspunsului API' });
+        }
+        res.end();
+    } else {
+        // SSE real — pipe direct
+        Readable.fromWeb(apiRes.body).pipe(res);
+    }
+};
+
+// --- RUTA PENTRU VIDEO CU SUPORT @IMG (GENAIPRO) ---
 app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
         const { prompt, aspect_ratio, number_of_videos, model_id } = req.body;
@@ -290,91 +348,72 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
 
-        let parts = [];
+        let startImageFile = null;
 
         if (req.files && req.files.length > 0) {
-            parts.push({
-                inlineData: {
-                    mimeType: req.files[0].mimetype,
-                    data: req.files[0].buffer.toString('base64')
-                }
-            });
+            startImageFile = req.files[0]; 
+
             for (let i = 0; i < req.files.length; i++) {
-                finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
-            }
-            finalPrompt = finalPrompt + `\n\n[Instruction: Use the provided image as the starting frame. Resolution: 720p, Duration: 8s, Audio: true, Aspect Ratio: ${aspect_ratio}]`;
-        } else {
-            finalPrompt = finalPrompt + `\n\n[Instruction: Resolution: 720p, Duration: 8s, Audio: true, Aspect Ratio: ${aspect_ratio}]`;
-        }
-
-        parts.push({ text: finalPrompt });
-
-        const googleModelId = model_id === 'veo3.1fast' ? 'veo-3.1-fast' : 'veo-3.1';
-        
-        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${googleModelId}:generateContent?key=${process.env.VERTEX_API_KEY}`;
-        
-        const fetchOptions = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ role: "user", parts: parts }],
-                generationConfig: { candidateCount: count }
-            })
-        };
-
-        const apiRes = await fetchWithRetry(endpoint, fetchOptions);
-        const rawText = await apiRes.text();
-        
-        let data;
-        try {
-            data = JSON.parse(rawText);
-        } catch (err) {
-            throw new Error(`Răspuns invalid server Veo. Răspuns brut: ${rawText.substring(0, 150)}`);
-        }
-
-        if (!apiRes.ok) {
-            throw new Error(`Eroare Veo API: ${data.error?.message || JSON.stringify(data)}`);
-        }
-
-        let urls = [];
-        if (data.candidates) {
-            for (const candidate of data.candidates) {
-                if (candidate.content && candidate.content.parts) {
-                    for (const part of candidate.content.parts) {
-                        if (part.inlineData && part.inlineData.data) {
-                            const b64 = part.inlineData.data;
-                            const mime = part.inlineData.mimeType || 'video/mp4';
-                            const ext = mime.split('/')[1] || 'mp4';
-                            
-                            const buffer = Buffer.from(b64, 'base64');
-                            const fileName = `generated/vid_${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-                            
-                            const { error: supaErr } = await supabase.storage.from('media-history').upload(fileName, buffer, { contentType: mime });
-                            if (!supaErr) {
-                                const { data: pData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                                urls.push(pData.publicUrl);
-                            }
-                        }
+                const file = req.files[i];
+                const fileName = `refs/vid_${req.userId}_${Date.now()}_${i}.png`;
+                const { error } = await supabase.storage.from('media-history').upload(fileName, file.buffer, { contentType: file.mimetype });
+                
+                if (!error) {
+                    const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
+                    const tag = `@img${i+1}`;
+                    if (finalPrompt.includes(tag)) {
+                        finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), publicData.publicUrl);
                     }
                 }
             }
         }
 
-        if (urls.length === 0) throw new Error("Modelul Veo nu a returnat niciun video valid.");
+        let endpoint, fetchOptions;
 
-        await Log.create({ userEmail: user.email, type: 'video', count: urls.length, cost: urls.length * costPerVid });
-        user.credits -= (urls.length * costPerVid);
+        if (startImageFile) {
+            endpoint = `${GENAIPRO_URL}/veo/frames-to-video`;
+            const formData = new FormData();
+            formData.append('prompt', finalPrompt);
+            formData.append('aspect_ratio', aspect_ratio);
+            formData.append('number_of_videos', count);
+            
+            const blob = new Blob([startImageFile.buffer], { type: startImageFile.mimetype });
+            formData.append('start_image', blob, startImageFile.originalname);
+
+            fetchOptions = {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` },
+                body: formData
+            };
+        } else {
+            endpoint = `${GENAIPRO_URL}/veo/text-to-video`;
+            fetchOptions = {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ prompt: finalPrompt, aspect_ratio, number_of_videos: count })
+            };
+        }
+
+        const apiRes = await fetch(endpoint, fetchOptions);
+        
+        if (!apiRes.ok) {
+            const errorDetails = await apiRes.text();
+            throw new Error(`Eroare GenAIPro: ${errorDetails}`);
+        }
+        
+        await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
+        user.credits -= totalCost;
         await user.save();
 
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
+        pipeStream(apiRes, res);
     } catch (e) {
-        console.error("Eroare Rută Video:", e);
         res.status(500).json({ error: e.message });
     }
 });
+
 
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     try {
