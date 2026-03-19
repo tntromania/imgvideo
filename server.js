@@ -111,7 +111,7 @@ const MODEL_PRICES = {
 };
 
 // --- SISTEM ANTI-Aglomerare Google ---
-const fetchWithRetry = async (url, options, maxRetries = 4, delayMs = 1500) => {
+const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
     for (let i = 0; i < maxRetries; i++) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 120000);
@@ -143,6 +143,29 @@ const fetchWithRetry = async (url, options, maxRetries = 4, delayMs = 1500) => {
     throw new Error("Sistemul AI este suprasolicitat de prea mulți utilizatori. Te rugăm să încerci din nou în 10 secunde.");
 };
 
+// Queue simplu pentru Vertex AI — max 1 cerere simultana
+let imageQueueRunning = false;
+const imageQueue = [];
+
+const enqueueImageRequest = (fn) => {
+    return new Promise((resolve, reject) => {
+        imageQueue.push({ fn, resolve, reject });
+        processImageQueue();
+    });
+};
+
+const processImageQueue = async () => {
+    if (imageQueueRunning || imageQueue.length === 0) return;
+    imageQueueRunning = true;
+    const { fn, resolve, reject } = imageQueue.shift();
+    try { resolve(await fn()); } 
+    catch (e) { reject(e); } 
+    finally {
+        imageQueueRunning = false;
+        // Pauză de 2 secunde între cereri
+        setTimeout(processImageQueue, 2000);
+    }
+};
 // =========================================================================
 // ==================== IMAGINI — NESCHIMBAT ===============================
 // =========================================================================
@@ -205,7 +228,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             body: JSON.stringify(requestBody)
         };
 
-        const apiRes = await fetchWithRetry(endpoint, fetchOptions);
+        const apiRes = await enqueueImageRequest(() => fetchWithRetry(endpoint, fetchOptions));
         const rawText = await apiRes.text();
 
         let data;
