@@ -341,6 +341,20 @@ const readGenAIProSSE = (apiRes, res) => {
                                 }
                                 return;
                             }
+							if (currentEvent === 'video_generation_complete') {
+    try {
+        const parsed = JSON.parse(raw);
+        const items = Array.isArray(parsed) ? parsed : [parsed];
+        const urls = [];
+        items.forEach(item => {
+            if (item.file_url)  urls.push(item.file_url);
+            if (item.video_url) urls.push(item.video_url);
+            if (item.url)       urls.push(item.url);
+            if (Array.isArray(item.file_urls)) urls.push(...item.file_urls);
+        });
+        if (urls.length > 0) { finish(urls); return; }
+    } catch { /* ignorăm */ }
+}
 
                             // Orice data: cu JSON — căutăm URL-uri
                             if (raw.startsWith('{') || raw.startsWith('[')) {
