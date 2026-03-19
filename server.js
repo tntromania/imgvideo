@@ -344,6 +344,15 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         const count = parseInt(number_of_videos) || 1;
         const costPerVid = MODEL_PRICES[model_id] || 3;
         const totalCost = count * costPerVid;
+		const aspectRatioMap = {
+            '16:9': 'VIDEO_ASPECT_RATIO_LANDSCAPE',
+            '21:9': 'VIDEO_ASPECT_RATIO_LANDSCAPE',
+            '1:1':  'VIDEO_ASPECT_RATIO_LANDSCAPE',
+            '9:16': 'VIDEO_ASPECT_RATIO_PORTRAIT',
+            '4:5':  'VIDEO_ASPECT_RATIO_PORTRAIT',
+            '3:4':  'VIDEO_ASPECT_RATIO_PORTRAIT',
+        };
+        const genaipro_ratio = aspectRatioMap[aspect_ratio] || 'VIDEO_ASPECT_RATIO_LANDSCAPE';
 
         const user = await User.findById(req.userId);
         if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
@@ -374,7 +383,7 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
             endpoint = `${GENAIPRO_URL}/veo/frames-to-video`;
             const formData = new FormData();
             formData.append('prompt', finalPrompt);
-            formData.append('aspect_ratio', aspect_ratio);
+            formData.append('aspect_ratio', genaipro_ratio);
             formData.append('number_of_videos', count);
             
             const blob = new Blob([startImageFile.buffer], { type: startImageFile.mimetype });
@@ -393,7 +402,7 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
                     'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
                     'Content-Type': 'application/json' 
                 },
-                body: JSON.stringify({ prompt: finalPrompt, aspect_ratio, number_of_videos: count })
+                body: JSON.stringify({ prompt: finalPrompt, aspect_ratio: genaipro_ratio, number_of_videos: count })
             };
         }
 
