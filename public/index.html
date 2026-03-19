@@ -658,6 +658,15 @@ async function generate(){
     const promptText=document.getElementById('prompt-in').value.trim();
     if(!promptText){ toast('Introdu un prompt descriptiv!'); return; }
 
+    // ✅ ADAUGĂ ASTA — limitare parallelism imagini
+    if(mode === 'image'){
+        const imageJobsRunning = [...activeJobs.values()].filter(j => !j.aborted).length;
+        if(imageJobsRunning >= 2){
+            toast('⏳ Așteaptă să se termine generările curente!');
+            return;
+        }
+    }
+
     const currentMode=mode;
     const ratio=currentMode==='image'?(document.querySelector('input[name="ratio"]:checked')?.value||'9:16'):(document.querySelector('input[name="vratio"]:checked')?.value||'16:9');
     const refs=[...uploadedRefs];
