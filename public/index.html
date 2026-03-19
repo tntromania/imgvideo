@@ -318,7 +318,7 @@
                 <div id="vid-options" class="hidden">
                     <div class="panel-s pt-0">
                         <label class="field-label">Format Video</label>
-                        <div class="bg-slate-100 rounded-2xl p-1.5 grid grid-cols-4 gap-1">
+                        <div class="bg-slate-100 rounded-2xl p-1.5 grid grid-cols-2 gap-1.5">
                             <label class="ratio-pill">
                                 <input type="radio" name="vratio" value="16:9" checked>
                                 <span><div class="w-[18px] h-[10px] border-[2px] border-current rounded-[3px] opacity-75"></div> 16:9</span>
@@ -433,14 +433,25 @@
                         <div id="res-grid" class="grid gap-5"></div>
                     </div>
 
-                    <div id="st-error" class="hidden text-center w-full max-w-md animate-slide-up">
-                        <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-red-100 text-red-500 text-2xl">
-                            <i class="fa-solid fa-triangle-exclamation"></i>
-                        </div>
-                        <h3 class="text-xl font-black text-slate-800 mb-2">Eroare de procesare</h3>
-                        <p id="err-msg" class="text-sm text-slate-500 font-medium mb-6 leading-relaxed"></p>
-                        <button onclick="showState('empty')" class="text-sm font-bold text-white bg-slate-900 px-6 py-2.5 rounded-xl hover:bg-slate-800 transition-colors">Încearcă din nou</button>
-                    </div>
+<!-- ✅ NOU -->
+<div id="st-error" class="hidden text-center w-full max-w-md animate-slide-up">
+    <div class="relative mb-6">
+        <div class="w-20 h-20 bg-red-50 rounded-[1.5rem] flex items-center justify-center mx-auto border border-red-100 text-red-400 text-3xl shadow-sm">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+    </div>
+    <h3 class="text-2xl font-black text-slate-800 mb-2 tracking-tight">Ceva n-a mers</h3>
+    <p id="err-msg" class="text-sm text-slate-500 font-medium mb-6 leading-relaxed max-w-xs mx-auto"></p>
+    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <button onclick="generate()" class="text-sm font-bold text-white bg-gradient-to-r from-viralio-600 to-pink-500 px-6 py-3 rounded-xl hover:opacity-90 transition-all shadow-md flex items-center justify-center gap-2">
+            <i class="fa-solid fa-rotate-right"></i> Încearcă din nou
+        </button>
+        <button onclick="showState('empty')" class="text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-6 py-3 rounded-xl transition-colors">
+            Anulează
+        </button>
+    </div>
+    <p class="text-xs text-slate-400 mt-4 font-medium">Dacă eroarea persistă, încearcă un prompt diferit.</p>
+</div>
 
                 </div>
 
@@ -865,6 +876,7 @@ urls.forEach((url,i)=> g.innerHTML += `
         </div>`);
 }
 
+// ❌ VECHI — înlocuiește tot buildVideoGrid
 function buildVideoGrid(urls, ratioVal){
     const g = document.getElementById('res-grid');
     g.className = `gap-5 w-full ${getGridClass(urls.length, ratioVal)}`;
@@ -884,29 +896,25 @@ function buildVideoGrid(urls, ratioVal){
     }
 
     g.innerHTML = '';
-    const urlsArr = urls.map(u => ({ url: u, type: 'video' }));
-    const urlsStr = JSON.stringify(urlsArr).replace(/"/g, '&quot;');
 
-    urls.forEach((url, i) => g.innerHTML += `
-        <div class="result-card animate-slide-up flex flex-col justify-between w-full h-full" style="animation-delay: ${i*0.1}s">
-            <div class="${aspectClass(ratioVal)} w-full relative group bg-black">
-                <video src="${url}" muted playsinline preload="metadata"
+    urls.forEach((url, i) => {
+        const card = document.createElement('div');
+        card.className = `result-card animate-slide-up flex flex-col justify-between w-full h-full`;
+        card.style.animationDelay = `${i * 0.1}s`;
+        card.innerHTML = `
+            <div class="${aspectClass(ratioVal)} w-full relative bg-black overflow-hidden rounded-t-[20px]">
+                <video src="${url}" controls playsinline preload="metadata"
                     class="absolute inset-0 w-full h-full object-contain"></video>
-                <div class="card-overlay">
-                    <button onclick="openLightbox(${urlsStr}, ${i}, 'video')"
-                        class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-4 py-2.5 rounded-xl transition-colors">
-                        <i class="fa-solid fa-expand mr-1"></i>Mărește
-                    </button>
-                </div>
             </div>
-            <div class="p-3 bg-white border-t border-slate-100">
+            <div class="p-3 bg-white border-t border-slate-100 rounded-b-[20px]">
                 <button onclick="downloadMedia('${url}', 'viralio_vid_${Date.now()}.mp4')"
                     class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors">
                     <i class="fa-solid fa-download mr-1"></i>Descarcă
                 </button>
             </div>
-        </div>
-    `);
+        `;
+        g.appendChild(card);
+    });
 }
 
 // --- SSE & GENERATOARE ---
@@ -1165,10 +1173,36 @@ async function generate(){
             const r = await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+getToken()}}); 
             if(r.ok){const d=await r.json(); document.getElementById('nav-credits').innerText=d.user.credits;} 
         } catch(e){}
-    } catch(err){
-        if(genAborted) return;
-        showState('error'); document.getElementById('err-msg').textContent=err.message;
-    } finally { 
+    // ✅ NOU
+} catch(err){
+    if(genAborted) return;
+    
+    const isRetryable = err.message.includes('500') || 
+                        err.message.includes('aglomerat') || 
+                        err.message.includes('suprasolicitat') ||
+                        err.message.includes('Create video error') ||
+                        err.message.includes('AUDIO_FILTERED');
+    
+    if (isRetryable) {
+        // Afișăm mesaj de așteptare în loading screen în loc de eroare
+        const statusEl = document.getElementById('sse-status');
+        const labelEl = document.getElementById('load-label');
+        if (statusEl) statusEl.textContent = 'Serverele AI sunt ocupate momentan. Reîncercăm automat...';
+        if (labelEl) labelEl.textContent = '⏳ Un moment...';
+        
+        // Așteptăm 4 secunde și reîncercăm automat
+        await new Promise(r => setTimeout(r, 4000));
+        
+        if (!genAborted) {
+            if (statusEl) statusEl.textContent = 'Se reîncarcă generarea...';
+            generate(); // reîncearcă
+            return;
+        }
+    }
+    
+    showState('error'); 
+    document.getElementById('err-msg').textContent = err.message;
+} finally { 
         resetBtn(); clearFakeProgress(); 
         setTimeout(loadHistory, 3500); 
     }
