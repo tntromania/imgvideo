@@ -93,7 +93,7 @@ app.post('/api/auth/google', async (req, res) => {
         }
         const sessionToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
         res.json({ token: sessionToken, user });
-    } catch (error) { res.status(400).json({ error: "Eroare Google" }); }
+    } catch (error) { res.status(400).json({ error: "Eroare la autentificarea cu Google." }); }
 });
 
 app.get('/api/auth/me', authenticate, async (req, res) => {
@@ -110,7 +110,7 @@ const MODEL_PRICES = {
     'veo3.1fast': 2,
 };
 
-// --- SISTEM ANTI-Aglomerare Google ---
+// --- SISTEM ANTI-Aglomerare ---
 const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
     for (let i = 0; i < maxRetries; i++) {
         const controller = new AbortController();
@@ -121,7 +121,7 @@ const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
             if (response.ok) return response;
             const text = await response.text();
             if (response.status === 429 || response.status === 503 || text.toLowerCase().includes('exhausted')) {
-                console.warn(`[Vertex AI] Sistem aglomerat (Eroare ${response.status}). Încercarea ${i + 1}/${maxRetries}. Reîncerc în ${delayMs}ms...`);
+                console.warn(`[AI] Sistem aglomerat (Eroare ${response.status}). Încercarea ${i + 1}/${maxRetries}. Reîncerc în ${delayMs}ms...`);
                 await new Promise(res => setTimeout(res, delayMs));
                 delayMs *= 2;
                 continue;
@@ -130,7 +130,7 @@ const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
             }
         } catch (error) {
             clearTimeout(timeoutId);
-            if (error.name === 'AbortError') throw new Error("Timpul de așteptare a expirat. Procesul a durat prea mult.");
+            if (error.name === 'AbortError') throw new Error("Timpul de așteptare a expirat. Te rugăm să încerci din nou.");
             if (i < maxRetries - 1) {
                 console.warn(`[Network] Eroare la conexiune. Reîncerc în ${delayMs}ms...`);
                 await new Promise(res => setTimeout(res, delayMs));
@@ -140,10 +140,10 @@ const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
             }
         }
     }
-    throw new Error("Sistemul AI este suprasolicitat de prea mulți utilizatori. Te rugăm să încerci din nou în 10 secunde.");
+    throw new Error("Sistemul AI este suprasolicitat de prea mulți utilizatori. Te rugăm să încerci din nou în câteva secunde.");
 };
 
-// Queue simplu pentru Vertex AI — max 1 cerere simultana
+// Queue simplu — max 1 cerere simultana
 let imageQueueRunning = false;
 const imageQueue = [];
 
@@ -162,12 +162,12 @@ const processImageQueue = async () => {
     catch (e) { reject(e); } 
     finally {
         imageQueueRunning = false;
-        // Pauză de 2 secunde între cereri
         setTimeout(processImageQueue, 2000);
     }
 };
+
 // =========================================================================
-// ==================== IMAGINI — NESCHIMBAT ===============================
+// ==================== IMAGINI ============================================
 // =========================================================================
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     try {
@@ -235,11 +235,11 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         try {
             data = JSON.parse(rawText);
         } catch (err) {
-            throw new Error(`Google a returnat o eroare fără JSON. Răspuns brut: ${rawText.substring(0, 150)}`);
+            throw new Error(`Sistemul AI a returnat un răspuns invalid. Te rugăm să reîncerci.`);
         }
 
         if (!apiRes.ok) {
-            throw new Error(`Eroare Gemini API: ${data.error?.message || JSON.stringify(data)}`);
+            throw new Error(`Eroare la generarea imaginii: ${data.error?.message || 'Eroare necunoscută.'}`);
         }
 
         let urls = [];
@@ -264,7 +264,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             }
         }
 
-        if (urls.length === 0) throw new Error("Google a răspuns cu succes, dar nu ne-a dat nicio imagine (posibil filtru de siguranță sau eroare la prompt).");
+        if (urls.length === 0) throw new Error("Imaginea nu a putut fi generată. Promptul poate conține elemente blocate de filtrul de siguranță — încearcă să îl modifici.");
 
         await Log.create({ userEmail: user.email, type: 'image', count: urls.length, cost: urls.length * costPerImg });
         user.credits -= (urls.length * costPerImg);
@@ -282,19 +282,31 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
 
 
 // =========================================================================
-// ==================== VIDEO — GENAIPRO (REFĂCUT CORECT) ==================
+// ==================== VIDEO ==============================================
 // =========================================================================
 
-const GENAIPRO_URL = 'https://genaipro.vn/api/v1';
+const VIDEO_API_URL = 'https://genaipro.vn/api/v1';
 
-// Conversia aspect ratio la formatul GenAIPro
 const toGenAIProRatio = (ratio) => {
     const portrait = ['9:16', '4:5', '3:4', '2:3'];
     return portrait.includes(ratio) ? 'VIDEO_ASPECT_RATIO_PORTRAIT' : 'VIDEO_ASPECT_RATIO_LANDSCAPE';
 };
 
-// Citește SSE cu event: prefix de la GenAIPro și trimite rezultatul la client
-const readGenAIProSSE = (apiRes, res) => {
+const mapVideoError = (msg) => {
+    if (!msg) return 'Eroare necunoscută la generarea video.';
+    if (msg.includes('UNSAFE_GENERATION') || msg.includes('unsafe'))
+        return 'Conținutul solicitat nu poate fi generat — promptul conține elemente considerate nesigure sau inadecvate. Te rugăm să modifici promptul.';
+    if (msg.includes('AUDIO_FILTERED') || msg.includes('audio'))
+        return 'Audio-ul generat a fost filtrat automat — promptul conține cuvinte sau fraze nepermise în voiceover.';
+    if (msg.includes('500') || msg.includes('Create video error') || msg.includes('Create video failed'))
+        return 'Serverele AI sunt momentan suprasolicitate. Te rugăm să reîncerci în câteva secunde.';
+    if (msg.includes('quota') || msg.includes('QUOTA'))
+        return 'Limita de generări a fost atinsă temporar. Reîncearcă în 1-2 minute.';
+    // Ascundem numele serviciului intern din orice alt mesaj
+    return msg.replace(/genaipro/gi, 'serverul AI').replace(/GenAIPro/g, 'serverul AI');
+};
+
+const readVideoSSE = (apiRes, res) => {
     return new Promise((resolve, reject) => {
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
@@ -318,10 +330,10 @@ const readGenAIProSSE = (apiRes, res) => {
         const fail = (msg) => {
             if (resolved) return;
             resolved = true;
-            res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+            res.write(`data: ${JSON.stringify({ error: mapVideoError(msg) })}\n\n`);
             res.write('data: [DONE]\n\n');
             res.end();
-            reject(new Error(msg));
+            reject(new Error(mapVideoError(msg)));
         };
 
         const pump = async () => {
@@ -332,7 +344,7 @@ const readGenAIProSSE = (apiRes, res) => {
                     buf += dec.decode(value, { stream: true });
 
                     const lines = buf.split('\n');
-                    buf = lines.pop(); // linie incompletă, o păstrăm
+                    buf = lines.pop();
 
                     for (const line of lines) {
                         const trimmed = line.trim();
@@ -340,46 +352,45 @@ const readGenAIProSSE = (apiRes, res) => {
 
                         if (trimmed.startsWith('event:')) {
                             currentEvent = trimmed.slice(6).trim();
-                            console.log(`[GenAIPro SSE] event: ${currentEvent}`);
+                            console.log(`[Video SSE] event: ${currentEvent}`);
                             continue;
                         }
 
                         if (trimmed.startsWith('data:')) {
                             const raw = trimmed.slice(5).trim();
-                            console.log(`[GenAIPro SSE] data (event=${currentEvent}): ${raw.substring(0, 120)}`);
+                            console.log(`[Video SSE] data (event=${currentEvent}): ${raw.substring(0, 120)}`);
 
-                            // Status updates — le trimitem ca progres la frontend
                             if (currentEvent === 'video_generation_status') {
                                 res.write(`data: ${JSON.stringify({ status: raw })}\n\n`);
                                 continue;
                             }
 
-                            // Eroare de la GenAIPro
                             if (currentEvent === 'error') {
                                 try {
                                     const errObj = JSON.parse(raw);
-                                    fail(errObj.error || `Eroare GenAIPro (${errObj.code || 'unknown'})`);
+                                    const rawMsg = errObj.error || errObj.message || `Eroare la generare (cod: ${errObj.code || 'necunoscut'})`;
+                                    fail(rawMsg);
                                 } catch {
-                                    fail(`Eroare GenAIPro: ${raw}`);
+                                    fail(raw);
                                 }
                                 return;
                             }
-							if (currentEvent === 'video_generation_complete') {
-    try {
-        const parsed = JSON.parse(raw);
-        const items = Array.isArray(parsed) ? parsed : [parsed];
-        const urls = [];
-        items.forEach(item => {
-            if (item.file_url)  urls.push(item.file_url);
-            if (item.video_url) urls.push(item.video_url);
-            if (item.url)       urls.push(item.url);
-            if (Array.isArray(item.file_urls)) urls.push(...item.file_urls);
-        });
-        if (urls.length > 0) { finish(urls); return; }
-    } catch { /* ignorăm */ }
-}
 
-                            // Orice data: cu JSON — căutăm URL-uri
+                            if (currentEvent === 'video_generation_complete') {
+                                try {
+                                    const parsed = JSON.parse(raw);
+                                    const items = Array.isArray(parsed) ? parsed : [parsed];
+                                    const urls = [];
+                                    items.forEach(item => {
+                                        if (item.file_url)  urls.push(item.file_url);
+                                        if (item.video_url) urls.push(item.video_url);
+                                        if (item.url)       urls.push(item.url);
+                                        if (Array.isArray(item.file_urls)) urls.push(...item.file_urls);
+                                    });
+                                    if (urls.length > 0) { finish(urls); return; }
+                                } catch { /* ignorăm */ }
+                            }
+
                             if (raw.startsWith('{') || raw.startsWith('[')) {
                                 try {
                                     const obj = JSON.parse(raw);
@@ -389,26 +400,18 @@ const readGenAIProSSE = (apiRes, res) => {
                                     if (obj.url)       urls.push(obj.url);
                                     if (Array.isArray(obj.file_urls)) urls.push(...obj.file_urls);
 
-                                    if (urls.length > 0) {
-                                        finish(urls);
-                                        return;
-                                    }
+                                    if (urls.length > 0) { finish(urls); return; }
 
-                                    // E un obiect fără URL, e probabil status — ignorăm sau trimitem
-                                    if (obj.error) {
-                                        fail(obj.error);
-                                        return;
-                                    }
+                                    if (obj.error) { fail(obj.error); return; }
                                 } catch { /* ignorăm liniile ne-JSON */ }
                             }
                         }
                     }
                 }
 
-                // Stream terminat fără URL — eroare
-                if (!resolved) fail('GenAIPro nu a returnat niciun URL de video.');
+                if (!resolved) fail('Generarea video nu a returnat niciun rezultat. Te rugăm să reîncerci.');
             } catch (e) {
-                if (!resolved) fail(`Eroare citire SSE: ${e.message}`);
+                if (!resolved) fail(`Eroare la citirea răspunsului: ${e.message}`);
             }
         };
 
@@ -433,7 +436,6 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         if (req.files && req.files.length > 0) {
             startImageFile = req.files[0];
 
-            // Înlocuim @img1, @img2... cu URL-uri publice din Supabase
             for (let i = 0; i < req.files.length; i++) {
                 const file = req.files[i];
                 const fileName = `refs/vid_${req.userId}_${Date.now()}_${i}.png`;
@@ -451,8 +453,7 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
         let endpoint, fetchOptions;
 
         if (startImageFile) {
-            // frames-to-video — trimitem ca multipart/form-data
-            endpoint = `${GENAIPRO_URL}/veo/frames-to-video`;
+            endpoint = `${VIDEO_API_URL}/veo/frames-to-video`;
             const formData = new FormData();
             formData.append('prompt', finalPrompt);
             formData.append('aspect_ratio', genaipro_ratio);
@@ -466,8 +467,7 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
                 body: formData
             };
         } else {
-            // text-to-video — JSON
-            endpoint = `${GENAIPRO_URL}/veo/text-to-video`;
+            endpoint = `${VIDEO_API_URL}/veo/text-to-video`;
             fetchOptions = {
                 method: 'POST',
                 headers: {
@@ -477,7 +477,7 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
                 body: JSON.stringify({
                     prompt: finalPrompt,
                     aspect_ratio: genaipro_ratio,
-                    number_of_videos: count   // int, nu string
+                    number_of_videos: count
                 })
             };
         }
@@ -488,20 +488,29 @@ app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async 
 
         if (!apiRes.ok) {
             const errorDetails = await apiRes.text();
-            throw new Error(`Eroare GenAIPro HTTP ${apiRes.status}: ${errorDetails}`);
+            // Ascundem detaliile tehnice — logăm intern, afișăm mesaj generic
+            console.error(`[Video] HTTP ${apiRes.status}: ${errorDetails}`);
+            throw new Error(`Serverele AI au returnat o eroare (${apiRes.status}). Te rugăm să reîncerci.`);
         }
 
-        // Taxăm userul înainte să citim SSE-ul (generarea a început)
-        await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
-        user.credits -= totalCost;
-        await user.save();
+        // Taxăm DOAR dacă generarea a reușit
+        let videoUrls = [];
+        try {
+            videoUrls = await readVideoSSE(apiRes, res);
+        } catch (sseErr) {
+            console.log('[Video] SSE eșuat, creditele NU se scad:', sseErr.message);
+            return;
+        }
 
-        // Citim SSE-ul și trimitem rezultatul la client
-        await readGenAIProSSE(apiRes, res);
+        if (videoUrls && videoUrls.length > 0) {
+            await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
+            user.credits -= totalCost;
+            await user.save();
+            console.log(`[Video] Credite scăzute: -${totalCost} pentru ${user.email}`);
+        }
 
     } catch (e) {
         console.error('[Video] Eroare:', e.message);
-        // Dacă res nu e deja pornit, trimitem JSON de eroare
         if (!res.headersSent) {
             res.status(500).json({ error: e.message });
         }
