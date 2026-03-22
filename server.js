@@ -5,631 +5,334 @@ const path = require('path');
 const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
-const multer = require('multer');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const PORT = process.env.PORT || 3000;
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 20 * 1024 * 1024, files: 5 }
-});
-
-app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('✅ Media Studio conectat la MongoDB!'))
+    .then(() => console.log('✅ Conectat la MongoDB!'))
     .catch(err => console.error('❌ Eroare MongoDB:', err));
 
 const UserSchema = new mongoose.Schema({
-    googleId: { type: String, required: true, unique: true },
-    email: { type: String, required: true },
-    name: String, picture: String,
-    credits: { type: Number, default: 10 },
-    voice_characters: { type: Number, default: 3000 },
-    createdAt: { type: Date, default: Date.now }
+    googleId:           { type: String, required: true, unique: true },
+    email:              { type: String, required: true },
+    name:               String,
+    picture:            String,
+    credits:            { type: Number, default: 10 },
+    voice_characters:   { type: Number, default: 3000 },
+    stripeCustomerId:   { type: String, default: null },
+    subscriptionId:     { type: String, default: null },
+    subscriptionPlan:   { type: String, enum: ['none','starter','creator','agency'], default: 'none' },
+    subscriptionStatus: { type: String, default: 'inactive' },
+    currentPeriodEnd:   { type: Date, default: null },
+    createdAt:          { type: Date, default: Date.now }
 });
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
-const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
-
-const HistorySchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    type: { type: String, enum: ['image', 'video'], required: true },
-    originalUrl: String, supabaseUrl: String, prompt: String,
-    createdAt: { type: Date, default: Date.now }
+const WaitlistSchema = new mongoose.Schema({
+    email: String, name: String, date: { type: Date, default: Date.now }
 });
-const History = mongoose.models.History || mongoose.model('History', HistorySchema);
+const Waitlist = mongoose.model('Waitlist', WaitlistSchema);
 
-const LogSchema = new mongoose.Schema({
-    userEmail: { type: String, required: true },
-    type: { type: String, enum: ['image', 'video'], required: true },
-    count: { type: Number, required: true },
-    cost: { type: Number, required: true },
-    createdAt: { type: Date, default: Date.now }
+const PLANS = {
+    [process.env.STRIPE_PRICE_STARTER]:        { plan: 'starter', credits: 150,  chars: 50000  },
+    [process.env.STRIPE_PRICE_CREATOR]:        { plan: 'creator', credits: 400,  chars: 150000 },
+    [process.env.STRIPE_PRICE_AGENCY]:         { plan: 'agency',  credits: 1500, chars: 500000 },
+    [process.env.STRIPE_PRICE_STARTER_YEARLY]: { plan: 'starter', credits: 150,  chars: 50000  },
+    [process.env.STRIPE_PRICE_CREATOR_YEARLY]: { plan: 'creator', credits: 400,  chars: 150000 },
+    [process.env.STRIPE_PRICE_AGENCY_YEARLY]:  { plan: 'agency',  credits: 1500, chars: 500000 },
+};
+
+const TOPUP = {
+    [process.env.STRIPE_PRICE_TOPUP_50]:  50,
+    [process.env.STRIPE_PRICE_TOPUP_150]: 150,
+    [process.env.STRIPE_PRICE_TOPUP_400]: 400,
+};
+
+console.log('📋 PLANS:', JSON.stringify(PLANS));
+console.log('📋 TOPUP:', JSON.stringify(TOPUP));
+console.log('📋 WEBHOOK_SECRET:', endpointSecret ? endpointSecret.substring(0, 12) + '...' : 'LIPSESTE!');
+
+// ── WEBHOOK ──────────────────────────────────
+app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+        event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    } catch (err) {
+        console.error('❌ WEBHOOK SIGNATURE ERROR:', err.message);
+        return res.status(400).send('Webhook Error: ' + err.message);
+    }
+
+    console.log('📨 WEBHOOK PRIMIT:', event.type);
+
+    try {
+
+        if (event.type === 'invoice.payment_succeeded') {
+            const invoice = event.data.object;
+
+            const subId = invoice.subscription
+                || invoice.parent?.subscription_details?.subscription
+                || invoice.lines?.data?.[0]?.subscription;
+
+            console.log('💳 amount_paid=' + invoice.amount_paid + ' | subId=' + subId);
+            console.log('💳 parent=' + JSON.stringify(invoice.parent || null).substring(0, 300));
+
+            if (invoice.amount_paid === 0) {
+                console.log('⏭️ Skip: amount=0');
+                return res.sendStatus(200);
+            }
+            if (!subId) {
+                console.log('⏭️ Skip: nu e subscription');
+                return res.sendStatus(200);
+            }
+
+            const sub = await stripe.subscriptions.retrieve(subId);
+            const priceId = sub.items.data[0]?.price?.id;
+            console.log('🔑 priceId=' + priceId);
+            console.log('🗺️ PLANS keys=' + JSON.stringify(Object.keys(PLANS)));
+
+            const planCfg = PLANS[priceId];
+            if (!planCfg) {
+                console.error('❌ PRICE ID NECUNOSCUT: ' + priceId);
+                return res.sendStatus(200);
+            }
+
+            const customer = await stripe.customers.retrieve(invoice.customer);
+            const email = customer.email;
+            console.log('📧 Email: ' + email);
+
+            const user = await User.findOneAndUpdate(
+                { email },
+                {
+                    credits:            planCfg.credits,
+                    voice_characters:   planCfg.chars,
+                    stripeCustomerId:   invoice.customer,
+                    subscriptionId:     subId,
+                    subscriptionPlan:   planCfg.plan,
+                    subscriptionStatus: 'active',
+                    currentPeriodEnd:   new Date(sub.current_period_end * 1000),
+                },
+                { new: true }
+            );
+
+            if (user) {
+                console.log('✅ SUCCES: ' + email + ' plan=' + planCfg.plan + ' credits=' + planCfg.credits);
+            } else {
+                console.error('❌ USER NEGASIT pentru: ' + email);
+            }
+        }
+
+        else if (event.type === 'checkout.session.completed') {
+            const session = event.data.object;
+            console.log('🛒 mode=' + session.mode);
+
+            if (session.mode !== 'payment') {
+                console.log('⏭️ Skip: e subscription');
+                return res.sendStatus(200);
+            }
+
+            const topupPriceId = session.metadata?.topup_price_id;
+            const creditsToAdd = topupPriceId ? TOPUP[topupPriceId] : null;
+            console.log('🎯 topup_price_id=' + topupPriceId + ' credite=' + creditsToAdd);
+
+            if (!creditsToAdd) {
+                console.error('❌ TOPUP metadata lipsa');
+                return res.sendStatus(200);
+            }
+
+            const email = session.customer_details?.email;
+            if (!email) {
+                console.error('❌ TOPUP email lipsa');
+                return res.sendStatus(200);
+            }
+
+            const user = await User.findOneAndUpdate(
+                { email },
+                { $inc: { credits: creditsToAdd } },
+                { new: true }
+            );
+
+            if (user) console.log('✅ TOPUP +' + creditsToAdd + ' pentru ' + email + ' total=' + user.credits);
+            else console.error('❌ TOPUP negasit: ' + email);
+        }
+
+        else if (event.type === 'customer.subscription.deleted') {
+            const sub = event.data.object;
+            const customer = await stripe.customers.retrieve(sub.customer);
+            await User.findOneAndUpdate(
+                { email: customer.email },
+                { subscriptionId: null, subscriptionPlan: 'none', subscriptionStatus: 'canceled', currentPeriodEnd: null }
+            );
+            console.log('❌ SUB CANCELED: ' + customer.email);
+        }
+
+        else if (event.type === 'invoice.payment_failed') {
+            const invoice = event.data.object;
+            if (invoice.subscription) {
+                const customer = await stripe.customers.retrieve(invoice.customer);
+                await User.findOneAndUpdate({ email: customer.email }, { subscriptionStatus: 'past_due' });
+                console.warn('⚠️ PAYMENT FAILED: ' + customer.email);
+            }
+        }
+
+        else {
+            console.log('ℹ️ Ignorat: ' + event.type);
+        }
+
+    } catch (err) {
+        console.error('❌ EROARE WEBHOOK:', err.message);
+    }
+
+    res.sendStatus(200);
 });
-const Log = mongoose.models.Log || mongoose.model('Log', LogSchema);
+
+// ── MIDDLEWARE ───────────────────────────────
+app.use(cors({ origin: '*' }));
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 const authenticate = (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: "Trebuie să fii logat!" });
+    if (!token) return res.status(401).json({ error: 'Trebuie să fii logat!' });
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.userId = decoded.userId;
         next();
-    } catch (e) { return res.status(401).json({ error: "Sesiune expirată." }); }
+    } catch (e) {
+        return res.status(401).json({ error: 'Sesiune expirată.' });
+    }
 };
 
-const ADMIN_EMAILS = ['banicualex3@gmail.com'];
-const authenticateAdmin = async (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: "Acces interzis!" });
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.userId);
-        if (!user) return res.status(403).json({ error: "Cont inexistent." });
-        if (ADMIN_EMAILS.some(e => e.toLowerCase() === user.email.toLowerCase())) {
-            req.userId = decoded.userId; next();
-        } else { res.status(403).json({ error: "Ai greșit contul?" }); }
-    } catch (e) { return res.status(401).json({ error: "Sesiune invalidă." }); }
-};
-
+// ── AUTH ─────────────────────────────────────
 app.post('/api/auth/google', async (req, res) => {
     try {
-        const ticket = await googleClient.verifyIdToken({ idToken: req.body.credential, audience: process.env.GOOGLE_CLIENT_ID });
+        const ticket = await googleClient.verifyIdToken({
+            idToken: req.body.credential,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
         const payload = ticket.getPayload();
         let user = await User.findOne({ googleId: payload.sub });
+
         if (!user) {
-            user = new User({ googleId: payload.sub, email: payload.email, name: payload.name, picture: payload.picture });
+            const userCount = await User.countDocuments();
+            if (userCount >= 450) {
+                const dejaInLista = await Waitlist.findOne({ email: payload.email });
+                if (!dejaInLista) await Waitlist.create({ email: payload.email, name: payload.name });
+                return res.status(403).json({
+                    error: 'BETA_FULL',
+                    message: 'Locurile limitate pentru Beta s-au epuizat! Te-am adăugat pe lista de așteptare.',
+                    discordLink: 'https://discord.gg/h8Ah6VKDzm'
+                });
+            }
+            user = new User({
+                googleId: payload.sub, email: payload.email,
+                name: payload.name, picture: payload.picture,
+                credits: 10, voice_characters: 3000
+            });
             await user.save();
         }
+
         const sessionToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token: sessionToken, user });
-    } catch (error) { res.status(400).json({ error: "Eroare la autentificarea cu Google." }); }
+        res.json({
+            token: sessionToken,
+            user: {
+                name: user.name, picture: user.picture,
+                credits: user.credits, voice_characters: user.voice_characters,
+                email: user.email, subscriptionPlan: user.subscriptionPlan,
+                subscriptionStatus: user.subscriptionStatus,
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(400).json({ error: 'Eroare Google' });
+    }
 });
 
 app.get('/api/auth/me', authenticate, async (req, res) => {
     const user = await User.findById(req.userId);
-    res.json({ user });
-});
-
-const MODEL_PRICES = {
-    'gemini-flash': 1, 'nano-banana-pro-1k': 1,
-    'gemini-pro': 2,   'nano-banana-pro-2k': 2,
-    'veo3.1': 3,       'veo3.1fast': 2,
-};
-
-const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
-    for (let i = 0; i < maxRetries; i++) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000);
-        try {
-            const response = await fetch(url, { ...options, signal: controller.signal });
-            clearTimeout(timeoutId);
-            if (response.ok) return response;
-            const text = await response.text();
-            if (response.status === 429 || response.status === 503 || text.toLowerCase().includes('exhausted')) {
-                console.warn(`[AI] Aglomerat (${response.status}), reîncerc ${i+1}/${maxRetries} în ${delayMs}ms...`);
-                await new Promise(r => setTimeout(r, delayMs));
-                delayMs *= 2;
-                continue;
-            }
-            throw new Error(text);
-        } catch (error) {
-            clearTimeout(timeoutId);
-            if (error.name === 'AbortError') throw new Error("Timpul de așteptare a expirat.");
-            if (i < maxRetries - 1) {
-                console.warn(`[Network] Eroare conexiune, reîncerc în ${delayMs}ms...`);
-                await new Promise(r => setTimeout(r, delayMs));
-                delayMs *= 2;
-            } else throw error;
+    res.json({
+        user: {
+            name: user.name, picture: user.picture,
+            credits: user.credits, voice_characters: user.voice_characters,
+            email: user.email, subscriptionPlan: user.subscriptionPlan,
+            subscriptionStatus: user.subscriptionStatus,
+            currentPeriodEnd: user.currentPeriodEnd,
         }
-    }
-    throw new Error("Sistemul AI este suprasolicitat. Te rugăm să încerci din nou.");
-};
-
-let imageQueueRunning = false;
-const imageQueue = [];
-const enqueueImageRequest = (fn) => new Promise((resolve, reject) => {
-    imageQueue.push({ fn, resolve, reject });
-    processImageQueue();
-});
-const processImageQueue = async () => {
-    if (imageQueueRunning || imageQueue.length === 0) return;
-    imageQueueRunning = true;
-    const { fn, resolve, reject } = imageQueue.shift();
-    try { resolve(await fn()); }
-    catch (e) { reject(e); }
-    finally { imageQueueRunning = false; setTimeout(processImageQueue, 2000); }
-};
-
-// =========================================================================
-// ==================== IMAGINI ============================================
-// =========================================================================
-app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
-    const startTime = Date.now();
-    const elapsed = () => `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
-
-    try {
-        const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
-        let finalPrompt = prompt;
-        const count = parseInt(number_of_images) || 1;
-        const costPerImg = MODEL_PRICES[model_id] || 1;
-        const totalCost = count * costPerImg;
-
-        const user = await User.findById(req.userId);
-        if (!user) return res.status(401).json({ error: "User negăsit." });
-        if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
-
-        const isFlash = (model_id === 'gemini-flash' || model_id === 'nano-banana-pro-1k');
-        const MODEL_ID = isFlash ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview';
-
-        console.log(`[Imagini] START | model=${MODEL_ID} count=${count} cost=${totalCost} | ${user.email}`);
-
-        let parts = [];
-        if (req.files && req.files.length > 0) {
-            console.log(`[Imagini] ${req.files.length} imagini referință primite`);
-            for (let i = 0; i < req.files.length; i++) {
-                parts.push({ inlineData: { mimeType: req.files[i].mimetype, data: req.files[i].buffer.toString('base64') } });
-                finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
-            }
-            finalPrompt += `\n\n[Instruction: Use the provided images as exact character and style references. Aspect Ratio: ${aspect_ratio}]`;
-        } else {
-            finalPrompt += `\n\n[Instruction: Aspect Ratio: ${aspect_ratio}]`;
-        }
-        parts.push({ text: finalPrompt });
-
-        let requestBody = {
-            contents: [{ role: "user", parts }],
-            generationConfig: { candidateCount: count }
-        };
-
-        if (isFlash) {
-            requestBody.generationConfig.responseModalities = ["IMAGE"];
-            requestBody.generationConfig.imageConfig = { aspectRatio: aspect_ratio || "1:1", imageSize: "1K" };
-            requestBody.safetySettings = [
-                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }
-            ];
-        }
-
-        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
-        const fetchOptions = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) };
-
-        console.log(`[Imagini] Trimit la Vertex AI... (queue: ${imageQueue.length} în așteptare)`);
-        const apiRes = await enqueueImageRequest(() => fetchWithRetry(endpoint, fetchOptions));
-        console.log(`[Imagini] Răspuns Vertex AI primit la ${elapsed()}`);
-
-        const rawText = await apiRes.text();
-        let data;
-        try { data = JSON.parse(rawText); }
-        catch (err) {
-            console.error(`[Imagini] JSON invalid de la Vertex: ${rawText.substring(0, 200)}`);
-            throw new Error(`Sistemul AI a returnat un răspuns invalid. Te rugăm să reîncerci.`);
-        }
-
-        if (!apiRes.ok) {
-            console.error(`[Imagini] Vertex error: ${data.error?.message}`);
-            throw new Error(`Eroare la generarea imaginii: ${data.error?.message || 'Eroare necunoscută.'}`);
-        }
-
-        let urls = [];
-        const finishReasons = [];
-
-        if (data.candidates) {
-            for (const candidate of data.candidates) {
-                finishReasons.push(candidate.finishReason || 'unknown');
-                if (candidate.content?.parts) {
-                    for (const part of candidate.content.parts) {
-                        if (part.inlineData?.data) {
-                            const mime = part.inlineData.mimeType || 'image/png';
-                            const ext = mime.split('/')[1] || 'png';
-                            const buffer = Buffer.from(part.inlineData.data, 'base64');
-                            const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-
-                            console.log(`[Imagini] Upload Supabase: ${fileName}`);
-                            const { error: supaErr } = await supabase.storage
-                                .from('media-history')
-                                .upload(fileName, buffer, { contentType: mime });
-
-                            if (supaErr) {
-                                console.error(`[Imagini] ❌ Supabase upload eșuat: ${supaErr.message}`);
-                            } else {
-                                const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                                urls.push(publicData.publicUrl);
-                                console.log(`[Imagini] ✅ Upload OK: ${publicData.publicUrl}`);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (urls.length === 0) {
-            console.error(`[Imagini] ❌ 0 imagini returnate. finishReasons: [${finishReasons.join(', ')}]`);
-            console.error(`[Imagini] Raw response (primii 500 chars): ${rawText.substring(0, 500)}`);
-            throw new Error("Imaginea nu a putut fi generată. Promptul poate conține elemente blocate de filtrul de siguranță — încearcă să îl modifici.");
-        }
-
-        await Log.create({ userEmail: user.email, type: 'image', count: urls.length, cost: urls.length * costPerImg });
-        user.credits -= (urls.length * costPerImg);
-        await user.save();
-        console.log(`[Imagini] ✅ ${urls.length}/${count} imagini gata în ${elapsed()} | -${urls.length * costPerImg} cr | ${user.email}`);
-
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
-
-    } catch (e) {
-        console.error(`[Imagini] ❌ Eroare la ${elapsed()}: ${e.message}`);
-        if (!res.headersSent) {
-            res.status(500).json({ error: e.message });
-        }
-    }
-});
-
-// =========================================================================
-// ==================== VIDEO ==============================================
-// =========================================================================
-
-const VIDEO_API_URL = 'https://genaipro.vn/api/v1';
-
-const toVideoRatio = (ratio) => {
-    const portrait = ['9:16', '4:5', '3:4', '2:3'];
-    return portrait.includes(ratio) ? 'VIDEO_ASPECT_RATIO_PORTRAIT' : 'VIDEO_ASPECT_RATIO_LANDSCAPE';
-};
-
-const mapVideoError = (msg) => {
-    if (!msg) return 'Eroare necunoscută la generarea video.';
-    if (msg.includes('UNSAFE_GENERATION') || msg.includes('unsafe') || msg.includes('PUBLIC_ERROR_DANGER_FILTER'))
-        return 'Conținutul solicitat nu poate fi generat — promptul conține elemente considerate nesigure. Modifică promptul și încearcă din nou.';
-    if (msg.includes('AUDIO_FILTERED'))
-        return 'Audio-ul generat a fost filtrat. Încearcă să reformulezi textul vorbit.';
-    if (msg.includes('TIMED_OUT') || msg.includes('TIMEOUT') || msg.includes('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'))
-        return 'Generarea a durat prea mult. Se reîncearcă automat...';
-    if (msg.includes('quota') || msg.includes('QUOTA'))
-        return 'Limita de generări a fost atinsă temporar. Reîncearcă în 1-2 minute.';
-    if (msg.includes('Create video error') || msg.includes('Create video failed'))
-        return 'Serverele AI au întâmpinat o eroare internă. Se reîncearcă automat...';
-    return msg.replace(/genaipro/gi, 'serverul AI').replace(/GenAIPro/g, 'serverul AI');
-};
-
-const isContentBlockedError = (msg) => {
-    if (!msg) return false;
-    return (
-        msg.includes('PUBLIC_ERROR_DANGER_FILTER') ||
-        msg.includes('UNSAFE_GENERATION') ||
-        msg.includes('AUDIO_FILTERED')
-    );
-};
-
-// Parsează SSE de la genaipro cu timeout de 90s.
-// Dacă stream-ul rămâne deschis fără rezultat → timeout → retry.
-const parseVideoSSE = (apiRes, emailTag) => {
-    return new Promise((resolve, reject) => {
-        const reader = apiRes.body.getReader();
-        const dec = new TextDecoder();
-        let buf = '';
-        let currentEvent = '';
-        let lastLoggedStatus = '';
-        let settled = false;
-
-        // Timeout 90 secunde — dacă genaipro îngheață stream-ul
-        const timeoutId = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            console.warn(`[Video] ⏰ Timeout 90s fără răspuns final | ${emailTag}`);
-            try { reader.cancel(); } catch (_) {}
-            reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
-        }, 90000);
-
-        const done = (urls) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timeoutId);
-            resolve(urls);
-        };
-
-        const fail = (err) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timeoutId);
-            try { reader.cancel(); } catch (_) {}
-            reject(err);
-        };
-
-        const pump = async () => {
-            try {
-                while (true) {
-                    const { done: streamDone, value } = await reader.read();
-                    if (streamDone) break;
-
-                    buf += dec.decode(value, { stream: true });
-                    const lines = buf.split('\n');
-                    buf = lines.pop();
-
-                    for (const line of lines) {
-                        const trimmed = line.trim();
-                        if (!trimmed) { currentEvent = ''; continue; }
-
-                        if (trimmed.startsWith('event:')) {
-                            currentEvent = trimmed.slice(6).trim();
-                            continue;
-                        }
-
-                        if (!trimmed.startsWith('data:')) continue;
-                        const raw = trimmed.slice(5).trim();
-
-                        // Log orice event ne-status pentru debugging
-                        if (currentEvent && currentEvent !== 'video_generation_status') {
-                            console.log(`[Video] RAW event="${currentEvent}" data="${raw.substring(0, 300)}" | ${emailTag}`);
-                        }
-
-                        if (currentEvent === 'video_generation_status') {
-                            if (raw !== lastLoggedStatus) {
-                                console.log(`[Video] Status → ${raw} | ${emailTag}`);
-                                lastLoggedStatus = raw;
-                            }
-                            continue;
-                        }
-
-                        if (currentEvent === 'error') {
-                            let rawMsg = raw;
-                            try {
-                                const errObj = JSON.parse(raw);
-                                rawMsg = errObj.error || errObj.message || raw;
-                            } catch (_) {}
-                            console.error(`[Video] ❌ Server error: ${rawMsg} | ${emailTag}`);
-                            return fail(new Error(rawMsg));
-                        }
-
-                        if (currentEvent === 'video_generation_complete') {
-                            console.log(`[Video] ✅ Complet! | ${emailTag}`);
-                            try {
-                                const parsed = JSON.parse(raw);
-                                const items = Array.isArray(parsed) ? parsed : [parsed];
-                                const urls = [];
-                                items.forEach(item => {
-                                    if (item.file_url)  urls.push(item.file_url);
-                                    if (item.video_url) urls.push(item.video_url);
-                                    if (item.url)       urls.push(item.url);
-                                    if (Array.isArray(item.file_urls)) urls.push(...item.file_urls);
-                                });
-                                if (urls.length > 0) return done(urls);
-                            } catch (_) {}
-                        }
-
-                        // Fallback: orice JSON cu URL-uri sau erori
-                        if (raw.startsWith('{') || raw.startsWith('[')) {
-                            try {
-                                const obj = JSON.parse(raw);
-                                const urls = [];
-                                if (obj.file_url)  urls.push(obj.file_url);
-                                if (obj.video_url) urls.push(obj.video_url);
-                                if (obj.url)       urls.push(obj.url);
-                                if (Array.isArray(obj.file_urls)) urls.push(...obj.file_urls);
-                                if (urls.length > 0) return done(urls);
-                                if (obj.error) return fail(new Error(obj.error));
-                            } catch (_) {}
-                        }
-                    }
-                }
-                // Stream s-a închis fără rezultat final
-                if (!settled) fail(new Error('Stream închis fără rezultat'));
-            } catch (e) {
-                if (!settled) fail(e);
-            }
-        };
-
-        pump();
     });
-};
+});
 
-app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async (req, res) => {
-    const startTime = Date.now();
-    const elapsed = () => `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
-
-    // Deschidem SSE imediat — browserul nu time-out-ează
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    const sendStatus = (status) => {
-        if (!res.writableEnded) res.write(`data: ${JSON.stringify({ status })}\n\n`);
+// ── STRIPE ROUTES ────────────────────────────
+app.post('/api/stripe/subscribe', authenticate, async (req, res) => {
+    const { plan } = req.body;
+    const interval = req.body.interval || 'monthly';
+    const priceMap = {
+        starter: interval === 'yearly' ? process.env.STRIPE_PRICE_STARTER_YEARLY : process.env.STRIPE_PRICE_STARTER,
+        creator: interval === 'yearly' ? process.env.STRIPE_PRICE_CREATOR_YEARLY : process.env.STRIPE_PRICE_CREATOR,
+        agency:  interval === 'yearly' ? process.env.STRIPE_PRICE_AGENCY_YEARLY  : process.env.STRIPE_PRICE_AGENCY,
     };
-    const sendDone = (urls) => {
-        if (!res.writableEnded) {
-            res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
-            res.write('data: [DONE]\n\n');
-            res.end();
-        }
-    };
-    const sendError = (msg) => {
-        if (!res.writableEnded) {
-            res.write(`data: ${JSON.stringify({ error: mapVideoError(msg) })}\n\n`);
-            res.write('data: [DONE]\n\n');
-            res.end();
-        }
-    };
+    const priceId = priceMap[plan];
+    if (!priceId) return res.status(400).json({ error: 'Plan invalid' });
+    console.log('📅 Subscribe: plan=' + plan + ' interval=' + interval + ' priceId=' + priceId);
 
+    const user = await User.findById(req.userId);
     try {
-        const { prompt, aspect_ratio, number_of_videos, model_id } = req.body;
-        let finalPrompt = prompt;
-        const count = parseInt(number_of_videos) || 1;
-        const costPerVid = MODEL_PRICES[model_id] || 3;
-        const totalCost = count * costPerVid;
-        const video_ratio = toVideoRatio(aspect_ratio);
-
-        const user = await User.findById(req.userId);
-        if (!user) return sendError('User negăsit.');
-        if (user.credits < totalCost) return sendError(`Fonduri insuficiente! Ai nevoie de ${totalCost} credite.`);
-
-        let startImageFile = null;
-        if (req.files && req.files.length > 0) {
-            startImageFile = req.files[0];
-            for (let i = 0; i < req.files.length; i++) {
-                const file = req.files[i];
-                const fileName = `refs/vid_${req.userId}_${Date.now()}_${i}.png`;
-                const { error } = await supabase.storage.from('media-history').upload(fileName, file.buffer, { contentType: file.mimetype });
-                if (!error) {
-                    const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                    const tag = `@img${i + 1}`;
-                    if (finalPrompt.includes(tag)) finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), publicData.publicUrl);
-                }
-            }
-        }
-
-        const buildFetchOptions = () => {
-            if (startImageFile) {
-                const formData = new FormData();
-                formData.append('prompt', finalPrompt);
-                formData.append('aspect_ratio', video_ratio);
-                formData.append('number_of_videos', String(count));
-                formData.append('start_image', new Blob([startImageFile.buffer], { type: startImageFile.mimetype }), startImageFile.originalname);
-                return {
-                    endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
-                    options: { method: 'POST', headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` }, body: formData }
-                };
-            }
-            return {
-                endpoint: `${VIDEO_API_URL}/veo/text-to-video`,
-                options: {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: finalPrompt, aspect_ratio: video_ratio, number_of_videos: count })
-                }
-            };
+        const sessionParams = {
+            mode: 'subscription',
+            line_items: [{ price: priceId, quantity: 1 }],
+            success_url: process.env.APP_URL + '/?subscribed=1',
+            cancel_url:  process.env.APP_URL + '/#pricing',
+            metadata: { userId: user._id.toString() },
+            subscription_data: { metadata: { userId: user._id.toString() } },
         };
+        if (user.stripeCustomerId) sessionParams.customer = user.stripeCustomerId;
+        else sessionParams.customer_email = user.email;
 
-        const MAX_VIDEO_RETRIES = 5;
-        // Delay progresiv între încercări: 3s, 5s, 8s, 12s
-        const RETRY_DELAYS = [3000, 5000, 8000, 12000];
-        let videoUrls = null;
-        let lastErrorMsg = null;
-        const emailTag = user.email;
-
-        for (let attempt = 1; attempt <= MAX_VIDEO_RETRIES; attempt++) {
-            const { endpoint, options } = buildFetchOptions();
-            const type = startImageFile ? 'frames-to-video' : 'text-to-video';
-            console.log(`[Video] Tentativa ${attempt}/${MAX_VIDEO_RETRIES} | ${type} | ratio=${video_ratio} count=${count} | ${emailTag}`);
-            sendStatus(`Se generează... (încercare ${attempt}/${MAX_VIDEO_RETRIES})`);
-
-            let apiRes;
-            try {
-                apiRes = await fetch(endpoint, options);
-            } catch (fetchErr) {
-                console.warn(`[Video] Fetch network error: ${fetchErr.message} | ${emailTag}`);
-                lastErrorMsg = fetchErr.message;
-                if (attempt < MAX_VIDEO_RETRIES) {
-                    const delay = RETRY_DELAYS[attempt - 1] || 10000;
-                    sendStatus(`Eroare de rețea, reîncerc în ${delay / 1000}s...`);
-                    await new Promise(r => setTimeout(r, delay));
-                    continue;
-                }
-                break;
-            }
-
-            if (!apiRes.ok) {
-                const errorDetails = await apiRes.text().catch(() => '');
-                console.error(`[Video] HTTP ${apiRes.status}: ${errorDetails.substring(0, 300)} | ${emailTag}`);
-                lastErrorMsg = `HTTP ${apiRes.status}`;
-                if ((apiRes.status === 429 || apiRes.status === 503) && attempt < MAX_VIDEO_RETRIES) {
-                    const delay = RETRY_DELAYS[attempt - 1] || 10000;
-                    sendStatus('Server suprasolicitat, reîncerc...');
-                    await new Promise(r => setTimeout(r, delay));
-                    continue;
-                }
-                break;
-            }
-
-            try {
-                videoUrls = await parseVideoSSE(apiRes, emailTag);
-                console.log(`[Video] ✅ Done în ${elapsed()} | ${emailTag}`);
-                break;
-
-            } catch (sseErr) {
-                lastErrorMsg = sseErr.message || 'Eroare SSE';
-                console.log(`[Video] Tentativa ${attempt} eșuată | ${lastErrorMsg} | ${emailTag}`);
-
-                if (isContentBlockedError(lastErrorMsg)) {
-                    console.log(`[Video] ❌ Conținut blocat — nu reîncercăm. | ${emailTag}`);
-                    break;
-                }
-
-                if (attempt < MAX_VIDEO_RETRIES) {
-                    const delay = RETRY_DELAYS[attempt - 1] || 10000;
-                    console.log(`[Video] Reîncerc în ${delay}ms... (${attempt + 1}/${MAX_VIDEO_RETRIES}) | ${emailTag}`);
-                    sendStatus(`Reîncerc... (${attempt + 1}/${MAX_VIDEO_RETRIES})`);
-                    await new Promise(r => setTimeout(r, delay));
-                }
-            }
-        }
-
-        if (videoUrls && videoUrls.length > 0) {
-            await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
-            user.credits -= totalCost;
-            await user.save();
-            console.log(`[Video] Credite scăzute: -${totalCost} | ${emailTag}`);
-            sendDone(videoUrls);
-        } else {
-            console.log(`[Video] Creditele NU se scad (niciun video generat). | ${emailTag}`);
-            sendError(lastErrorMsg || 'Generarea video a eșuat după toate încercările. Te rugăm să reîncerci.');
-        }
-
-    } catch (e) {
-        console.error(`[Video] ❌ Eroare neașteptată la ${elapsed()}: ${e.message}`);
-        sendError(e.message);
-    }
-});
-
-// =========================================================================
-// ==================== ALTE RUTE ==========================================
-// =========================================================================
-app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
-    try {
-        const totalUsers = await User.countDocuments();
-        const logs = await Log.find().sort({ createdAt: -1 }).limit(100);
-        const totalImages = await Log.aggregate([{ $match: { type: 'image' } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
-        const totalVideos = await Log.aggregate([{ $match: { type: 'video' } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
-        res.json({ totalUsers, totalImages: totalImages[0]?.total || 0, totalVideos: totalVideos[0]?.total || 0, recentLogs: logs });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/admin/api-quota', authenticateAdmin, async (req, res) => {
-    res.json({ balance: 0, veoTotal: 0, veoUsed: 0, veoAvail: 0 });
-});
-
-app.get('/api/media/history', authenticate, async (req, res) => {
-    try {
-        const type = req.query.type || 'image';
-        const history = await History.find({ userId: req.userId, type }).sort({ createdAt: -1 }).limit(50);
-        res.json({ history });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/media/save-history', authenticate, async (req, res) => {
-    const { urls, type, prompt } = req.body;
-    if (!urls || !urls.length) return res.status(400).json({ error: 'Fără URL-uri.' });
-    try {
-        for (const url of urls) await History.create({ userId: req.userId, type, originalUrl: url, supabaseUrl: url, prompt });
-        res.status(200).json({ message: 'Istoric salvat cu succes' });
+        const session = await stripe.checkout.sessions.create(sessionParams);
+        res.json({ url: session.url });
     } catch (err) {
-        console.error('Eroare istoric MongoDB:', err.message);
-        res.status(500).json({ error: 'Eroare server' });
+        console.error(err);
+        res.status(500).json({ error: 'Eroare Stripe' });
     }
 });
 
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.post('/api/stripe/topup', authenticate, async (req, res) => {
+    const { package: pkg } = req.body;
+    const topupMap = {
+        micro:    { priceId: process.env.STRIPE_PRICE_TOPUP_50,  credits: 50  },
+        standard: { priceId: process.env.STRIPE_PRICE_TOPUP_150, credits: 150 },
+        pro:      { priceId: process.env.STRIPE_PRICE_TOPUP_400, credits: 400 },
+    };
+    const topup = topupMap[pkg];
+    if (!topup) return res.status(400).json({ error: 'Pachet invalid' });
 
-app.listen(PORT, () => console.log(`🚀 Media Studio rulează pe portul ${PORT}`));
+    const user = await User.findById(req.userId);
+    const isSubscriber = user.subscriptionStatus === 'active';
+    try {
+        const sessionParams = {
+            mode: 'payment',
+            line_items: [{ price: topup.priceId, quantity: 1 }],
+            success_url: process.env.APP_URL + '/?topup=1',
+            cancel_url:  process.env.APP_URL + '/',
+            metadata: { topup_price_id: topup.priceId, userId: user._id.toString() },
+            payment_intent_data: { metadata: { topup_price_id: topup.priceId } },
+        };
+        if (user.stripeCustomerId) sessionParams.customer = user.stripeCustomerId;
+        else sessionParams.customer_email = user.email;
+        if (isSubscriber) sessionParams.discounts = [{ coupon: process.env.STRIPE_COUPON_SUBSCRIBER_10 }];
+
+        const session = await stripe.checkout.sessions.create(sessionParams);
+        res.json({ url: session.url, discount: isSubscriber });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Eroare Stripe' });
+    }
+});
+
+app.use((req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+app.listen(PORT, () => console.log('🚀 HUB rulează pe portul ' + PORT));
