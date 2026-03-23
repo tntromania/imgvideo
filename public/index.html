@@ -61,24 +61,21 @@
         .field-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 10px; display: block; }
         .dropzone { border: 2px dashed #cbd5e1; border-radius: 16px; background: #f8fafc; transition: all 0.2s; cursor: pointer; }
         .dropzone:hover { border-color: #6366f1; background: #eef2ff; }
-        .dropzone.has-file { border-color: #6366f1; background: #eef2ff; border-style: solid; }
         .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
         @keyframes premiumShine { 0% { transform: translateX(-150%) skewX(-20deg); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(250%) skewX(-20deg); opacity: 0; } }
         .animate-shine-fast { animation: premiumShine 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* Job card */
         .job-card { background: white; border: 1.5px solid #e2e8f0; border-radius: 20px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.04); animation: slideUp 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
         .job-card.processing { border-color: #c7d2fe; }
         .job-card.done { border-color: #a7f3d0; }
         .job-card.error { border-color: #fecaca; }
+
         #autocomplete-menu { display: none; position: absolute; bottom: calc(100% + 5px); left: 10px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 50; max-height: 200px; overflow-y: auto; width: max-content; min-width: 150px; }
         #autocomplete-menu.show { display: block; }
         .autocomplete-item { padding: 8px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid #f1f5f9; }
         .autocomplete-item:last-child { border-bottom: none; }
         .autocomplete-item:hover { background: #f8fafc; }
-        /* Frame preview */
-        .frame-preview { position: relative; width: 100%; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 2px solid #6366f1; }
-        .frame-preview img { width: 100%; height: 100%; object-fit: cover; }
-        .frame-preview .remove-btn { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: rgba(239,68,68,0.9); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; cursor: pointer; opacity: 0; transition: opacity 0.2s; }
-        .frame-preview:hover .remove-btn { opacity: 1; }
     </style>
 </head>
 <body class="h-[100dvh] flex flex-col relative overflow-hidden selection:bg-viralio-500 selection:text-white">
@@ -162,8 +159,8 @@
                             <option value="gemini-pro" data-type="image" data-cost="2">Nano Banana 4k (Pro) 💎 — 2 Credite</option>
                         </optgroup>
                         <optgroup label="Video (Veo)" id="og-vid" style="display:none">
-                            <option value="veo3.1fast" data-type="video" data-cost="2">Veo 3.1 Fast ⚡ — 2 Credite</option>
-                            <option value="veo3.1" data-type="video" data-cost="3">Veo 3.1 Premium 🏆 — 3 Credite</option>
+                            <option value="veo3.1fast" data-type="video" data-cost="3">Veo 3.1 Fast ⚡ — 2 Credite</option>
+                            <option value="veo3.1" data-type="video" data-cost="5">Veo 3.1 Premium 🏆 — 3 Credite</option>
                         </optgroup>
                     </select>
                 </div>
@@ -179,7 +176,6 @@
                     <div id="autocomplete-menu"></div>
                 </div>
             </div>
-
             <!-- IMAGE OPTIONS -->
             <div id="img-options">
                 <div class="panel-s pt-0">
@@ -206,17 +202,18 @@
                     </div>
                 </div>
             </div>
-
             <!-- VIDEO OPTIONS -->
             <div id="vid-options" class="hidden">
                 <div class="panel-s pt-0">
                     <label class="field-label">Format Video</label>
                     <div class="bg-slate-100 rounded-2xl p-1.5 grid grid-cols-2 gap-1.5">
-                        <label class="ratio-pill"><input type="radio" name="vratio" value="9:16" checked><span><div class="w-[10px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div>9:16</span></label>
-                        <label class="ratio-pill"><input type="radio" name="vratio" value="16:9"><span><div class="w-[18px] h-[10px] border-[2px] border-current rounded-[3px] opacity-75"></div>16:9</span></label>
+                        <label class="ratio-pill"><input type="radio" name="vratio" value="9:16" checked><span>
+						<div class="w-[10px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div>9:16</span></label>
+                        <label class="ratio-pill"><input type="radio" name="vratio" value="16:9"><span>
+						<div class="w-[18px] h-[10px] border-[2px] border-current rounded-[3px] opacity-75"></div>16:9</span></label>
                     </div>
                 </div>
-                <div class="panel-s pt-0">
+                <div class="panel-s pt-0 border-none">
                     <label class="field-label">Număr Videoclipuri (1–4)</label>
                     <div class="flex items-center gap-4 bg-slate-100 rounded-2xl p-1.5 w-fit">
                         <button class="count-btn" onclick="updateVCount(-1)">−</button>
@@ -224,53 +221,9 @@
                         <button class="count-btn" onclick="updateVCount(1)">+</button>
                     </div>
                 </div>
-
-                <!-- ── START & END FRAME ── -->
-                <div class="panel-s pt-0 border-none">
-                    <label class="field-label mb-3">Cadre Video <span class="normal-case text-slate-400 font-medium">(opțional)</span></label>
-                    <p class="text-[0.7rem] text-slate-400 font-medium mb-3 leading-relaxed">Adaugă un cadru de start și/sau end pentru a controla animația. Fără imagini = generare din text.</p>
-                    <input type="file" id="start-frame-input" class="hidden" accept="image/*" onchange="handleFrameSelect('start', event)">
-                    <input type="file" id="end-frame-input" class="hidden" accept="image/*" onchange="handleFrameSelect('end', event)">
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <!-- Start Frame -->
-                        <div>
-                            <span class="text-[0.65rem] font-black text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-1">
-                                <i class="fa-solid fa-play text-emerald-500 text-[0.55rem]"></i> Start Frame
-                            </span>
-                            <div id="start-frame-preview" class="hidden frame-preview">
-                                <img id="start-frame-img" src="" alt="start">
-                                <div class="remove-btn" onclick="removeFrame('start')"><i class="fa-solid fa-xmark"></i></div>
-                            </div>
-                            <div id="start-frame-zone" class="dropzone flex flex-col items-center justify-center text-center p-3 min-h-[80px]" onclick="document.getElementById('start-frame-input').click()">
-                                <div class="flex flex-col items-center gap-1 pointer-events-none">
-                                    <i class="fa-solid fa-cloud-arrow-up text-slate-400 text-lg"></i>
-                                    <span class="text-[0.65rem] font-bold text-slate-500">Încarcă</span>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- End Frame -->
-                        <div>
-                            <span class="text-[0.65rem] font-black text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-1">
-                                <i class="fa-solid fa-stop text-red-400 text-[0.55rem]"></i> End Frame
-                            </span>
-                            <div id="end-frame-preview" class="hidden frame-preview">
-                                <img id="end-frame-img" src="" alt="end">
-                                <div class="remove-btn" onclick="removeFrame('end')"><i class="fa-solid fa-xmark"></i></div>
-                            </div>
-                            <div id="end-frame-zone" class="dropzone flex flex-col items-center justify-center text-center p-3 min-h-[80px]" onclick="document.getElementById('end-frame-input').click()">
-                                <div class="flex flex-col items-center gap-1 pointer-events-none">
-                                    <i class="fa-solid fa-cloud-arrow-up text-slate-400 text-lg"></i>
-                                    <span class="text-[0.65rem] font-bold text-slate-500">Încarcă</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
-
-            <!-- REFS (imagini) — doar pentru modul imagine -->
-            <div id="refs-section" class="panel-s pt-0 border-none mt-2">
+            <!-- REFS -->
+            <div class="panel-s pt-0 border-none mt-2">
                 <label class="field-label flex justify-between items-center mb-3">
                     <span>Referințe <span class="normal-case text-slate-400 font-medium">(opțional)</span></span>
                     <span class="text-[0.65rem] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg cursor-pointer hover:bg-indigo-100 font-bold border border-indigo-100" onclick="document.getElementById('ref-file').click()">+ Adaugă</span>
@@ -299,11 +252,15 @@
     <!-- CONTENT -->
     <section class="flex-1 bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-y-auto no-scrollbar relative flex flex-col">
         <div class="flex-1 flex flex-col p-6 md:p-10 max-w-5xl mx-auto w-full">
+
+            <!-- EMPTY STATE -->
             <div id="st-empty" class="w-full flex items-center justify-center animate-slide-up px-2 py-8 md:py-16 min-h-[40vh]">
                 <div class="flex flex-col md:flex-row items-center justify-center gap-6 max-w-2xl bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_15px_50px_-12px_rgba(0,0,0,0.08)] border border-slate-100 relative overflow-hidden">
                     <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl"></div>
                     <div class="flex items-center gap-4 md:border-r border-slate-100 md:pr-8 relative z-10">
-                        <div class="w-12 h-20 bg-indigo-50/80 rounded-full flex flex-col items-center justify-center border border-indigo-100/50 shrink-0 text-indigo-500 shadow-sm"><i class="fa-solid fa-layer-group text-xl"></i></div>
+                        <div class="w-12 h-20 bg-indigo-50/80 rounded-full flex flex-col items-center justify-center border border-indigo-100/50 shrink-0 text-indigo-500 shadow-sm">
+                            <i class="fa-solid fa-layer-group text-xl"></i>
+                        </div>
                         <h2 class="text-[2rem] md:text-[2.5rem] font-black text-slate-800 tracking-tight leading-[1.05]"><span class="block">Studio</span><span class="block">Creativ</span></h2>
                     </div>
                     <p class="text-slate-500 font-medium text-[0.85rem] leading-relaxed text-center md:text-left relative z-10 max-w-[300px]">
@@ -312,7 +269,11 @@
                     </p>
                 </div>
             </div>
+
+            <!-- JOBS AREA -->
             <div id="jobs-area" class="w-full"></div>
+
+            <!-- HISTORY -->
             <div class="w-full mt-auto border-t border-slate-100 pt-8 pb-4">
                 <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Istoric Generări</h3>
                 <div id="history-grid" class="flex flex-col gap-4"></div>
@@ -352,9 +313,7 @@ let mode = 'image';
 let imgCount = 1;
 let vidCount = 1;
 let uploadedRefs = [];
-let startFrameFile = null;   // File pentru start_image
-let endFrameFile   = null;   // File pentru end_image
-let activeJobs = new Map();
+let activeJobs = new Map(); // jobId -> { aborted, reader }
 let jobCounter = 0;
 let lbMediaList = [], lbCurrentIndex = 0, lbCurrentType = 'image';
 
@@ -420,8 +379,6 @@ function switchMode(m){
     document.getElementById('model-sel').value = isVid?'veo3.1fast':'gemini-flash';
     document.getElementById('img-options').classList.toggle('hidden',isVid);
     document.getElementById('vid-options').classList.toggle('hidden',!isVid);
-    // Referințele (cu @img tags) sunt utile doar la imagini
-    document.getElementById('refs-section').classList.toggle('hidden', isVid);
     refreshBadges();
     if(getToken()) loadHistory();
 }
@@ -433,40 +390,7 @@ function aspectClass(r){
     return 'aspect-square';
 }
 
-// ===================== START / END FRAME =====================
-function handleFrameSelect(type, e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    if (type === 'start') {
-        startFrameFile = file;
-        document.getElementById('start-frame-img').src = url;
-        document.getElementById('start-frame-preview').classList.remove('hidden');
-        document.getElementById('start-frame-zone').classList.add('hidden');
-    } else {
-        endFrameFile = file;
-        document.getElementById('end-frame-img').src = url;
-        document.getElementById('end-frame-preview').classList.remove('hidden');
-        document.getElementById('end-frame-zone').classList.add('hidden');
-    }
-    e.target.value = '';
-}
-
-function removeFrame(type) {
-    if (type === 'start') {
-        startFrameFile = null;
-        document.getElementById('start-frame-img').src = '';
-        document.getElementById('start-frame-preview').classList.add('hidden');
-        document.getElementById('start-frame-zone').classList.remove('hidden');
-    } else {
-        endFrameFile = null;
-        document.getElementById('end-frame-img').src = '';
-        document.getElementById('end-frame-preview').classList.add('hidden');
-        document.getElementById('end-frame-zone').classList.remove('hidden');
-    }
-}
-
-// ===================== REFS (imagini) =====================
+// ===================== REFS =====================
 function handleFileSelect(e){
     Array.from(e.target.files).forEach(f=>{ if(uploadedRefs.length<4) uploadedRefs.push(f); });
     renderRefGallery(); e.target.value='';
@@ -487,6 +411,7 @@ function renderRefGallery(){
     }).join('');
 }
 
+// Autocomplete @
 function handlePromptInput(){
     updateCharCount();
     const menu=document.getElementById('autocomplete-menu');
@@ -572,50 +497,66 @@ function createJobCard(jobId, promptText, currentMode){
                 <button onclick="cancelJob(${jobId})" class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center text-xs transition-all"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
-        <div id="job-body-${jobId}" class="px-5 py-4 flex items-center gap-4">
-            <div class="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                <i class="fa-solid fa-wand-magic-sparkles text-sm text-viralio-500 animate-bounce"></i>
-            </div>
-            <p id="job-status-${jobId}" class="text-sm text-slate-500 font-medium flex-1">Se pregătește...</p>
-            <button onclick="cancelJob(${jobId})" class="text-xs text-slate-400 hover:text-red-500 transition-colors shrink-0">Anulează</button>
-        </div>`;
+<div id="job-body-${jobId}" class="px-5 py-4 flex items-center gap-4">
+        <div class="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-wand-magic-sparkles text-sm text-viralio-500 animate-bounce"></i>
+        </div>
+        <p id="job-status-${jobId}" class="text-sm text-slate-500 font-medium flex-1">Se pregătește...</p>
+        <button onclick="cancelJob(${jobId})" class="text-xs text-slate-400 hover:text-red-500 transition-colors shrink-0">Anulează</button>
+    </div>
+    `;
     return el;
 }
 
-function setJobStatus(jobId, text){ const el=document.getElementById(`job-status-${jobId}`); if(el) el.textContent=text; }
+function setJobStatus(jobId, text){
+    const el=document.getElementById(`job-status-${jobId}`); if(el) el.textContent=text;
+}
 
 function setJobDone(jobId, urls, ratioVal, currentMode){
     const body=document.getElementById(`job-body-${jobId}`); const card=document.getElementById(`job-${jobId}`);
     if(!body||!card) return;
     card.className='job-card done';
     const dot=card.querySelector('.w-2.h-2'); if(dot){ dot.classList.remove('bg-indigo-400','animate-pulse'); dot.classList.add('bg-emerald-500'); }
+
     const isPortrait=(ratioVal==='9:16'||ratioVal==='2:3'||ratioVal==='3:4');
     const isLandscape=(ratioVal==='16:9'||ratioVal==='21:9'||ratioVal==='3:2'||ratioVal==='4:3');
     const maxW=urls.length===1?(isPortrait?'300px':isLandscape?'600px':'400px'):'100%';
+
     body.innerHTML='';
-    const wrapper=document.createElement('div'); wrapper.className='p-4 w-full';
+    const wrapper=document.createElement('div');
+    wrapper.className='p-4 w-full';
+
     const grid=document.createElement('div');
     if(urls.length===1){ grid.style.maxWidth=maxW; grid.style.margin='0 auto'; }
     else { grid.className='grid grid-cols-2 gap-4'; }
+
     urls.forEach((url)=>{
-        const cardEl=document.createElement('div'); cardEl.className='result-card';
+        const cardEl=document.createElement('div');
+        cardEl.className='result-card';
         if(currentMode==='image'){
             cardEl.innerHTML=`
                 <div class="${aspectClass(ratioVal)} w-full relative group">
                     <img src="${url}" class="absolute inset-0 w-full h-full object-cover">
-                    <div class="card-overlay"><button onclick="openLightbox(['${url}'],0,'image')" class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-expand mr-1"></i>Mărește</button></div>
+                    <div class="card-overlay">
+                        <button onclick="openLightbox(['${url}'],0,'image')" class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-expand mr-1"></i>Mărește</button>
+                    </div>
                 </div>
-                <div class="p-3 bg-white border-t border-slate-100"><button onclick="downloadMedia('${url}','viralio_img_${Date.now()}.png')" class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button></div>`;
+                <div class="p-3 bg-white border-t border-slate-100">
+                    <button onclick="downloadMedia('${url}','viralio_img_${Date.now()}.png')" class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
+                </div>`;
         } else {
             cardEl.innerHTML=`
                 <div class="${aspectClass(ratioVal)} w-full relative bg-black overflow-hidden rounded-t-[20px]">
                     <video src="${url}" controls playsinline preload="metadata" class="absolute inset-0 w-full h-full object-contain"></video>
                 </div>
-                <div class="p-3 bg-white border-t border-slate-100"><button onclick="downloadMedia('${url}','viralio_vid_${Date.now()}.mp4')" class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button></div>`;
+                <div class="p-3 bg-white border-t border-slate-100">
+                    <button onclick="downloadMedia('${url}','viralio_vid_${Date.now()}.mp4')" class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
+                </div>`;
         }
         grid.appendChild(cardEl);
     });
-    wrapper.appendChild(grid); body.appendChild(wrapper);
+    wrapper.appendChild(grid);
+    body.appendChild(wrapper);
 }
 
 function setJobError(jobId, msg){
@@ -631,7 +572,7 @@ function setJobError(jobId, msg){
         </div>`;
 }
 
-// ===================== SSE READER =====================
+// ===================== SSE READER PER JOB =====================
 async function readSSEJob(jobId, response){
     const reader=response.body.getReader();
     const job=activeJobs.get(jobId); if(job) job.reader=reader;
@@ -652,7 +593,8 @@ async function readSSEJob(jobId, response){
                             const p=JSON.parse(raw);
                             if(p.error){ lastError=p.error; continue; }
                             if(p.status&&Object.keys(p).length===1){ setJobStatus(jobId,p.status); continue; }
-                            Object.assign(finalData,p);
+                            if(p.file_urls||p.file_url||p.video_url||p.url) Object.assign(finalData,p);
+                            else Object.assign(finalData,p);
                         } catch(e){}
                     }
                 }
@@ -674,7 +616,7 @@ function extractUrls(data){
 }
 
 // ===================== RUN JOB =====================
-async function runJob(jobId, promptText, currentMode, ratio, refs, token, startFrame, endFrame){
+async function runJob(jobId, promptText, currentMode, ratio, refs, token){
     const job=activeJobs.get(jobId); if(!job) return;
     try {
         const fd=new FormData();
@@ -690,23 +632,14 @@ async function runJob(jobId, promptText, currentMode, ratio, refs, token, startF
             if(!activeJobs.get(jobId)?.aborted){ setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText,currentMode); }
         } else {
             const model_id=document.getElementById('model-sel').value;
-            // Descriere în status
-            let statusMsg = 'Se trimite la AI...';
-            if (startFrame && endFrame) statusMsg = 'Se trimite cu start + end frame...';
-            else if (startFrame) statusMsg = 'Se trimite cu start frame...';
-            setJobStatus(jobId, statusMsg);
-
+            setJobStatus(jobId,'Se trimite la AI...');
             fd.append('prompt',promptText); fd.append('aspect_ratio',ratio); fd.append('number_of_videos',vidCount); fd.append('model_id',model_id);
-            // Trimitem start/end frame pe câmpuri separate
-            if (startFrame) fd.append('start_image', startFrame, startFrame.name);
-            if (endFrame)   fd.append('end_image',   endFrame,   endFrame.name);
-            // Refs dacă există (pentru @img tags în prompt)
             refs.forEach(f=>fd.append('ref_images',f,f.name));
             const resp=await fetch('/api/media/video',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
             if(!resp.ok){ const j=await resp.json().catch(()=>{}); throw new Error(j?.error||'Eroare server'); }
             const data=await readSSEJob(jobId,resp);
             const urls=extractUrls(data); if(!urls?.length) throw new Error('Nu s-a generat video.');
-            if(!activeJobs.get(jobId)?.aborted){ setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText,currentMode); }
+            if(!activeJobs.get(jobId)?.aborted){ setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText); }
         }
         setTimeout(loadHistory,2000);
     } catch(err){
@@ -727,21 +660,25 @@ async function generate(){
     const promptText=document.getElementById('prompt-in').value.trim();
     if(!promptText){ toast('Introdu un prompt descriptiv!'); return; }
 
+    // ✅ ADAUGĂ ASTA — limitare parallelism imagini
     if(mode === 'image'){
         const imageJobsRunning = [...activeJobs.values()].filter(j => !j.aborted).length;
-        if(imageJobsRunning >= 2){ toast('⏳ Așteaptă să se termine generările curente!'); return; }
+        if(imageJobsRunning >= 2){
+            toast('⏳ Așteaptă să se termine generările curente!');
+            return;
+        }
     }
 
     const currentMode=mode;
     const ratio=currentMode==='image'?(document.querySelector('input[name="ratio"]:checked')?.value||'9:16'):(document.querySelector('input[name="vratio"]:checked')?.value||'16:9');
     const refs=[...uploadedRefs];
-    const startFrame = currentMode==='video' ? startFrameFile : null;
-    const endFrame   = currentMode==='video' ? endFrameFile   : null;
     const jobId=++jobCounter;
 
     activeJobs.set(jobId,{aborted:false,reader:null});
+
     const card=createJobCard(jobId,promptText,currentMode);
-    document.getElementById('jobs-area').prepend(card);
+    const jobsArea=document.getElementById('jobs-area');
+    jobsArea.prepend(card);
     checkEmptyState();
 
     if(window.innerWidth<768){
@@ -749,7 +686,8 @@ async function generate(){
         if(sidebar&&!sidebar.classList.contains('translate-y-full')) toggleMobileSettings();
     }
 
-    runJob(jobId,promptText,currentMode,ratio,refs,token,startFrame,endFrame);
+    // Rulăm async — nu blocăm UI
+    runJob(jobId,promptText,currentMode,ratio,refs,token);
 }
 
 // ===================== HISTORY =====================
@@ -765,12 +703,14 @@ async function loadHistory(){
         const data=await res.json();
         const grid=document.getElementById('history-grid');
         if(!data.history?.length){ grid.innerHTML='<p class="text-sm text-slate-400 text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">Nu ai nicio generare recentă.</p>'; return; }
+
         let grouped=[];
         data.history.forEach(item=>{
             const last=grouped[grouped.length-1]; const ps=item.prompt||'Fără prompt';
             if(last&&last.prompt===ps&&last.type===item.type) last.urls.push(item.supabaseUrl||item.originalUrl);
             else grouped.push({prompt:ps,type:item.type,urls:[item.supabaseUrl||item.originalUrl]});
         });
+
         window.currentHistoryMedia=grouped.flatMap(g=>g.urls.map(u=>({url:u,type:g.type})));
         let counter=0;
         grid.innerHTML=grouped.map((group,i)=>{
