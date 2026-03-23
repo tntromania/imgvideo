@@ -6,7 +6,40 @@ const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
-const FormData = require('form-data'); // ✅ FIX: form-data nativ Node.js, nu WebAPI Blob
+
+// ✅ Construiește multipart/form-data manual cu Buffer nativ Node.js (fără dependențe externe)
+function buildMultipartBody(fields, files) {
+    const boundary = '----ViralioBoundary' + Math.random().toString(36).substring(2);
+    const parts = [];
+
+    for (const [name, value] of Object.entries(fields)) {
+        parts.push(
+            `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}`
+        );
+    }
+
+    for (const { fieldname, buffer, mimetype, filename } of files) {
+        const header = `--${boundary}\r\nContent-Disposition: form-data; name="${fieldname}"; filename="${filename}"\r\nContent-Type: ${mimetype}\r\n\r\n`;
+        parts.push({ header, buffer });
+    }
+
+    const buffers = [];
+    for (const part of parts) {
+        if (typeof part === 'string') {
+            buffers.push(Buffer.from(part + '\r\n', 'utf8'));
+        } else {
+            buffers.push(Buffer.from(part.header, 'utf8'));
+            buffers.push(part.buffer);
+            buffers.push(Buffer.from('\r\n', 'utf8'));
+        }
+    }
+    buffers.push(Buffer.from(`--${boundary}--\r\n`, 'utf8'));
+
+    return {
+        body: Buffer.concat(buffers),
+        contentType: `multipart/form-data; boundary=${boundary}`
+    };
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -443,27 +476,14 @@ const uploadImageToSupabase = async (file, userId, prefix = 'refs') => {
     return publicData.publicUrl;
 };
 
-// ✅ FIX MAJOR: Construiește FormData corect cu form-data (pachet npm), nu WebAPI Blob
+// ✅ Construiește multipart pentru frames-to-video fără dependențe externe
 const buildVideoFormData = (params) => {
     const { prompt, videoRatio, count, startImageFile, endImageFile } = params;
-    const form = new FormData();
-    form.append('prompt', prompt);
-    form.append('aspect_ratio', videoRatio);
-    form.append('number_of_videos', String(count));
-
-    if (startImageFile) {
-        form.append('start_image', startImageFile.buffer, {
-            filename: startImageFile.originalname || 'start.jpg',
-            contentType: startImageFile.mimetype
-        });
-    }
-    if (endImageFile) {
-        form.append('end_image', endImageFile.buffer, {
-            filename: endImageFile.originalname || 'end.jpg',
-            contentType: endImageFile.mimetype
-        });
-    }
-    return form;
+    const fields = { prompt, aspect_ratio: videoRatio, number_of_videos: String(count) };
+    const files = [];
+    if (startImageFile) files.push({ fieldname: 'start_image', buffer: startImageFile.buffer, mimetype: startImageFile.mimetype, filename: startImageFile.originalname || 'start.jpg' });
+    if (endImageFile)   files.push({ fieldname: 'end_image',   buffer: endImageFile.buffer,   mimetype: endImageFile.mimetype,   filename: endImageFile.originalname   || 'end.jpg' });
+    return buildMultipartBody(fields, files);
 };
 
 // ✅ Multer acceptă acum start_image + end_image + ref_images
@@ -534,16 +554,16 @@ app.post('/api/media/video',
             const buildRequest = () => {
                 if (hasFrames) {
                     // frames-to-video: start_image obligatoriu, end_image opțional
-                    const form = buildVideoFormData({ prompt: finalPrompt, videoRatio, count, startImageFile, endImageFile });
+                    const { body: formBody, contentType } = buildVideoFormData({ prompt: finalPrompt, videoRatio, count, startImageFile, endImageFile });
                     return {
                         endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
                         options: {
                             method: 'POST',
                             headers: {
                                 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
-                                ...form.getHeaders() // ✅ CRITIC: form-data setează boundary corect
+                                'Content-Type': contentType
                             },
-                            body: form
+                            body: formBody
                         }
                     };
                 }
