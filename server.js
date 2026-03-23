@@ -776,6 +776,21 @@ app.post('/api/media/save-history', authenticate, async (req, res) => {
 });
 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/api/media/proxy-download', authenticate, async (req, res) => {
+    const { url, filename } = req.query;
+    if (!url) return res.status(400).json({ error: 'URL lipsă' });
+    try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('Fetch failed');
+        const buffer = await r.arrayBuffer();
+        const contentType = r.headers.get('content-type') || 'application/octet-stream';
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename || 'viralio_media'}"`);
+        res.send(Buffer.from(buffer));
+    } catch(e) {
+        res.status(500).json({ error: 'Nu s-a putut descărca fișierul.' });
+    }
+});
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.listen(PORT, () => console.log(`🚀 Media Studio rulează pe portul ${PORT}`));
