@@ -288,13 +288,12 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
 const results = await Promise.allSettled(
     seeds.map((seed) =>
         fetchWithRetry(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(buildRequestBody(seed))
-                    })
-                )
-            )
-        );
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildRequestBody(seed))
+        })
+    )
+);
 
         if (clientAborted) {
             console.log(`[Imagini] ⚠️ Anulat de client după răspuns AI | ${user.email}`);
