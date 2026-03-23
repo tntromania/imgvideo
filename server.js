@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
-const sharp = require('sharp');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 // ✅ Construiește multipart/form-data manual cu Buffer nativ Node.js (fără dependențe externe)
 function buildMultipartBody(fields, files) {
@@ -56,6 +56,31 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// =========================================================================
+// ==================== R2 STORAGE =========================================
+// =========================================================================
+const r2 = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+});
+
+const uploadToR2 = async (buffer, fileName, contentType) => {
+    await r2.send(new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: fileName,
+        Body: buffer,
+        ContentType: contentType,
+    }));
+    return `${process.env.R2_PUBLIC_URL}/${fileName}`;
+};
+
+// =========================================================================
+// ==================== MONGODB ============================================
+// =========================================================================
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('✅ Media Studio conectat la MongoDB!'))
     .catch(err => console.error('❌ Eroare MongoDB:', err));
@@ -70,6 +95,7 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
+// Păstrăm Supabase DOAR pentru MongoDB/auth — NU pentru storage
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
@@ -90,6 +116,9 @@ const LogSchema = new mongoose.Schema({
 });
 const Log = mongoose.models.Log || mongoose.model('Log', LogSchema);
 
+// =========================================================================
+// ==================== AUTH ===============================================
+// =========================================================================
 const authenticate = (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: "Trebuie să fii logat!" });
@@ -133,6 +162,9 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
     res.json({ user });
 });
 
+// =========================================================================
+// ==================== HELPERS AI =========================================
+// =========================================================================
 const MODEL_PRICES = {
     'gemini-flash': 1, 'nano-banana-pro-1k': 1,
     'gemini-pro': 2,   'nano-banana-pro-2k': 2,
@@ -264,26 +296,18 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                 if (candidate.content?.parts) {
                     for (const part of candidate.content.parts) {
                         if (part.inlineData?.data) {
-const originalBuffer = Buffer.from(part.inlineData.data, 'base64');
-                            
-                            // Transformăm imaginea masivă într-un WebP mic și rapid
-                            const optimizedBuffer = await sharp(originalBuffer)
-                                .webp({ quality: 80 })
-                                .toBuffer();
+                            const mime = part.inlineData.mimeType || 'image/png';
+                            const ext = mime.split('/')[1] || 'png';
+                            const buffer = Buffer.from(part.inlineData.data, 'base64');
+                            const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
 
-                            const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.webp`;
-
-                            console.log(`[Imagini] Upload Supabase (Optimizat WebP): ${fileName}`);
-                            const { error: supaErr } = await supabase.storage
-                                .from('media-history')
-                                .upload(fileName, optimizedBuffer, { contentType: 'image/webp' });
-
-                            if (supaErr) {
-                                console.error(`[Imagini] ❌ Supabase upload eșuat: ${supaErr.message}`);
-                            } else {
-                                const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-                                urls.push(publicData.publicUrl);
-                                console.log(`[Imagini] ✅ Upload OK: ${publicData.publicUrl}`);
+                            try {
+                                console.log(`[Imagini] Upload R2: ${fileName}`);
+                                const publicUrl = await uploadToR2(buffer, fileName, mime);
+                                urls.push(publicUrl);
+                                console.log(`[Imagini] ✅ Upload OK: ${publicUrl}`);
+                            } catch (uploadErr) {
+                                console.error(`[Imagini] ❌ R2 upload eșuat: ${uploadErr.message}`);
                             }
                         }
                     }
@@ -352,7 +376,6 @@ const isContentBlockedError = (msg) => {
     );
 };
 
-// ✅ FIX MAJOR: Timeout redus la 50s (nu 90s) + SSE parser robust
 const parseVideoSSE = (apiRes, emailTag, onStatus) => {
     return new Promise((resolve, reject) => {
         const reader = apiRes.body.getReader();
@@ -362,7 +385,6 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
         let lastLoggedStatus = '';
         let settled = false;
 
-        // Timeout GLOBAL 360s — niciun video nu durează mai mult de 6 minute
         const globalTimeout = setTimeout(() => {
             if (settled) return;
             settled = true;
@@ -371,12 +393,10 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
             reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
         }, 360000);
 
-        // Timeout INACTIVITATE 120s — resetat la fiecare event primit
-        // Dacă stream-ul îngheață complet (nicio linie timp de 120s) → fail
         let activityTimeout = setTimeout(() => {
             if (settled) return;
             settled = true;
-            console.warn(`[Video] ⏰ Timeout inactivitate 120s (stream înghețat) | ${emailTag}`);
+            console.warn(`[Video] ⏰ Timeout inactivitate 120s | ${emailTag}`);
             clearTimeout(globalTimeout);
             try { reader.cancel(); } catch (_) {}
             reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
@@ -387,7 +407,7 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
             activityTimeout = setTimeout(() => {
                 if (settled) return;
                 settled = true;
-                console.warn(`[Video] ⏰ Timeout inactivitate 120s (stream înghețat) | ${emailTag}`);
+                console.warn(`[Video] ⏰ Timeout inactivitate 120s | ${emailTag}`);
                 clearTimeout(globalTimeout);
                 try { reader.cancel(); } catch (_) {}
                 reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
@@ -418,7 +438,7 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
                     if (streamDone) break;
 
                     buf += dec.decode(value, { stream: true });
-                    resetActivity(); // resetăm inactivitate la orice date primite
+                    resetActivity();
                     const lines = buf.split('\n');
                     buf = lines.pop();
 
@@ -497,25 +517,14 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
     });
 };
 
-// ✅ Upload imagine la Supabase (convertită în WebP) și returnează URL public
-const uploadImageToSupabase = async (file, userId, prefix = 'refs') => {
-    // Convertim fișierul primit de la client în WebP înainte de upload
-    const optimizedBuffer = await sharp(file.buffer)
-        .webp({ quality: 80 })
-        .toBuffer();
-
-    const fileName = `${prefix}/vid_${userId}_${Date.now()}_${Math.random().toString(36).substring(5)}.webp`;
-    
-    const { error } = await supabase.storage
-        .from('media-history')
-        .upload(fileName, optimizedBuffer, { contentType: 'image/webp' });
-        
-    if (error) throw new Error(`Supabase upload eșuat: ${error.message}`);
-    const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
-    return publicData.publicUrl;
+// ✅ Upload ref_images la R2 (pentru video)
+const uploadImageToR2 = async (file, userId, prefix = 'refs') => {
+    const ext = file.mimetype.split('/')[1] || 'jpg';
+    const fileName = `${prefix}/vid_${userId}_${Date.now()}_${Math.random().toString(36).substring(5)}.${ext}`;
+    return await uploadToR2(file.buffer, fileName, file.mimetype);
 };
 
-// ✅ Construiește multipart pentru frames-to-video fără dependențe externe
+// ✅ Construiește multipart pentru frames-to-video
 const buildVideoFormData = (params) => {
     const { prompt, videoRatio, count, startImageFile, endImageFile } = params;
     const fields = { prompt, aspect_ratio: videoRatio, number_of_videos: String(count) };
@@ -525,7 +534,6 @@ const buildVideoFormData = (params) => {
     return buildMultipartBody(fields, files);
 };
 
-// ✅ Multer acceptă acum start_image + end_image + ref_images
 app.post('/api/media/video',
     authenticate,
     upload.fields([
@@ -571,17 +579,16 @@ app.post('/api/media/video',
             if (!user) return sendError('User negăsit.');
             if (user.credits < totalCost) return sendError(`Fonduri insuficiente! Ai nevoie de ${totalCost} credite.`);
 
-            // ✅ Extrage fișierele din fields
             const startImageFile = req.files?.['start_image']?.[0] || null;
             const endImageFile   = req.files?.['end_image']?.[0]   || null;
             const refImages      = req.files?.['ref_images']        || [];
 
             const hasFrames = startImageFile || endImageFile;
 
-            // ✅ Upload ref_images la Supabase și înlocuiește tag-urile @img1, @img2...
+            // ✅ Upload ref_images la R2 și înlocuiește tag-urile @img1, @img2...
             if (refImages.length > 0) {
                 for (let i = 0; i < refImages.length; i++) {
-                    const url = await uploadImageToSupabase(refImages[i], req.userId, 'refs');
+                    const url = await uploadImageToR2(refImages[i], req.userId, 'refs');
                     const tag = `@img${i + 1}`;
                     if (finalPrompt.includes(tag)) {
                         finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), url);
@@ -589,10 +596,8 @@ app.post('/api/media/video',
                 }
             }
 
-            // ✅ Construiește request-ul corect pentru API
             const buildRequest = () => {
                 if (hasFrames) {
-                    // frames-to-video: start_image obligatoriu, end_image opțional
                     const { body: formBody, contentType } = buildVideoFormData({ prompt: finalPrompt, videoRatio, count, startImageFile, endImageFile });
                     return {
                         endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
@@ -606,7 +611,6 @@ app.post('/api/media/video',
                         }
                     };
                 }
-                // text-to-video: JSON simplu
                 return {
                     endpoint: `${VIDEO_API_URL}/veo/text-to-video`,
                     options: {
@@ -620,8 +624,6 @@ app.post('/api/media/video',
                 };
             };
 
-            // Max 2 retry-uri — videoclipurile durează 90-280s, nu are sens să reîncerci prea des
-            // Worst case: 2 × (180s timeout + 3s delay) = ~6 minute (acceptabil)
             const MAX_VIDEO_RETRIES = 2;
             const RETRY_DELAY_MS = 3000;
             let videoUrls = null;
