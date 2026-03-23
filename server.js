@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
+const sharp = require('sharp');
 
 // ✅ Construiește multipart/form-data manual cu Buffer nativ Node.js (fără dependențe externe)
 function buildMultipartBody(fields, files) {
@@ -263,15 +264,19 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                 if (candidate.content?.parts) {
                     for (const part of candidate.content.parts) {
                         if (part.inlineData?.data) {
-                            const mime = part.inlineData.mimeType || 'image/png';
-                            const ext = mime.split('/')[1] || 'png';
-                            const buffer = Buffer.from(part.inlineData.data, 'base64');
-                            const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+const originalBuffer = Buffer.from(part.inlineData.data, 'base64');
+                            
+                            // Transformăm imaginea masivă într-un WebP mic și rapid
+                            const optimizedBuffer = await sharp(originalBuffer)
+                                .webp({ quality: 80 })
+                                .toBuffer();
 
-                            console.log(`[Imagini] Upload Supabase: ${fileName}`);
+                            const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.webp`;
+
+                            console.log(`[Imagini] Upload Supabase (Optimizat WebP): ${fileName}`);
                             const { error: supaErr } = await supabase.storage
                                 .from('media-history')
-                                .upload(fileName, buffer, { contentType: mime });
+                                .upload(fileName, optimizedBuffer, { contentType: 'image/webp' });
 
                             if (supaErr) {
                                 console.error(`[Imagini] ❌ Supabase upload eșuat: ${supaErr.message}`);
@@ -492,12 +497,19 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
     });
 };
 
-// ✅ Upload imagine la Supabase și returnează URL public
+// ✅ Upload imagine la Supabase (convertită în WebP) și returnează URL public
 const uploadImageToSupabase = async (file, userId, prefix = 'refs') => {
-    const fileName = `${prefix}/vid_${userId}_${Date.now()}_${Math.random().toString(36).substring(5)}.png`;
+    // Convertim fișierul primit de la client în WebP înainte de upload
+    const optimizedBuffer = await sharp(file.buffer)
+        .webp({ quality: 80 })
+        .toBuffer();
+
+    const fileName = `${prefix}/vid_${userId}_${Date.now()}_${Math.random().toString(36).substring(5)}.webp`;
+    
     const { error } = await supabase.storage
         .from('media-history')
-        .upload(fileName, file.buffer, { contentType: file.mimetype });
+        .upload(fileName, optimizedBuffer, { contentType: 'image/webp' });
+        
     if (error) throw new Error(`Supabase upload eșuat: ${error.message}`);
     const { data: publicData } = supabase.storage.from('media-history').getPublicUrl(fileName);
     return publicData.publicUrl;

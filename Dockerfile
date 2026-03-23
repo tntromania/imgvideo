@@ -1,20 +1,17 @@
-# Folosim o versiune stabilă și rapidă de Node.js
-FROM node:18-alpine
+# Folosim Node 20 (recomandat de Supabase) pe Alpine
+FROM node:20-alpine
 
-# Setăm directorul de lucru în interiorul containerului
+# Librării necesare pentru ca pachetul 'sharp' să ruleze perfect pe Alpine
+RUN apk add --no-cache vips-dev build-base
+
 WORKDIR /usr/src/app
 
-# Copiem fișierele de configurare pentru pachete
 COPY package*.json ./
 
-# Instalăm dependențele (cors, express, mongoose, etc.)
 RUN npm install
 
-# Copiem restul codului sursă în container
 COPY . .
 
-# Expunem portul definit în server.js
 EXPOSE 3000
 
-# Comanda care pornește serverul
 CMD ["npm", "start"]
