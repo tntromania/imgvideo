@@ -348,7 +348,7 @@ const isContentBlockedError = (msg) => {
 };
 
 // ✅ FIX MAJOR: Timeout redus la 50s (nu 90s) + SSE parser robust
-const parseVideoSSE = (apiRes, emailTag) => {
+const parseVideoSSE = (apiRes, emailTag, onStatus) => {
     return new Promise((resolve, reject) => {
         const reader = apiRes.body.getReader();
         const dec = new TextDecoder();
@@ -357,26 +357,51 @@ const parseVideoSSE = (apiRes, emailTag) => {
         let lastLoggedStatus = '';
         let settled = false;
 
-        // ✅ 50s timeout — dacă nu vine răspuns în 50s, fail rapid și retry
-        const timeoutId = setTimeout(() => {
+        // Timeout GLOBAL 360s — niciun video nu durează mai mult de 6 minute
+        const globalTimeout = setTimeout(() => {
             if (settled) return;
             settled = true;
-            console.warn(`[Video] ⏰ Timeout 50s fără răspuns final | ${emailTag}`);
+            console.warn(`[Video] ⏰ Timeout global 360s | ${emailTag}`);
             try { reader.cancel(); } catch (_) {}
             reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
-        }, 50000);
+        }, 360000);
+
+        // Timeout INACTIVITATE 120s — resetat la fiecare event primit
+        // Dacă stream-ul îngheață complet (nicio linie timp de 120s) → fail
+        let activityTimeout = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            console.warn(`[Video] ⏰ Timeout inactivitate 120s (stream înghețat) | ${emailTag}`);
+            clearTimeout(globalTimeout);
+            try { reader.cancel(); } catch (_) {}
+            reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
+        }, 120000);
+
+        const resetActivity = () => {
+            clearTimeout(activityTimeout);
+            activityTimeout = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                console.warn(`[Video] ⏰ Timeout inactivitate 120s (stream înghețat) | ${emailTag}`);
+                clearTimeout(globalTimeout);
+                try { reader.cancel(); } catch (_) {}
+                reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
+            }, 120000);
+        };
 
         const done = (urls) => {
             if (settled) return;
             settled = true;
-            clearTimeout(timeoutId);
+            clearTimeout(globalTimeout);
+            clearTimeout(activityTimeout);
             resolve(urls);
         };
 
         const fail = (err) => {
             if (settled) return;
             settled = true;
-            clearTimeout(timeoutId);
+            clearTimeout(globalTimeout);
+            clearTimeout(activityTimeout);
             try { reader.cancel(); } catch (_) {}
             reject(err);
         };
@@ -388,6 +413,7 @@ const parseVideoSSE = (apiRes, emailTag) => {
                     if (streamDone) break;
 
                     buf += dec.decode(value, { stream: true });
+                    resetActivity(); // resetăm inactivitate la orice date primite
                     const lines = buf.split('\n');
                     buf = lines.pop();
 
@@ -411,6 +437,7 @@ const parseVideoSSE = (apiRes, emailTag) => {
                             if (raw !== lastLoggedStatus) {
                                 console.log(`[Video] Status → ${raw} | ${emailTag}`);
                                 lastLoggedStatus = raw;
+                                if (onStatus) onStatus(raw);
                             }
                             continue;
                         }
@@ -581,10 +608,10 @@ app.post('/api/media/video',
                 };
             };
 
-            // ✅ Max 3 retry-uri (nu 5), delay fix de 2s (nu progresiv 3-12s)
-            // Total worst case: 3 × (50s timeout + 2s delay) = ~156s în loc de 7.5 minute
-            const MAX_VIDEO_RETRIES = 3;
-            const RETRY_DELAY_MS = 2000;
+            // Max 2 retry-uri — videoclipurile durează 90-280s, nu are sens să reîncerci prea des
+            // Worst case: 2 × (180s timeout + 3s delay) = ~6 minute (acceptabil)
+            const MAX_VIDEO_RETRIES = 2;
+            const RETRY_DELAY_MS = 3000;
             let videoUrls = null;
             let lastErrorMsg = null;
             const emailTag = user.email;
@@ -622,7 +649,7 @@ app.post('/api/media/video',
                 }
 
                 try {
-                    videoUrls = await parseVideoSSE(apiRes, emailTag);
+                    videoUrls = await parseVideoSSE(apiRes, emailTag, (s) => sendStatus(`${s}...`));
                     console.log(`[Video] ✅ Done în ${elapsed()} | ${emailTag}`);
                     break;
                 } catch (sseErr) {
