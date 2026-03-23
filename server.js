@@ -530,8 +530,30 @@ app.post('/api/media/video', authenticate, uploadFields, async (req, res) => {
                     console.log(`[Video] End frame atașat | ${user.email}`);
                     formData.append('end_image', new Blob([endImageFile.buffer], { type: endImageFile.mimetype }), endImageFile.originalname || 'end.jpg');
                 }
+                // ── Atașăm și ref_images dacă există ──
+                if (refFiles.length > 0) {
+                    for (let i = 0; i < refFiles.length; i++) {
+                        formData.append('ref_images', new Blob([refFiles[i].buffer], { type: refFiles[i].mimetype }), refFiles[i].originalname || `ref_${i}.jpg`);
+                    }
+                    console.log(`[Video] ${refFiles.length} ref_images atașate în formData | ${user.email}`);
+                }
                 return {
                     endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
+                    options: { method: 'POST', headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` }, body: formData }
+                };
+            }
+            // text-to-video: dacă avem ref_images, trimitem multipart în loc de JSON
+            if (refFiles.length > 0) {
+                const formData = new FormData();
+                formData.append('prompt', finalPrompt);
+                formData.append('aspect_ratio', video_ratio);
+                formData.append('number_of_videos', String(count));
+                for (let i = 0; i < refFiles.length; i++) {
+                    formData.append('ref_images', new Blob([refFiles[i].buffer], { type: refFiles[i].mimetype }), refFiles[i].originalname || `ref_${i}.jpg`);
+                }
+                console.log(`[Video] ${refFiles.length} ref_images atașate în text-to-video | ${user.email}`);
+                return {
+                    endpoint: `${VIDEO_API_URL}/veo/text-to-video`,
                     options: { method: 'POST', headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` }, body: formData }
                 };
             }
