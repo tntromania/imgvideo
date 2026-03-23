@@ -11,17 +11,10 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Acceptăm: ref_images (max 5) + start_image (1) + end_image (1)
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 20 * 1024 * 1024, files: 7 }
+    limits: { fileSize: 20 * 1024 * 1024, files: 5 }
 });
-
-const uploadFields = upload.fields([
-    { name: 'ref_images', maxCount: 5 },
-    { name: 'start_image', maxCount: 1 },
-    { name: 'end_image',   maxCount: 1 },
-]);
 
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
@@ -320,6 +313,8 @@ const isContentBlockedError = (msg) => {
     );
 };
 
+// Parsează SSE de la genaipro cu timeout de 90s.
+// Dacă stream-ul rămâne deschis fără rezultat → timeout → retry.
 const parseVideoSSE = (apiRes, emailTag) => {
     return new Promise((resolve, reject) => {
         const reader = apiRes.body.getReader();
@@ -329,6 +324,7 @@ const parseVideoSSE = (apiRes, emailTag) => {
         let lastLoggedStatus = '';
         let settled = false;
 
+        // Timeout 90 secunde — dacă genaipro îngheață stream-ul
         const timeoutId = setTimeout(() => {
             if (settled) return;
             settled = true;
@@ -374,6 +370,7 @@ const parseVideoSSE = (apiRes, emailTag) => {
                         if (!trimmed.startsWith('data:')) continue;
                         const raw = trimmed.slice(5).trim();
 
+                        // Log orice event ne-status pentru debugging
                         if (currentEvent && currentEvent !== 'video_generation_status') {
                             console.log(`[Video] RAW event="${currentEvent}" data="${raw.substring(0, 300)}" | ${emailTag}`);
                         }
@@ -412,6 +409,7 @@ const parseVideoSSE = (apiRes, emailTag) => {
                             } catch (_) {}
                         }
 
+                        // Fallback: orice JSON cu URL-uri sau erori
                         if (raw.startsWith('{') || raw.startsWith('[')) {
                             try {
                                 const obj = JSON.parse(raw);
@@ -426,6 +424,7 @@ const parseVideoSSE = (apiRes, emailTag) => {
                         }
                     }
                 }
+                // Stream s-a închis fără rezultat final
                 if (!settled) fail(new Error('Stream închis fără rezultat'));
             } catch (e) {
                 if (!settled) fail(e);
@@ -436,11 +435,11 @@ const parseVideoSSE = (apiRes, emailTag) => {
     });
 };
 
-// ── Ruta video folosește uploadFields pentru a accepta start_image și end_image separat ──
-app.post('/api/media/video', authenticate, uploadFields, async (req, res) => {
+app.post('/api/media/video', authenticate, upload.array('ref_images', 5), async (req, res) => {
     const startTime = Date.now();
     const elapsed = () => `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
 
+    // Deschidem SSE imediat — browserul nu time-out-ează
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
@@ -475,18 +474,11 @@ app.post('/api/media/video', authenticate, uploadFields, async (req, res) => {
         if (!user) return sendError('User negăsit.');
         if (user.credits < totalCost) return sendError(`Fonduri insuficiente! Ai nevoie de ${totalCost} credite.`);
 
-        // ── Extragem fișierele din câmpuri separate ──────────────────────────
-        const refFiles    = req.files?.['ref_images']  || [];
-        const startFiles  = req.files?.['start_image'] || [];
-        const endFiles    = req.files?.['end_image']   || [];
-
-        const startImageFile = startFiles[0] || null;
-        const endImageFile   = endFiles[0]   || null;
-
-        // Upload referințe imagine (pentru prompt @img tags)
-        if (refFiles.length > 0) {
-            for (let i = 0; i < refFiles.length; i++) {
-                const file = refFiles[i];
+        let startImageFile = null;
+        if (req.files && req.files.length > 0) {
+            startImageFile = req.files[0];
+            for (let i = 0; i < req.files.length; i++) {
+                const file = req.files[i];
                 const fileName = `refs/vid_${req.userId}_${Date.now()}_${i}.png`;
                 const { error } = await supabase.storage.from('media-history').upload(fileName, file.buffer, { contentType: file.mimetype });
                 if (!error) {
@@ -498,24 +490,17 @@ app.post('/api/media/video', authenticate, uploadFields, async (req, res) => {
         }
 
         const buildFetchOptions = () => {
-            // frames-to-video dacă avem start_image
             if (startImageFile) {
                 const formData = new FormData();
                 formData.append('prompt', finalPrompt);
                 formData.append('aspect_ratio', video_ratio);
                 formData.append('number_of_videos', String(count));
-                formData.append('start_image', new Blob([startImageFile.buffer], { type: startImageFile.mimetype }), startImageFile.originalname || 'start.jpg');
-                // end_image opțional
-                if (endImageFile) {
-                    console.log(`[Video] End frame atașat | ${user.email}`);
-                    formData.append('end_image', new Blob([endImageFile.buffer], { type: endImageFile.mimetype }), endImageFile.originalname || 'end.jpg');
-                }
+                formData.append('start_image', new Blob([startImageFile.buffer], { type: startImageFile.mimetype }), startImageFile.originalname);
                 return {
                     endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
                     options: { method: 'POST', headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}` }, body: formData }
                 };
             }
-            // text-to-video
             return {
                 endpoint: `${VIDEO_API_URL}/veo/text-to-video`,
                 options: {
@@ -527,6 +512,7 @@ app.post('/api/media/video', authenticate, uploadFields, async (req, res) => {
         };
 
         const MAX_VIDEO_RETRIES = 5;
+        // Delay progresiv între încercări: 3s, 5s, 8s, 12s
         const RETRY_DELAYS = [3000, 5000, 8000, 12000];
         let videoUrls = null;
         let lastErrorMsg = null;
@@ -535,7 +521,7 @@ app.post('/api/media/video', authenticate, uploadFields, async (req, res) => {
         for (let attempt = 1; attempt <= MAX_VIDEO_RETRIES; attempt++) {
             const { endpoint, options } = buildFetchOptions();
             const type = startImageFile ? 'frames-to-video' : 'text-to-video';
-            console.log(`[Video] Tentativa ${attempt}/${MAX_VIDEO_RETRIES} | ${type}${endImageFile ? '+end' : ''} | ratio=${video_ratio} count=${count} | ${emailTag}`);
+            console.log(`[Video] Tentativa ${attempt}/${MAX_VIDEO_RETRIES} | ${type} | ratio=${video_ratio} count=${count} | ${emailTag}`);
             sendStatus(`Se generează... (încercare ${attempt}/${MAX_VIDEO_RETRIES})`);
 
             let apiRes;
