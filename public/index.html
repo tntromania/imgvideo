@@ -641,6 +641,10 @@ async function readSSEJob(jobId, response){
             if(job?.aborted) break;
             const {done,value}=await reader.read();
             if(value) buf+=dec.decode(value,{stream:true});
+            if(done){
+                // Procesăm ce a mai rămas în buffer la închiderea stream-ului
+                if(buf.trim()) buf+='\n';
+            }
             const lines=buf.split('\n'); buf=lines.pop();
             for(const line of lines){
                 const t=line.trim(); if(!t||t.startsWith(':')) continue;
