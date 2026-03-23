@@ -222,14 +222,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
     const startTime = Date.now();
     const elapsed = () => `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
 
-    // ✅ Cancel support
     let clientAborted = false;
-    req.on('close', () => {
-        if (!res.writableEnded) {
-            clientAborted = true;
-            console.log(`[Imagini] ⚠️ Client a anulat | ${req.userId}`);
-        }
-    });
 
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -360,6 +353,12 @@ const results = await Promise.allSettled(
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
+        res.on('close', () => {
+            if (!res.writableEnded) {
+                clientAborted = true;
+                console.log(`[Imagini] ⚠️ Client a anulat | ${req.userId}`);
+            }
+        });
         res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
         res.write('data: [DONE]\n\n');
         res.end();
@@ -579,32 +578,31 @@ app.post('/api/media/video',
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
-		// Adaugă imediat după cele 3 res.setHeader din ruta video:
-let clientAborted = false;
-req.on('close', () => {
-    if (!res.writableEnded) {
-        clientAborted = true;
-        console.log(`[Video] ⚠️ Client a anulat | ${req.userId}`);
-    }
-});
+        let clientAborted = false;
+        res.on('close', () => {
+            if (!res.writableEnded) {
+                clientAborted = true;
+                console.log(`[Video] ⚠️ Client a anulat | ${req.userId}`);
+            }
+        });
 
-const sendStatus = (status) => {
-    if (!res.writableEnded && !clientAborted) res.write(`data: ${JSON.stringify({ status })}\n\n`);
-};
-const sendDone = (urls) => {
-    if (!res.writableEnded && !clientAborted) {
-        res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
-    }
-};
-const sendError = (msg) => {
-    if (!res.writableEnded && !clientAborted) {
-        res.write(`data: ${JSON.stringify({ error: mapVideoError(msg) })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
-    }
-};
+        const sendStatus = (status) => {
+            if (!res.writableEnded && !clientAborted) res.write(`data: ${JSON.stringify({ status })}\n\n`);
+        };
+        const sendDone = (urls) => {
+            if (!res.writableEnded && !clientAborted) {
+                res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
+                res.write('data: [DONE]\n\n');
+                res.end();
+            }
+        };
+        const sendError = (msg) => {
+            if (!res.writableEnded && !clientAborted) {
+                res.write(`data: ${JSON.stringify({ error: mapVideoError(msg) })}\n\n`);
+                res.write('data: [DONE]\n\n');
+                res.end();
+            }
+        };
 
         try {
             const { prompt, aspect_ratio, number_of_videos, model_id } = req.body;
