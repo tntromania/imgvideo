@@ -384,10 +384,12 @@ const toVideoRatio = (ratio) => {
 
 const mapVideoError = (msg) => {
     if (!msg) return 'Eroare necunoscută la generarea video.';
+    if (msg.includes('PUBLIC_ERROR_SEXUAL'))
+        return '🚫 Conținutul solicitat a fost blocat: promptul conține elemente de natură sexuală sau inadecvată. Modifică descrierea și încearcă din nou.';
     if (msg.includes('UNSAFE_GENERATION') || msg.includes('unsafe') || msg.includes('PUBLIC_ERROR_DANGER_FILTER'))
-        return 'Conținutul solicitat nu poate fi generat — promptul conține elemente considerate nesigure. Modifică promptul și încearcă din nou.';
+        return '🚫 Conținutul solicitat a fost blocat de filtrul de siguranță. Modifică promptul și încearcă din nou.';
     if (msg.includes('AUDIO_FILTERED'))
-        return 'Audio-ul generat a fost filtrat. Încearcă să reformulezi textul vorbit.';
+        return '🚫 Audio-ul generat a fost filtrat — conține elemente inadecvate. Reformulează textul vorbit.';
     if (msg.includes('TIMED_OUT') || msg.includes('TIMEOUT') || msg.includes('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'))
         return 'Generarea a durat prea mult. Se reîncearcă automat...';
     if (msg.includes('quota') || msg.includes('QUOTA'))
@@ -402,7 +404,8 @@ const isContentBlockedError = (msg) => {
     return (
         msg.includes('PUBLIC_ERROR_DANGER_FILTER') ||
         msg.includes('UNSAFE_GENERATION') ||
-        msg.includes('AUDIO_FILTERED')
+        msg.includes('AUDIO_FILTERED') ||
+        msg.includes('PUBLIC_ERROR_SEXUAL')
     );
 };
 
