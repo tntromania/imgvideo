@@ -532,12 +532,19 @@ function closeLightbox(){ document.getElementById('lightbox').classList.remove('
 document.addEventListener('keydown',(e)=>{ if(!document.getElementById('lightbox').classList.contains('show')) return; if(e.key==='ArrowLeft'&&lbMediaList.length>1) navLightbox(-1,null); if(e.key==='ArrowRight'&&lbMediaList.length>1) navLightbox(1,null); if(e.key==='Escape') closeLightbox(); });
 
 // ===================== DOWNLOAD =====================
-async function downloadMedia(url,filename){
+async function downloadMedia(url, filename){
     try {
-        const r=await fetch(url); const blob=await r.blob(); const bu=window.URL.createObjectURL(blob);
-        const a=document.createElement('a'); a.href=bu; a.download=filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(bu);
+        const r = await fetch(url, { mode: 'cors' });
+        if (!r.ok) throw new Error('fetch failed');
+        const blob = await r.blob();
+        const bu = window.URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = bu; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        window.URL.revokeObjectURL(bu);
     } catch(err){
-        const a=document.createElement('a'); a.href=url; a.download=filename; a.target='_blank'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        const proxyUrl = `/api/media/proxy-download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`;
+        const a = document.createElement('a'); a.href = proxyUrl; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 }
 
@@ -623,10 +630,25 @@ function setJobError(jobId, msg){
     if(!body) return;
     card.className='job-card error';
     const dot=card.querySelector('.w-2.h-2'); if(dot){ dot.classList.remove('bg-indigo-400','animate-pulse'); dot.classList.add('bg-red-400'); }
+
+    // Detectăm dacă e eroare de conținut blocat vs eroare tehnică
+    const isBlocked = msg && (
+        msg.includes('sexuală') || msg.includes('blocat') ||
+        msg.includes('filtrat') || msg.includes('inadecvat') ||
+        msg.includes('siguranță')
+    );
+
+    const icon = isBlocked ? 'fa-ban' : 'fa-triangle-exclamation';
+    const iconColor = isBlocked ? 'text-orange-400' : 'text-red-400';
+    const extraMsg = isBlocked
+        ? `<p class="text-xs text-orange-500 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 mt-1 font-semibold">✏️ Modifică promptul și regenerează — nu apăsa de mai multe ori cu același text!</p>`
+        : '';
+
     body.innerHTML=`
-        <div class="flex flex-col items-center gap-3 py-2">
-            <i class="fa-solid fa-triangle-exclamation text-red-400 text-2xl"></i>
+        <div class="flex flex-col items-center gap-3 py-2 w-full">
+            <i class="fa-solid ${icon} ${iconColor} text-2xl"></i>
             <p class="text-sm text-slate-500 text-center max-w-xs">${escHtml(msg)}</p>
+            ${extraMsg}
             <button onclick="cancelJob(${jobId})" class="text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition-colors">Închide</button>
         </div>`;
 }
