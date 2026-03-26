@@ -5,6 +5,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
+const sharp = require('sharp');
 const multer = require('multer');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
@@ -76,6 +77,20 @@ const uploadToR2 = async (buffer, fileName, contentType) => {
         ContentType: contentType,
     }));
     return `${process.env.R2_PUBLIC_URL}/${fileName}`;
+};
+
+const compressForVideo = async (buffer, mimetype) => {
+    try {
+        const compressed = await sharp(buffer)
+            .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+        console.log(`[Video] Comprimat: ${buffer.length} → ${compressed.length} bytes`);
+        return { buffer: compressed, mimetype: 'image/jpeg' };
+    } catch (e) {
+        console.warn(`[Video] Comprimare eșuată, trimit original: ${e.message}`);
+        return { buffer, mimetype };
+    }
 };
 
 // =========================================================================
@@ -636,7 +651,7 @@ app.post('/api/media/video',
                 }
             }
 
-const buildRequest = () => {
+const buildRequest = async () => {
     if (hasFrames) {
         const fields = {
             prompt: finalPrompt,
@@ -644,18 +659,14 @@ const buildRequest = () => {
             number_of_videos: String(count)
         };
         const files = [];
-        if (startImageFile) files.push({
-            fieldname: 'start_image',
-            buffer: startImageFile.buffer,
-            mimetype: startImageFile.mimetype,
-            filename: startImageFile.originalname || 'start.jpg'
-        });
-        if (endImageFile) files.push({
-            fieldname: 'end_image',
-            buffer: endImageFile.buffer,
-            mimetype: endImageFile.mimetype,
-            filename: endImageFile.originalname || 'end.jpg'
-        });
+        if (startImageFile) {
+            const { buffer, mimetype } = await compressForVideo(startImageFile.buffer, startImageFile.mimetype);
+            files.push({ fieldname: 'start_image', buffer, mimetype, filename: 'start.jpg' });
+        }
+        if (endImageFile) {
+            const { buffer, mimetype } = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
+            files.push({ fieldname: 'end_image', buffer, mimetype, filename: 'end.jpg' });
+        }
 
         console.log(`[Video] Multipart files: ${files.map(f => f.fieldname + '=' + f.buffer.length + 'bytes').join(', ')}`);
 
@@ -693,7 +704,7 @@ const buildRequest = () => {
             const type = hasFrames ? 'frames-to-video' : 'text-to-video';
 
             for (let attempt = 1; attempt <= MAX_VIDEO_RETRIES; attempt++) {
-                const { endpoint, options } = buildRequest();
+                const { endpoint, options } = await buildRequest();
                 console.log(`[Video] Tentativa ${attempt}/${MAX_VIDEO_RETRIES} | ${type} | ratio=${videoRatio} count=${count} | ${emailTag}`);
                 sendStatus(`Se generează... (încercare ${attempt}/${MAX_VIDEO_RETRIES})`);
 
