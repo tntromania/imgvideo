@@ -636,33 +636,50 @@ app.post('/api/media/video',
                 }
             }
 
-            const buildRequest = () => {
-                if (hasFrames) {
-                    const { body: formBody, contentType } = buildVideoFormData({ prompt: finalPrompt, videoRatio, count, startImageFile, endImageFile });
-                    return {
-                        endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
-                        options: {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
-                                'Content-Type': contentType
-                            },
-                            body: formBody
-                        }
-                    };
-                }
-                return {
-                    endpoint: `${VIDEO_API_URL}/veo/text-to-video`,
-                    options: {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ prompt: finalPrompt, aspect_ratio: videoRatio, number_of_videos: count })
-                    }
-                };
-            };
+const buildRequest = async () => {
+    if (hasFrames) {
+        let startImageUrl = null;
+        let endImageUrl = null;
+
+        if (startImageFile) {
+            startImageUrl = await uploadImageToR2(startImageFile, req.userId, 'frames');
+            console.log(`[Video] Start image uploadat la R2: ${startImageUrl}`);
+        }
+        if (endImageFile) {
+            endImageUrl = await uploadImageToR2(endImageFile, req.userId, 'frames');
+            console.log(`[Video] End image uploadat la R2: ${endImageUrl}`);
+        }
+
+        return {
+            endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
+            options: {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: finalPrompt,
+                    aspect_ratio: videoRatio,
+                    number_of_videos: count,
+                    ...(startImageUrl && { start_image_url: startImageUrl }),
+                    ...(endImageUrl   && { end_image_url:   endImageUrl   })
+                })
+            }
+        };
+    }
+    return {
+        endpoint: `${VIDEO_API_URL}/veo/text-to-video`,
+        options: {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ prompt: finalPrompt, aspect_ratio: videoRatio, number_of_videos: count })
+        }
+    };
+};
 
             const MAX_VIDEO_RETRIES = 2;
             const RETRY_DELAY_MS = 3000;
@@ -672,7 +689,7 @@ app.post('/api/media/video',
             const type = hasFrames ? 'frames-to-video' : 'text-to-video';
 
             for (let attempt = 1; attempt <= MAX_VIDEO_RETRIES; attempt++) {
-                const { endpoint, options } = buildRequest();
+                const { endpoint, options } = await buildRequest();
                 console.log(`[Video] Tentativa ${attempt}/${MAX_VIDEO_RETRIES} | ${type} | ratio=${videoRatio} count=${count} | ${emailTag}`);
                 sendStatus(`Se generează... (încercare ${attempt}/${MAX_VIDEO_RETRIES})`);
 
