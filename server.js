@@ -636,35 +636,39 @@ app.post('/api/media/video',
                 }
             }
 
-const buildRequest = async () => {
+const buildRequest = () => {
     if (hasFrames) {
-        let startImageUrl = null;
-        let endImageUrl = null;
+        const fields = {
+            prompt: finalPrompt,
+            aspect_ratio: videoRatio,
+            number_of_videos: String(count)
+        };
+        const files = [];
+        if (startImageFile) files.push({
+            fieldname: 'start_image',
+            buffer: startImageFile.buffer,
+            mimetype: startImageFile.mimetype,
+            filename: startImageFile.originalname || 'start.jpg'
+        });
+        if (endImageFile) files.push({
+            fieldname: 'end_image',
+            buffer: endImageFile.buffer,
+            mimetype: endImageFile.mimetype,
+            filename: endImageFile.originalname || 'end.jpg'
+        });
 
-        if (startImageFile) {
-            startImageUrl = await uploadImageToR2(startImageFile, req.userId, 'frames');
-            console.log(`[Video] Start image uploadat la R2: ${startImageUrl}`);
-        }
-        if (endImageFile) {
-            endImageUrl = await uploadImageToR2(endImageFile, req.userId, 'frames');
-            console.log(`[Video] End image uploadat la R2: ${endImageUrl}`);
-        }
+        console.log(`[Video] Multipart files: ${files.map(f => f.fieldname + '=' + f.buffer.length + 'bytes').join(', ')}`);
 
+        const { body: formBody, contentType } = buildMultipartBody(fields, files);
         return {
             endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
             options: {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': contentType
                 },
-                body: JSON.stringify({
-                    prompt: finalPrompt,
-                    aspect_ratio: videoRatio,
-                    number_of_videos: count,
-                    ...(startImageUrl && { start_image_url: startImageUrl }),
-                    ...(endImageUrl   && { end_image_url:   endImageUrl   })
-                })
+                body: formBody
             }
         };
     }
@@ -689,7 +693,7 @@ const buildRequest = async () => {
             const type = hasFrames ? 'frames-to-video' : 'text-to-video';
 
             for (let attempt = 1; attempt <= MAX_VIDEO_RETRIES; attempt++) {
-                const { endpoint, options } = await buildRequest();
+                const { endpoint, options } = buildRequest();
                 console.log(`[Video] Tentativa ${attempt}/${MAX_VIDEO_RETRIES} | ${type} | ratio=${videoRatio} count=${count} | ${emailTag}`);
                 sendStatus(`Se generează... (încercare ${attempt}/${MAX_VIDEO_RETRIES})`);
 
