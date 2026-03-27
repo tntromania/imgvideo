@@ -485,7 +485,11 @@ const pump = async () => {
         while (true) {
             let result;
             try {
-                result = await reader.read();
+                result = await reader.read().catch(err => { 
+    if (!settled) fail(new Error('terminated'));
+    return { done: true };
+});
+if (!result) return;
             } catch (readErr) {
                 // ← Aici pică cu "terminated" / UND_ERR_SOCKET
                 // Tratăm ca stream închis, nu ca crash
