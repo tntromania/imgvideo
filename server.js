@@ -5,6 +5,8 @@ const path = require('path');
 const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
+const sharp = require('sharp');
+sharp.concurrency(1); // folosește un singur thread
 const multer = require('multer');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
@@ -386,197 +388,233 @@ const results = await Promise.allSettled(
 });
 
 // =========================================================================
-// ==================== VIDEO ==============================================
+// ==================== VIDEO WUYINKEJI (async + polling) ==================
 // =========================================================================
 
-const VIDEO_API_URL = 'https://genaipro.vn/api/v1';
+const WUYIN_API_URL = 'https://api.wuyinkeji.com/api/async';
+const WUYIN_DETAIL_URL = 'https://api.wuyinkeji.com/api/async/detail';
+const WUYIN_POLL_INTERVAL_MS = 4000;   // poll la 4s
+const WUYIN_MAX_WAIT_MS = 360000;      // max 6 minute
 
-const toVideoRatio = (ratio) => {
+const toWuyinRatio = (ratio) => {
+    // suportă doar 16:9 și 9:16
     const portrait = ['9:16', '4:5', '3:4', '2:3'];
-    return portrait.includes(ratio) ? 'VIDEO_ASPECT_RATIO_PORTRAIT' : 'VIDEO_ASPECT_RATIO_LANDSCAPE';
+    return portrait.includes(ratio) ? '9:16' : '16:9';
 };
 
-const mapVideoError = (msg) => {
-    if (!msg) return 'Eroare necunoscută la generarea video.';
-    if (msg.includes('PUBLIC_ERROR_SEXUAL'))
-        return '🚫 Conținutul solicitat a fost blocat: promptul conține elemente de natură sexuală sau inadecvată. Modifică descrierea și încearcă din nou.';
-    if (msg.includes('UNSAFE_GENERATION') || msg.includes('unsafe') || msg.includes('PUBLIC_ERROR_DANGER_FILTER'))
-        return '🚫 Conținutul solicitat a fost blocat de filtrul de siguranță. Modifică promptul și încearcă din nou.';
-    if (msg.includes('AUDIO_FILTERED'))
-        return '🚫 Audio-ul generat a fost filtrat — conține elemente inadecvate. Reformulează textul vorbit.';
-    if (msg.includes('TIMED_OUT') || msg.includes('TIMEOUT') || msg.includes('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'))
-        return 'Generarea a durat prea mult. Se reîncearcă automat...';
-    if (msg.includes('quota') || msg.includes('QUOTA'))
-        return 'Limita de generări a fost atinsă temporar. Reîncearcă în 1-2 minute.';
-    if (msg.includes('Create video error') || msg.includes('Create video failed'))
-        return 'Serverele AI au întâmpinat o eroare internă. Se reîncearcă automat...';
-    return msg.replace(/genaipro/gi, 'serverul AI').replace(/GenAIPro/g, 'serverul AI');
+const pollWuyinResult = async (jobId, apiKey, emailTag, onStatus, abortSignal) => {
+    const startTime = Date.now();
+    let attempt = 0;
+
+    while (true) {
+        if (abortSignal?.aborted) throw new Error('client_aborted');
+
+        await new Promise(r => setTimeout(r, WUYIN_POLL_INTERVAL_MS));
+
+        if (Date.now() - startTime > WUYIN_MAX_WAIT_MS) {
+            throw new Error('Timeout: generarea a durat prea mult.');
+        }
+
+        attempt++;
+        let data;
+        try {
+            const res = await fetch(`${WUYIN_DETAIL_URL}?id=${jobId}`, {
+                headers: { 'Authorization': process.env.WUYIN_API_KEY, 'Content-Type': 'application/json' }
+            });
+            data = await res.json();
+        } catch (e) {
+            console.warn(`[WuyinPoll] Eroare fetch attempt ${attempt}: ${e.message} | ${emailTag}`);
+            continue;
+        }
+
+        const status = data?.data?.status;
+        console.log(`[WuyinPoll] attempt=${attempt} status=${status} | ${emailTag}`);
+
+        if (status === 2) {
+            // succes — extragem URL-ul video
+            const d = data.data;
+            const url = d.file_url || d.video_url || d.url ||
+                (Array.isArray(d.file_urls) ? d.file_urls[0] : null) ||
+                (Array.isArray(d.urls) ? d.urls[0] : null);
+            if (!url) throw new Error('Răspuns succes dar fără URL video.');
+            return url;
+        }
+
+        if (status === 3) {
+            const msg = data?.data?.message || 'Generarea a eșuat.';
+            throw new Error(msg);
+        }
+
+        // status 0 sau 1 — încă se procesează
+        const elapsed = Math.round((Date.now() - startTime) / 1000);
+        if (onStatus) onStatus(`Se procesează... (${elapsed}s)`);
+    }
 };
 
-const isContentBlockedError = (msg) => {
-    if (!msg) return false;
-    return (
-        msg.includes('PUBLIC_ERROR_DANGER_FILTER') ||
-        msg.includes('UNSAFE_GENERATION') ||
-        msg.includes('AUDIO_FILTERED') ||
-        msg.includes('PUBLIC_ERROR_SEXUAL')
-    );
-};
+app.post('/api/media/video/fast',
+    authenticate,
+    upload.fields([
+        { name: 'start_image', maxCount: 1 },
+        { name: 'end_image',   maxCount: 1 },
+        { name: 'ref_images',  maxCount: 3 }   // fast suportă max 3 ref images
+    ]),
+    async (req, res) => {
+        const startTime = Date.now();
+        const elapsed = () => `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
 
-const parseVideoSSE = (apiRes, emailTag, onStatus) => {
-    return new Promise((resolve, reject) => {
-        const reader = apiRes.body.getReader();
-        const dec = new TextDecoder();
-        let buf = '';
-        let currentEvent = '';
-        let lastLoggedStatus = '';
-        let settled = false;
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
 
-        const globalTimeout = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            console.warn(`[Video] ⏰ Timeout global 360s | ${emailTag}`);
-            try { reader.cancel(); } catch (_) {}
-            reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
-        }, 360000);
+        let clientAborted = false;
+        const abortController = { aborted: false };
+        res.on('close', () => {
+            if (!res.writableEnded) {
+                clientAborted = true;
+                abortController.aborted = true;
+                console.log(`[VideoFast] ⚠️ Client a anulat | ${req.userId}`);
+            }
+        });
 
-        let activityTimeout = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            console.warn(`[Video] ⏰ Timeout inactivitate 120s | ${emailTag}`);
-            clearTimeout(globalTimeout);
-            try { reader.cancel(); } catch (_) {}
-            reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
-        }, 180000);
-
-        const resetActivity = () => {
-            clearTimeout(activityTimeout);
-            activityTimeout = setTimeout(() => {
-                if (settled) return;
-                settled = true;
-                console.warn(`[Video] ⏰ Timeout inactivitate 120s | ${emailTag}`);
-                clearTimeout(globalTimeout);
-                try { reader.cancel(); } catch (_) {}
-                reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
-            }, 180000);
+        const sendStatus = (status) => {
+            if (!res.writableEnded && !clientAborted)
+                res.write(`data: ${JSON.stringify({ status })}\n\n`);
+        };
+        const sendDone = (urls) => {
+            if (!res.writableEnded && !clientAborted) {
+                res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
+                res.write('data: [DONE]\n\n');
+                res.end();
+            }
+        };
+        const sendError = (msg) => {
+            if (!res.writableEnded && !clientAborted) {
+                res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+                res.write('data: [DONE]\n\n');
+                res.end();
+            }
         };
 
-        const done = (urls) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(globalTimeout);
-            clearTimeout(activityTimeout);
-            resolve(urls);
-        };
+        try {
+            const { prompt, aspect_ratio, number_of_videos, model_id } = req.body;
+            const count = parseInt(number_of_videos) || 1;
+            const costPerVid = MODEL_PRICES[model_id] || 2;
+            const totalCost = count * costPerVid;
+            const videoRatio = toWuyinRatio(aspect_ratio);
 
-        const fail = (err) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(globalTimeout);
-            clearTimeout(activityTimeout);
-            try { reader.cancel(); } catch (_) {}
-            reject(err);
-        };
+            const user = await User.findById(req.userId);
+            if (!user) return sendError('User negăsit.');
+            if (user.credits < totalCost)
+                return sendError(`Fonduri insuficiente! Ai nevoie de ${totalCost} credite.`);
 
-const pump = async () => {
-    try {
-        while (true) {
-            let result;
-            try {
-                result = await reader.read().catch(err => { 
-    if (!settled) fail(new Error('terminated'));
-    return { done: true };
-});
-if (!result) return;
-            } catch (readErr) {
-                // ← Aici pică cu "terminated" / UND_ERR_SOCKET
-                // Tratăm ca stream închis, nu ca crash
-                if (!settled) fail(new Error('terminated'));
-                return;
+            const emailTag = user.email;
+
+            const startImageFile = req.files?.['start_image']?.[0] || null;
+            const endImageFile   = req.files?.['end_image']?.[0]   || null;
+            const refImages      = req.files?.['ref_images']        || [];
+
+            // Upload imaginile de referință la R2 și înlocuiește tag-urile
+            let finalPrompt = prompt;
+            const refUrls = [];
+            for (let i = 0; i < Math.min(refImages.length, 3); i++) {
+                const url = await uploadImageToR2(refImages[i], req.userId, 'refs');
+                refUrls.push(url);
+                finalPrompt = finalPrompt.replace(new RegExp(`@img${i + 1}`, 'g'), '').trim();
             }
 
-            const { done: streamDone, value } = result;
-            if (streamDone) break;
+            // Construiește body-ul pentru Wuyinkeji
+            const hasFrames = startImageFile || endImageFile;
+            let endpoint, requestBody;
 
-                    buf += dec.decode(value, { stream: true });
-                    resetActivity();
-                    const lines = buf.split('\n');
-                    buf = lines.pop();
-
-                    for (const line of lines) {
-                        const trimmed = line.trim();
-                        if (!trimmed) { currentEvent = ''; continue; }
-
-                        if (trimmed.startsWith('event:')) {
-                            currentEvent = trimmed.slice(6).trim();
-                            continue;
-                        }
-
-                        if (!trimmed.startsWith('data:')) continue;
-                        const raw = trimmed.slice(5).trim();
-
-                        if (currentEvent && currentEvent !== 'video_generation_status') {
-                            console.log(`[Video] RAW event="${currentEvent}" data="${raw.substring(0, 300)}" | ${emailTag}`);
-                        }
-
-                        if (currentEvent === 'video_generation_status') {
-                            if (raw !== lastLoggedStatus) {
-                                console.log(`[Video] Status → ${raw} | ${emailTag}`);
-                                lastLoggedStatus = raw;
-                                if (onStatus) onStatus(raw);
-                            }
-                            continue;
-                        }
-
-                        if (currentEvent === 'error') {
-                            let rawMsg = raw;
-                            try {
-                                const errObj = JSON.parse(raw);
-                                rawMsg = errObj.error || errObj.message || raw;
-                            } catch (_) {}
-                            console.error(`[Video] ❌ Server error: ${rawMsg} | ${emailTag}`);
-                            return fail(new Error(rawMsg));
-                        }
-
-                        if (currentEvent === 'video_generation_complete') {
-                            console.log(`[Video] ✅ Complet! | ${emailTag}`);
-                            try {
-                                const parsed = JSON.parse(raw);
-                                const items = Array.isArray(parsed) ? parsed : [parsed];
-                                const urls = [];
-                                items.forEach(item => {
-                                    if (item.file_url)  urls.push(item.file_url);
-                                    if (item.video_url) urls.push(item.video_url);
-                                    if (item.url)       urls.push(item.url);
-                                    if (Array.isArray(item.file_urls)) urls.push(...item.file_urls);
-                                });
-                                if (urls.length > 0) return done(urls);
-                            } catch (_) {}
-                        }
-
-                        if (raw.startsWith('{') || raw.startsWith('[')) {
-                            try {
-                                const obj = JSON.parse(raw);
-                                const urls = [];
-                                if (obj.file_url)  urls.push(obj.file_url);
-                                if (obj.video_url) urls.push(obj.video_url);
-                                if (obj.url)       urls.push(obj.url);
-                                if (Array.isArray(obj.file_urls)) urls.push(...obj.file_urls);
-                                if (urls.length > 0) return done(urls);
-                                if (obj.error) return fail(new Error(obj.error));
-                            } catch (_) {}
-                        }
-                    }
+            if (hasFrames) {
+                // frames-to-video: firstFrameUrl + lastFrameUrl (trebuie uploadate la R2)
+                const frameUrls = {};
+                if (startImageFile) {
+                    frameUrls.firstFrameUrl = await uploadImageToR2(startImageFile, req.userId, 'frames');
                 }
-                if (!settled) fail(new Error('Stream închis fără rezultat'));
-            } catch (e) {
-                if (!settled) fail(e);
+                if (endImageFile) {
+                    frameUrls.lastFrameUrl = await uploadImageToR2(endImageFile, req.userId, 'frames');
+                }
+                endpoint = `${WUYIN_API_URL}/video_veo3.1_fast`;
+                requestBody = {
+                    prompt: finalPrompt,
+                    aspectRatio: videoRatio,
+                    size: '1080p',
+                    ...frameUrls
+                };
+            } else if (refUrls.length > 0) {
+                // ref images → câmpul "urls"
+                endpoint = `${WUYIN_API_URL}/video_veo3.1_fast`;
+                requestBody = {
+                    prompt: finalPrompt,
+                    aspectRatio: videoRatio,
+                    size: '1080p',
+                    urls: refUrls
+                };
+            } else {
+                // text-to-video simplu
+                endpoint = `${WUYIN_API_URL}/video_veo3.1_fast`;
+                requestBody = {
+                    prompt: finalPrompt,
+                    aspectRatio: videoRatio,
+                    size: '1080p'
+                };
             }
-        };
 
-        pump();
-    });
-};
+            console.log(`[VideoFast] START | ratio=${videoRatio} cost=${totalCost} hasFrames=${hasFrames} refs=${refUrls.length} | ${emailTag}`);
+            sendStatus('Se trimite cererea...');
+
+            // 1. Trimite job-ul
+            const submitRes = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Authorization': process.env.WUYIN_API_KEY,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const submitData = await submitRes.json();
+
+            if (!submitRes.ok || submitData.code !== 200) {
+                const errMsg = submitData?.msg || `HTTP ${submitRes.status}`;
+                console.error(`[VideoFast] Submit eșuat: ${errMsg} | ${emailTag}`);
+                return sendError(`Eroare la trimiterea job-ului: ${errMsg}`);
+            }
+
+            const jobId = submitData?.data?.id;
+            if (!jobId) return sendError('Nu s-a primit ID job de la server.');
+
+            console.log(`[VideoFast] Job trimis: ${jobId} | ${emailTag}`);
+            sendStatus('Job trimis, se generează...');
+
+            // 2. Polling până la rezultat
+            let videoUrl;
+            try {
+                videoUrl = await pollWuyinResult(jobId, process.env.WUYIN_API_KEY, emailTag, sendStatus, abortController);
+            } catch (pollErr) {
+                if (pollErr.message === 'client_aborted') return;
+                console.error(`[VideoFast] Polling eșuat: ${pollErr.message} | ${emailTag}`);
+                return sendError(pollErr.message);
+            }
+
+            if (clientAborted) return;
+
+            console.log(`[VideoFast] ✅ Video gata în ${elapsed()}: ${videoUrl} | ${emailTag}`);
+
+            // 3. Scade creditele și logează
+            await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
+            user.credits -= totalCost;
+            await user.save();
+
+            sendDone([videoUrl]);
+
+        } catch (e) {
+            console.error(`[VideoFast] ❌ Eroare neașteptată la ${elapsed()}: ${e.message}`);
+            if (!clientAborted) sendError(e.message);
+        }
+    }
+);
 
 // ✅ Upload ref_images la R2 (pentru video)
 const uploadImageToR2 = async (file, userId, prefix = 'refs') => {
