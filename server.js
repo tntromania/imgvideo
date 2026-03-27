@@ -529,12 +529,14 @@ if (!hasFrames) {
             if (hasFrames) {
                 // frames-to-video: firstFrameUrl + lastFrameUrl (trebuie uploadate la R2)
                 const frameUrls = {};
-                if (startImageFile) {
-                    frameUrls.firstFrameUrl = await uploadImageToR2(startImageFile, req.userId, 'frames');
-                }
-                if (endImageFile) {
-                    frameUrls.lastFrameUrl = await uploadImageToR2(endImageFile, req.userId, 'frames');
-                }
+if (startImageFile) {
+    frameUrls.firstFrameUrl = await uploadImageToR2(startImageFile, req.userId, 'frames');
+    console.log(`[VideoFast] firstFrameUrl: ${frameUrls.firstFrameUrl}`);
+}
+if (endImageFile) {
+    frameUrls.lastFrameUrl = await uploadImageToR2(endImageFile, req.userId, 'frames');
+    console.log(`[VideoFast] lastFrameUrl: ${frameUrls.lastFrameUrl}`);
+}
                 endpoint = `${WUYIN_API_URL}/video_veo3.1_fast`;
                 requestBody = {
                     prompt: finalPrompt,
@@ -562,7 +564,8 @@ if (!hasFrames) {
             }
 
             console.log(`[VideoFast] START | ratio=${videoRatio} cost=${totalCost} hasFrames=${hasFrames} refs=${refUrls.length} | ${emailTag}`);
-            sendStatus('Se trimite cererea...');
+console.log(`[VideoFast] requestBody: ${JSON.stringify(requestBody)}`);
+sendStatus('Se trimite cererea...');
 
             // 1. Trimite job-ul
             const submitRes = await fetch(endpoint, {
