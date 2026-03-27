@@ -667,7 +667,7 @@ app.post('/api/media/video',
         };
         const sendError = (msg) => {
             if (!res.writableEnded && !clientAborted) {
-                res.write(`data: ${JSON.stringify({ error: mapVideoError(msg) })}\n\n`);
+                res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
                 res.write('data: [DONE]\n\n');
                 res.end();
             }
@@ -679,7 +679,7 @@ app.post('/api/media/video',
             const count = parseInt(number_of_videos) || 1;
             const costPerVid = MODEL_PRICES[model_id] || 3;
             const totalCost = count * costPerVid;
-            const videoRatio = toVideoRatio(aspect_ratio);
+            const videoRatio = toWuyinRatio(aspect_ratio);
 
             const user = await User.findById(req.userId);
             if (!user) return sendError('User negăsit.');
