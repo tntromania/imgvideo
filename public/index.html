@@ -1137,18 +1137,48 @@ function checkEmptyState(){
 // ===================== JOB SYSTEM =====================
 // NOTA: Nu mai există cancelJob — generările nu se pot opri din frontend.
 
-function createJobCard(jobId, promptText, currentMode, count){
+function buildShimmerLoading(currentMode, count, ratio) {
     count = count || 1;
+    ratio = ratio || (currentMode === 'video' ? '9:16' : '9:16');
+    const ratioMap = {
+        '9:16':'9/16','16:9':'16/9','1:1':'1/1','4:5':'4/5','5:4':'5/4',
+        '3:4':'3/4','4:3':'4/3','2:3':'2/3','3:2':'3/2','21:9':'21/9'
+    };
+    const aspectCSS = ratioMap[ratio] || '1/1';
+    const isPortrait = ['9:16','4:5','3:4','2:3'].includes(ratio);
+    const isLandscape = ['16:9','21:9','3:2','4:3','5:4'].includes(ratio);
+    const cardW = isPortrait ? '110px' : isLandscape ? '175px' : '140px';
+    const header = `
+        <div class="flex items-center gap-3 mb-3">
+            <div class="w-8 h-8 rounded-xl shimmer-box shrink-0"></div>
+            <div class="flex-1">
+                <div class="h-3 rounded-full shimmer-box mb-2" style="width:60%"></div>
+                <div class="h-2.5 rounded-full shimmer-box" style="width:40%;opacity:0.6"></div>
+            </div>
+        </div>`;
+    const placeholders = Array.from({length: count}, (_, i) =>
+        `<div class="rounded-xl shimmer-box shrink-0" style="aspect-ratio:${aspectCSS};width:${cardW};animation-delay:${i*0.15}s"></div>`
+    ).join('');
+    const statusId = 'job-status-JOBID';
+    const statusText = currentMode === 'video' ? 'Se generează videoclipul...' : 'Se generează imaginile...';
+    return `
+    <div class="flex flex-col gap-3">
+        ${header}
+        <div class="flex gap-2 justify-center flex-wrap">${placeholders}</div>
+        <p id="${statusId}" class="text-center text-xs font-medium mt-1" style="color:rgba(255,255,255,0.3)">${statusText}</p>
+    </div>`;
+}
+
+function createJobCard(jobId, promptText, currentMode, count, ratio){
+    count = count || 1;
+    ratio = ratio || '9:16';
     const el=document.createElement('div');
     el.id=`job-${jobId}`;
     el.className='job-card processing';
-
     const typeLabel = currentMode==='video'
         ? `<span class="flex items-center gap-1.5" style="color:rgba(165,168,255,0.7)"><i class="fa-solid fa-clapperboard text-[0.6rem]"></i> <span class="font-bold text-[0.65rem] uppercase tracking-wider">Video</span></span>`
         : `<span class="flex items-center gap-1.5" style="color:rgba(165,168,255,0.7)"><i class="fa-solid fa-image text-[0.6rem]"></i> <span class="font-bold text-[0.65rem] uppercase tracking-wider">Imagine</span></span>`;
-
-    const shimmer = buildShimmerLoading(currentMode, count).replace('job-status-JOBID', `job-status-${jobId}`);
-
+    const shimmer = buildShimmerLoading(currentMode, count, ratio).replace('job-status-JOBID', `job-status-${jobId}`);
     el.innerHTML=`
         <div class="flex items-center justify-between px-5 py-3.5" style="border-bottom:1px solid rgba(255,255,255,0.05)">
             <div class="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
@@ -1163,48 +1193,6 @@ function createJobCard(jobId, promptText, currentMode, count){
             ${shimmer}
         </div>`;
     return el;
-}
-
-function buildShimmerLoading(currentMode, count) {
-    count = count || 1;
-    const header = `
-        <div class="flex items-center gap-3 mb-3">
-            <div class="w-8 h-8 rounded-xl shimmer-box shrink-0"></div>
-            <div class="flex-1">
-                <div class="h-3 rounded-full shimmer-box mb-2" style="width:60%"></div>
-                <div class="h-2.5 rounded-full shimmer-box" style="width:40%;opacity:0.6"></div>
-            </div>
-        </div>`;
-
-    if(currentMode === 'video') {
-        const placeholders = Array.from({length:count}, (_,i)=>`
-            <div class="rounded-xl shimmer-box" style="aspect-ratio:9/16;max-width:130px;flex:0 0 130px" ${i>0?'class="opacity-70"':''}></div>
-        `).join('');
-        return `
-        <div class="flex flex-col gap-3">
-            ${header}
-            <div class="flex gap-2 justify-center flex-wrap">${placeholders}</div>
-            <p id="job-status-JOBID" class="text-center text-xs font-medium mt-1" style="color:rgba(255,255,255,0.3)">Se generează...</p>
-        </div>`;
-    }
-    // image
-    if(count===1){
-        return `
-        <div class="flex flex-col gap-3" style="max-width:210px;margin:0 auto">
-            ${header}
-            <div class="rounded-xl shimmer-box aspect-square"></div>
-            <p class="text-center text-xs font-medium" style="color:rgba(255,255,255,0.3)">Se generează imaginile...</p>
-        </div>`;
-    }
-    const cols = Math.min(count,4);
-    return `
-    <div class="flex flex-col gap-3">
-        ${header}
-        <div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px;max-width:${cols<=2?'380px':cols===3?'480px':'560px'};margin:0 auto">
-            ${Array.from({length:count},(_,i)=>`<div class="rounded-xl shimmer-box aspect-square" style="animation-delay:${i*0.15}s"></div>`).join('')}
-        </div>
-        <p class="text-center text-xs font-medium" style="color:rgba(255,255,255,0.3)">Se generează imaginile...</p>
-    </div>`;
 }
 
 function setJobStatus(jobId, text){
@@ -1452,7 +1440,7 @@ async function generate(){
 
     activeJobs.set(jobId,{aborted:false,reader:null});
     const count = currentMode==='image' ? imgCount : vidCount;
-    const card=createJobCard(jobId,promptText,currentMode,count);
+    const card=createJobCard(jobId,promptText,currentMode,count,ratio);
     document.getElementById('jobs-area').prepend(card);
     checkEmptyState();
 
