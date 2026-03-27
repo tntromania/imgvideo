@@ -531,14 +531,26 @@ app.post('/api/media/video/fast',
             console.log(`[Video] START | ratio=${videoRatio} cost=${totalCost} hasFrames=${hasFrames} | ${emailTag}`);
             sendStatus('Se trimite cererea...');
 
-            const submitRes = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Authorization': process.env.WUYIN_API_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
+const submitRes = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Authorization': process.env.WUYIN_API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody)
+});
 
-            const submitData = await submitRes.json();
-            if (!submitRes.ok || submitData.code !== 200) return sendError(`Eroare server: ${submitData?.msg || submitRes.status}`);
+const rawText = await submitRes.text(); // Citim răspunsul ca text mai întâi
+
+let submitData;
+try {
+    submitData = JSON.parse(rawText); // Încercăm să îl facem JSON
+} catch (parseError) {
+    // Dacă pică, înseamnă că am primit HTML/Eroare de la ei. Returnăm eroarea clară.
+    console.error(`[Video] Eroare parsare JSON de la Wuyin. Răspuns primit: ${rawText.substring(0, 200)}`);
+    return sendError(`Eroare comunicare API (a returnat HTML în loc de JSON). Cod HTTP: ${submitRes.status}`);
+}
+
+if (!submitRes.ok || submitData.code !== 200) {
+    return sendError(`Eroare server: ${submitData?.msg || submitData?.message || submitRes.status}`);
+}
 
             const jobId = submitData?.data?.id;
             if (!jobId) return sendError('Nu s-a primit ID job.');
