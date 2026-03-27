@@ -827,5 +827,14 @@ app.get('/api/media/proxy-download', authenticate, async (req, res) => {
     }
 });
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// Adaugă asta chiar înainte de app.listen(), la finalul fișierului
 
+process.on('uncaughtException', (err) => {
+    console.error('❌ uncaughtException (server NU s-a oprit):', err.message);
+    // Nu facem process.exit() — serverul continuă
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error('❌ unhandledRejection (server NU s-a oprit):', reason);
+});
 app.listen(PORT, () => console.log(`🚀 Media Studio rulează pe portul ${PORT}`));
