@@ -65,23 +65,6 @@
         .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
         @keyframes premiumShine { 0% { transform: translateX(-150%) skewX(-20deg); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(250%) skewX(-20deg); opacity: 0; } }
         .animate-shine-fast { animation: premiumShine 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1); }
-        @keyframes vOrbit { 0% { transform: rotate(0deg) translateX(22px) rotate(0deg); } 100% { transform: rotate(360deg) translateX(22px) rotate(-360deg); } }
-        @keyframes vOrbit2 { 0% { transform: rotate(120deg) translateX(22px) rotate(-120deg); } 100% { transform: rotate(480deg) translateX(22px) rotate(-480deg); } }
-        @keyframes vOrbit3 { 0% { transform: rotate(240deg) translateX(22px) rotate(-240deg); } 100% { transform: rotate(600deg) translateX(22px) rotate(-600deg); } }
-        @keyframes vPulseRing { 0% { transform: scale(0.8); opacity: 0.8; } 50% { transform: scale(1.15); opacity: 0.3; } 100% { transform: scale(0.8); opacity: 0.8; } }
-        @keyframes vGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } 50% { box-shadow: 0 0 0 8px rgba(99,102,241,0.12); } }
-        @keyframes vShimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-        @keyframes vFadeUp { 0% { opacity:0.4; transform:translateY(3px); } 100% { opacity:1; transform:translateY(0); } }
-        .v-loader-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; padding: 28px 20px; }
-        .v-orbit-wrap { position:relative; width:56px; height:56px; flex-shrink:0; }
-        .v-orbit-center { position:absolute; inset:0; margin:auto; width:18px; height:18px; border-radius:50%; background:linear-gradient(135deg,#4f46e5,#ec4899); animation:vGlow 2s ease-in-out infinite; }
-        .v-orbit-center::after { content:''; position:absolute; inset:-3px; border-radius:50%; border:1.5px solid rgba(99,102,241,0.25); animation:vPulseRing 2s ease-in-out infinite; }
-        .v-dot { position:absolute; inset:0; margin:auto; width:7px; height:7px; border-radius:50%; }
-        .v-dot-1 { background:#6366f1; animation:vOrbit 1.6s linear infinite; }
-        .v-dot-2 { background:#a855f7; animation:vOrbit2 1.6s linear infinite; }
-        .v-dot-3 { background:#ec4899; animation:vOrbit3 1.6s linear infinite; }
-        .v-status-text { font-size:0.8rem; font-weight:700; color:#6366f1; letter-spacing:0.03em; animation:vFadeUp 0.4s ease; }
-        .v-shimmer-bar { height:3px; width:120px; border-radius:99px; background:linear-gradient(90deg,#e0e7ff 0%,#6366f1 40%,#ec4899 60%,#e0e7ff 100%); background-size:200% auto; animation:vShimmer 1.8s linear infinite; }
         .job-card { background: white; border: 1.5px solid #e2e8f0; border-radius: 20px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.04); animation: slideUp 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
         .job-card.processing { border-color: #c7d2fe; }
         .job-card.done { border-color: #a7f3d0; }
@@ -596,28 +579,12 @@ function createJobCard(jobId, promptText, currentMode){
                 <button onclick="cancelJob(${jobId})" class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center text-xs transition-all"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
-        <div id="job-body-${jobId}" class="overflow-hidden">
-            ${currentMode === 'video' ? `
-            <div class="v-loader-wrap">
-                <div class="v-orbit-wrap">
-                    <div class="v-orbit-center"></div>
-                    <div class="v-dot v-dot-1"></div>
-                    <div class="v-dot v-dot-2"></div>
-                    <div class="v-dot v-dot-3"></div>
-                </div>
-                <p id="job-status-${jobId}" class="v-status-text">Se generează...</p>
-                <div class="v-shimmer-bar"></div>
-                <button onclick="cancelJob(${jobId})" class="text-xs text-slate-400 hover:text-red-500 transition-colors mt-1">✕ Anulează</button>
+        <div id="job-body-${jobId}" class="px-5 py-4 flex items-center gap-4">
+            <div class="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-wand-magic-sparkles text-sm text-viralio-500 animate-bounce"></i>
             </div>
-            ` : `
-            <div class="px-5 py-4 flex items-center gap-4">
-                <div class="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                    <i class="fa-solid fa-wand-magic-sparkles text-sm text-viralio-500 animate-bounce"></i>
-                </div>
-                <p id="job-status-${jobId}" class="text-sm text-slate-500 font-medium flex-1">Se pregătește...</p>
-                <button onclick="cancelJob(${jobId})" class="text-xs text-slate-400 hover:text-red-500 transition-colors shrink-0">Anulează</button>
-            </div>
-            `}
+            <p id="job-status-${jobId}" class="text-sm text-slate-500 font-medium flex-1">Se pregătește...</p>
+            <button onclick="cancelJob(${jobId})" class="text-xs text-slate-400 hover:text-red-500 transition-colors shrink-0">Anulează</button>
         </div>`;
     return el;
 }
@@ -761,8 +728,7 @@ async function runJob(jobId, promptText, currentMode, ratio, refs, token, startF
             if (endFrame)   fd.append('end_image',   endFrame,   endFrame.name);
             // Refs dacă există (pentru @img tags în prompt)
             refs.forEach(f=>fd.append('ref_images',f,f.name));
-            const videoEndpoint = model_id === 'veo3.1fast' ? '/api/media/video/fast' : '/api/media/video';
-const resp=await fetch(videoEndpoint,{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
+            const resp=await fetch('/api/media/video',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
             if(!resp.ok){ const j=await resp.json().catch(()=>{}); throw new Error(j?.error||'Eroare server'); }
             const data=await readSSEJob(jobId,resp);
             const urls=extractUrls(data); if(!urls?.length) throw new Error('Nu s-a generat video.');
