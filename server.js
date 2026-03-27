@@ -513,15 +513,17 @@ app.post('/api/media/video/fast',
             }
 
             let requestBody;
-            // Presupunem că endpoint-ul Premium este 'video_veo3.1' fără '_fast'
-            const endpoint = `${WUYIN_API_URL}/video_veo3.1`;
+// ✅ Endpoint-ul corect pentru FAST conform documentației Wuyin
+const endpoint = `${WUYIN_API_URL}/video_veo3.1_fast`;
 
-            if (hasFrames) {
-                const frameUrls = {};
-                if (startImageFile) frameUrls.image_url = await uploadImageToR2(startImageFile, req.userId, 'frames');
-                if (endImageFile) frameUrls.end_image_url = await uploadImageToR2(endImageFile, req.userId, 'frames');
-                
-                requestBody = { prompt: finalPrompt, aspectRatio: videoRatio, size: '1080p', ...frameUrls };
+if (hasFrames) {
+    const frameUrls = {};
+    // ✅ Parametrii corecți ceruți de API: firstFrameUrl și lastFrameUrl
+    if (startImageFile) frameUrls.firstFrameUrl = await uploadImageToR2(startImageFile, req.userId, 'frames');
+    if (endImageFile) frameUrls.lastFrameUrl = await uploadImageToR2(endImageFile, req.userId, 'frames');
+    
+    requestBody = { prompt: finalPrompt, aspectRatio: videoRatio, size: '1080p', ...frameUrls };
+}
             } else if (refUrls.length > 0) {
                 requestBody = { prompt: finalPrompt, aspectRatio: videoRatio, size: '1080p', urls: refUrls };
             } else {
