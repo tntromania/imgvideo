@@ -515,15 +515,15 @@ app.post('/api/media/video/fast',
 
             // Upload imaginile de referință la R2 și înlocuiește tag-urile
             let finalPrompt = prompt;
-            const refUrls = [];
-            for (let i = 0; i < Math.min(refImages.length, 3); i++) {
-                const url = await uploadImageToR2(refImages[i], req.userId, 'refs');
-                refUrls.push(url);
-                finalPrompt = finalPrompt.replace(new RegExp(`@img${i + 1}`, 'g'), '').trim();
-            }
-
-            // Construiește body-ul pentru Wuyinkeji
-            const hasFrames = startImageFile || endImageFile;
+const hasFrames = startImageFile || endImageFile;
+const refUrls = [];
+if (!hasFrames) {
+    for (let i = 0; i < Math.min(refImages.length, 3); i++) {
+        const url = await uploadImageToR2(refImages[i], req.userId, 'refs');
+        refUrls.push(url);
+        finalPrompt = finalPrompt.replace(new RegExp(`@img${i + 1}`, 'g'), '').trim();
+    }
+}
             let endpoint, requestBody;
 
             if (hasFrames) {
@@ -723,7 +723,7 @@ const buildRequest = async () => {
 
         const { body: formBody, contentType } = buildMultipartBody(fields, files);
         return {
-            endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
+            endpoint: `${VIDEO_API_URL}/veo/text-to-video`,
             options: {
                 method: 'POST',
                 headers: {
