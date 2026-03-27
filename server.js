@@ -430,15 +430,15 @@ const pollWuyinResult = async (jobId, apiKey, emailTag, onStatus, abortSignal) =
         const status = data?.data?.status;
         console.log(`[WuyinPoll] attempt=${attempt} status=${status} | ${emailTag}`);
 
-        if (status === 2) {
-            // succes — extragem URL-ul video
-            const d = data.data;
-            const url = d.file_url || d.video_url || d.url ||
-                (Array.isArray(d.file_urls) ? d.file_urls[0] : null) ||
-                (Array.isArray(d.urls) ? d.urls[0] : null);
-            if (!url) throw new Error('Răspuns succes dar fără URL video.');
-            return url;
-        }
+if (status === 2) {
+    const d = data.data;
+    console.log(`[WuyinPoll] status=2 data: ${JSON.stringify(d)}`); // ← adaugă asta
+    const url = d.file_url || d.video_url || d.url ||
+        (Array.isArray(d.file_urls) ? d.file_urls[0] : null) ||
+        (Array.isArray(d.urls) ? d.urls[0] : null);
+    if (!url) throw new Error('Răspuns succes dar fără URL video.');
+    return url;
+}
 
         if (status === 3) {
             const msg = data?.data?.message || 'Generarea a eșuat.';
