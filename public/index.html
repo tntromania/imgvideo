@@ -654,6 +654,7 @@
 <!-- NAV -->
 <div class="sticky top-0 z-50 flex w-full justify-center px-4 pt-4 pb-2 max-w-screen-2xl mx-auto relative z-10">
     <nav class="nav-glass w-full px-4 md:px-6 py-3 flex justify-between items-center">
+        <!-- LEFT: Logo + theme toggle on mobile -->
         <a href="https://viralio.ro" class="flex items-center font-display font-black text-lg tracking-tight text-white group">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-viralio-500 to-viralio-accent flex items-center justify-center text-white mr-2.5 shadow-[0_0_20px_rgba(99,102,241,0.4)] group-hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] transition-shadow">
                 <i class="fa-solid fa-bolt text-sm"></i>
@@ -663,6 +664,8 @@
                 <i class="fa-solid fa-wand-magic-sparkles mr-1.5" style="color:rgba(99,102,241,0.8)"></i>Media Studio
             </span>
         </a>
+
+        <!-- CENTER: mode tabs — always centered, never overlapping -->
         <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 p-1.5 rounded-2xl flex gap-1" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);overflow:visible">
             <button class="mode-tab active" id="tab-image" onclick="switchMode('image')">
                 <i class="fa-solid fa-image" style="color:rgba(99,102,241,0.8);font-size:0.8rem;line-height:1"></i>
@@ -673,20 +676,22 @@
                 <span class="hidden sm:inline">Video</span>
             </button>
         </div>
-        <div class="flex items-center gap-2">
+
+        <!-- RIGHT: theme toggle + login/user -->
+        <div class="flex items-center gap-1.5 md:gap-2">
             <button id="theme-toggle" onclick="toggleTheme()" title="Schimbă tema">
                 <i class="fa-solid fa-sun icon-sun text-sm"></i>
                 <i class="fa-solid fa-moon icon-moon text-sm"></i>
             </button>
             <button onclick="openLoginModal()" id="login-top-btn" class="hidden sm:flex px-5 py-2.5 rounded-xl hover:opacity-90 transition-all font-semibold text-sm text-white" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1)">Conectează-te</button>
-            <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden w-10 h-10 rounded-xl font-bold text-sm flex items-center justify-center text-white" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1)"><i class="fa-solid fa-user"></i></button>
-            <div id="user-profile" class="hidden items-center py-1 pl-1.5 pr-3 rounded-full gap-2" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08)">
-                <img id="nav-avatar" src="" class="w-8 h-8 rounded-full border border-white/10 object-cover">
+            <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden w-9 h-9 rounded-xl font-bold text-sm flex items-center justify-center text-white" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1)"><i class="fa-solid fa-user text-xs"></i></button>
+            <div id="user-profile" class="hidden items-center py-1 pl-1.5 pr-2 md:pr-3 rounded-full gap-1.5 md:gap-2" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08)">
+                <img id="nav-avatar" src="" class="w-7 h-7 md:w-8 md:h-8 rounded-full border border-white/10 object-cover">
                 <div class="flex-col leading-none hidden md:flex">
                     <span id="nav-name" class="text-xs font-bold text-white mb-0.5 font-display"></span>
                     <span class="credits-badge"><span id="nav-credits">0</span> Credite</span>
                 </div>
-                <button onclick="logout()" class="p-1.5 transition-colors rounded-full ml-1" style="color:rgba(255,255,255,0.25)" onmouseover="this.style.color='rgba(248,113,113,0.8)'" onmouseout="this.style.color='rgba(255,255,255,0.25)'"><i class="fa-solid fa-power-off text-xs"></i></button>
+                <button onclick="logout()" class="p-1.5 transition-colors rounded-full ml-0.5" style="color:rgba(255,255,255,0.25)" onmouseover="this.style.color='rgba(248,113,113,0.8)'" onmouseout="this.style.color='rgba(255,255,255,0.25)'"><i class="fa-solid fa-power-off text-xs"></i></button>
             </div>
         </div>
     </nav>
@@ -1132,14 +1137,17 @@ function checkEmptyState(){
 // ===================== JOB SYSTEM =====================
 // NOTA: Nu mai există cancelJob — generările nu se pot opri din frontend.
 
-function createJobCard(jobId, promptText, currentMode){
+function createJobCard(jobId, promptText, currentMode, count){
+    count = count || 1;
     const el=document.createElement('div');
     el.id=`job-${jobId}`;
     el.className='job-card processing';
 
     const typeLabel = currentMode==='video'
-        ? `<span class="flex items-center gap-1.5" style="color:rgba(165,168,255,0.7)"><i class="fa-solid fa-clapperboard text-[0.6rem]"></i> <span class="font-display font-black text-[0.65rem] uppercase tracking-wider">Video</span></span>`
-        : `<span class="flex items-center gap-1.5" style="color:rgba(165,168,255,0.7)"><i class="fa-solid fa-image text-[0.6rem]"></i> <span class="font-display font-black text-[0.65rem] uppercase tracking-wider">Imagine</span></span>`;
+        ? `<span class="flex items-center gap-1.5" style="color:rgba(165,168,255,0.7)"><i class="fa-solid fa-clapperboard text-[0.6rem]"></i> <span class="font-bold text-[0.65rem] uppercase tracking-wider">Video</span></span>`
+        : `<span class="flex items-center gap-1.5" style="color:rgba(165,168,255,0.7)"><i class="fa-solid fa-image text-[0.6rem]"></i> <span class="font-bold text-[0.65rem] uppercase tracking-wider">Imagine</span></span>`;
+
+    const shimmer = buildShimmerLoading(currentMode, count).replace('job-status-JOBID', `job-status-${jobId}`);
 
     el.innerHTML=`
         <div class="flex items-center justify-between px-5 py-3.5" style="border-bottom:1px solid rgba(255,255,255,0.05)">
@@ -1149,43 +1157,53 @@ function createJobCard(jobId, promptText, currentMode){
                 </div>
                 <span class="text-sm font-medium truncate" style="color:rgba(255,255,255,0.6);max-width:240px">${escHtml(promptText)}</span>
             </div>
-            <div class="shrink-0 ml-3">${typeLabel}</div>
+            <div class="shrink-0 ml-3 flex items-center gap-2">${typeLabel}</div>
         </div>
-        <div id="job-body-${jobId}" class="p-5">
-            ${buildShimmerLoading(currentMode)}
+        <div id="job-body-${jobId}" class="p-4">
+            ${shimmer}
         </div>`;
     return el;
 }
 
-function buildShimmerLoading(mode) {
-    if(mode === 'video') {
-        return `
-        <div class="flex flex-col gap-3">
-            <div class="flex items-center gap-3 mb-2">
-                <div class="w-8 h-8 rounded-xl shimmer-box shrink-0"></div>
-                <div class="flex-1">
-                    <div class="h-3 rounded-full shimmer-box mb-2" style="width:60%"></div>
-                    <div class="h-2.5 rounded-full shimmer-box" style="width:40%;opacity:0.6"></div>
-                </div>
-            </div>
-            <div class="rounded-xl shimmer-box" style="aspect-ratio:9/16;max-width:160px;margin:0 auto"></div>
-            <p id="job-status-${typeof jobId !== 'undefined' ? jobId : 'X'}" class="text-center text-xs font-medium mt-1" style="color:rgba(255,255,255,0.3)">Se generează...</p>
-        </div>`;
-    }
-    return `
-    <div class="flex flex-col gap-3">
-        <div class="flex items-center gap-3 mb-1">
+function buildShimmerLoading(currentMode, count) {
+    count = count || 1;
+    const header = `
+        <div class="flex items-center gap-3 mb-3">
             <div class="w-8 h-8 rounded-xl shimmer-box shrink-0"></div>
             <div class="flex-1">
-                <div class="h-3 rounded-full shimmer-box mb-2" style="width:55%"></div>
-                <div class="h-2.5 rounded-full shimmer-box" style="width:35%;opacity:0.6"></div>
+                <div class="h-3 rounded-full shimmer-box mb-2" style="width:60%"></div>
+                <div class="h-2.5 rounded-full shimmer-box" style="width:40%;opacity:0.6"></div>
             </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
+        </div>`;
+
+    if(currentMode === 'video') {
+        const placeholders = Array.from({length:count}, (_,i)=>`
+            <div class="rounded-xl shimmer-box" style="aspect-ratio:9/16;max-width:130px;flex:0 0 130px" ${i>0?'class="opacity-70"':''}></div>
+        `).join('');
+        return `
+        <div class="flex flex-col gap-3">
+            ${header}
+            <div class="flex gap-2 justify-center flex-wrap">${placeholders}</div>
+            <p id="job-status-JOBID" class="text-center text-xs font-medium mt-1" style="color:rgba(255,255,255,0.3)">Se generează...</p>
+        </div>`;
+    }
+    // image
+    if(count===1){
+        return `
+        <div class="flex flex-col gap-3" style="max-width:210px;margin:0 auto">
+            ${header}
             <div class="rounded-xl shimmer-box aspect-square"></div>
-            <div class="rounded-xl shimmer-box aspect-square" style="animation-delay:0.2s"></div>
+            <p class="text-center text-xs font-medium" style="color:rgba(255,255,255,0.3)">Se generează imaginile...</p>
+        </div>`;
+    }
+    const cols = Math.min(count,4);
+    return `
+    <div class="flex flex-col gap-3">
+        ${header}
+        <div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px;max-width:${cols<=2?'380px':cols===3?'480px':'560px'};margin:0 auto">
+            ${Array.from({length:count},(_,i)=>`<div class="rounded-xl shimmer-box aspect-square" style="animation-delay:${i*0.15}s"></div>`).join('')}
         </div>
-        <p class="text-center text-xs font-medium mt-1" style="color:rgba(255,255,255,0.3)">Se generează...</p>
+        <p class="text-center text-xs font-medium" style="color:rgba(255,255,255,0.3)">Se generează imaginile...</p>
     </div>`;
 }
 
@@ -1209,6 +1227,17 @@ function setJobDone(jobId, urls, ratioVal, currentMode){
     if(!body||!card) return;
     card.className='job-card done';
 
+    // FIX 3: Add X close button to card header
+    const header = card.querySelector('div[style*="border-bottom"]');
+    if(header && !header.querySelector('.job-close-btn')){
+        const xBtn = document.createElement('button');
+        xBtn.className='job-close-btn shrink-0 ml-2 w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:scale-110';
+        xBtn.style.cssText='background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.35)';
+        xBtn.innerHTML='<i class="fa-solid fa-xmark text-[0.6rem]"></i>';
+        xBtn.onclick=()=>{ card.style.transition='opacity 0.3s,transform 0.3s'; card.style.opacity='0'; card.style.transform='scale(0.97)'; setTimeout(()=>{ card.remove(); checkEmptyState(); },300); };
+        header.appendChild(xBtn);
+    }
+
     // Update dot to green
     const pulseWrap = card.querySelector('.pulse-ring');
     if(pulseWrap){
@@ -1217,51 +1246,90 @@ function setJobDone(jobId, urls, ratioVal, currentMode){
         dot.style.background = 'rgba(52,211,153,0.9)';
     }
 
-    const isPortrait=(ratioVal==='9:16'||ratioVal==='2:3'||ratioVal==='3:4');
-    const isLandscape=(ratioVal==='16:9'||ratioVal==='21:9'||ratioVal==='3:2'||ratioVal==='4:3');
-    const maxW=urls.length===1?(isPortrait?'260px':isLandscape?'560px':'360px'):'100%';
+    const isPortrait=(ratioVal==='9:16'||ratioVal==='2:3'||ratioVal==='3:4'||ratioVal==='4:5');
+    const isLandscape=(ratioVal==='16:9'||ratioVal==='21:9'||ratioVal==='3:2'||ratioVal==='4:3'||ratioVal==='5:4');
+    const count=urls.length;
 
-    body.innerHTML='';
-    const wrapper=document.createElement('div'); wrapper.className='p-4 w-full';
-    const grid=document.createElement('div');
-    if(urls.length===1){ grid.style.maxWidth=maxW; grid.style.margin='0 auto'; }
-    else { grid.className='grid gap-3'; grid.style.gridTemplateColumns = urls.length <= 2 ? 'repeat(2,1fr)' : 'repeat(2,1fr)'; }
-
-    urls.forEach((url)=>{
-        const cardEl=document.createElement('div'); cardEl.className='result-card';
+    // Build result cards
+    const makeCard=(url, idx)=>{
+        const el=document.createElement('div');
+        el.className='result-card';
+        const ts=Date.now()+idx;
         if(currentMode==='image'){
-            cardEl.innerHTML=`
-                <div class="${aspectClass(ratioVal)} w-full relative group">
+            const allStr=JSON.stringify(urls);
+            el.innerHTML=`
+                <div class="${aspectClass(ratioVal)} w-full relative group overflow-hidden" style="border-radius:14px 14px 0 0">
                     <img src="${url}" class="absolute inset-0 w-full h-full object-cover">
                     <div class="card-overlay">
-                        <button onclick="openLightbox(['${url}'],0,'image')" class="text-white backdrop-blur-md text-xs font-bold px-3 py-2 rounded-xl transition-all hover:scale-105" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2)"><i class="fa-solid fa-expand mr-1.5"></i>Mărește</button>
+                        <button onclick='openLightbox(${allStr},${idx},"image")' class="text-white backdrop-blur-md text-xs font-bold px-3 py-1.5 rounded-xl transition-all hover:scale-105" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2)"><i class="fa-solid fa-expand mr-1"></i>Mărește</button>
                     </div>
                 </div>
-                <div class="p-3" style="border-top:1px solid rgba(255,255,255,0.05)">
-                    <button onclick="downloadMedia('${url}','viralio_img_${Date.now()}.png')" class="w-full text-xs font-bold px-4 py-2.5 rounded-xl transition-all hover:scale-[1.02]" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)">
-                        <i class="fa-solid fa-download mr-1.5"></i>Descarcă
-                    </button>
+                <div class="p-2.5" style="border-top:1px solid rgba(255,255,255,0.05)">
+                    <button onclick="downloadMedia('${url}','viralio_img_${ts}.png')" class="w-full text-xs font-bold px-3 py-2 rounded-xl transition-all" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
                 </div>`;
         } else {
-            cardEl.innerHTML=`
-                <div class="${aspectClass(ratioVal)} w-full relative overflow-hidden" style="background:#000;border-radius:16px 16px 0 0">
+            el.innerHTML=`
+                <div class="${aspectClass(ratioVal)} w-full relative overflow-hidden" style="background:#000;border-radius:14px 14px 0 0">
                     <video src="${url}" controls playsinline preload="metadata" class="absolute inset-0 w-full h-full object-contain"></video>
                 </div>
-                <div class="p-3" style="border-top:1px solid rgba(255,255,255,0.05)">
-                    <button onclick="downloadMedia('${url}','viralio_vid_${Date.now()}.mp4')" class="w-full text-xs font-bold px-4 py-2.5 rounded-xl transition-all hover:scale-[1.02]" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)">
-                        <i class="fa-solid fa-download mr-1.5"></i>Descarcă
-                    </button>
+                <div class="p-2.5" style="border-top:1px solid rgba(255,255,255,0.05)">
+                    <button onclick="downloadMedia('${url}','viralio_vid_${ts}.mp4')" class="w-full text-xs font-bold px-3 py-2 rounded-xl transition-all" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
                 </div>`;
         }
-        grid.appendChild(cardEl);
-    });
-    wrapper.appendChild(grid); body.appendChild(wrapper);
+        return el;
+    };
+
+    body.innerHTML='';
+    const wrapper=document.createElement('div');
+    wrapper.style.padding='12px';
+
+    if(count===1){
+        // Single: constrained width, centered
+        const maxW = isPortrait ? '210px' : isLandscape ? '460px' : '280px';
+        wrapper.style.maxWidth=maxW;
+        wrapper.style.margin='0 auto';
+        wrapper.appendChild(makeCard(urls[0],0));
+    } else {
+        // Multiple: grid with max-width constraints so they don't go full screen
+        const grid=document.createElement('div');
+        grid.style.display='grid';
+        grid.style.gap='10px';
+        if(isPortrait){
+            // portrait cols side by side, small
+            const cols=Math.min(count,4);
+            grid.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+            grid.style.maxWidth= count<=2?'340px': count===3?'460px':'580px';
+            grid.style.margin='0 auto';
+        } else if(isLandscape){
+            // landscape: max 2 wide
+            grid.style.gridTemplateColumns='repeat(2,1fr)';
+        } else {
+            // square
+            grid.style.gridTemplateColumns=`repeat(${Math.min(count,2)},1fr)`;
+            grid.style.maxWidth=count<=2?'420px':'560px';
+            grid.style.margin='0 auto';
+        }
+        urls.forEach((url,i)=>grid.appendChild(makeCard(url,i)));
+        wrapper.appendChild(grid);
+    }
+    body.appendChild(wrapper);
 }
 
 function setJobError(jobId, msg){
     const body=document.getElementById(`job-body-${jobId}`); const card=document.getElementById(`job-${jobId}`);
     if(!body) return;
     card.className='job-card error';
+
+    // Add X close button
+    const header = card.querySelector('div[style*="border-bottom"]');
+    if(header && !header.querySelector('.job-close-btn')){
+        const xBtn = document.createElement('button');
+        xBtn.className='job-close-btn shrink-0 ml-2 w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:scale-110';
+        xBtn.style.cssText='background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.35)';
+        xBtn.innerHTML='<i class="fa-solid fa-xmark text-[0.6rem]"></i>';
+        xBtn.onclick=()=>{ card.style.transition='opacity 0.3s,transform 0.3s'; card.style.opacity='0'; card.style.transform='scale(0.97)'; setTimeout(()=>{ card.remove(); checkEmptyState(); },300); };
+        header.appendChild(xBtn);
+    }
 
     const pulseWrap = card.querySelector('.pulse-ring');
     if(pulseWrap){
@@ -1270,18 +1338,18 @@ function setJobError(jobId, msg){
         dot.style.background = 'rgba(248,113,113,0.9)';
     }
 
-    const isBlocked = msg && (msg.includes('sexuală') || msg.includes('blocat') || msg.includes('filtrat') || msg.includes('inadecvat') || msg.includes('siguranță'));
+    const isBlocked = msg && (msg.includes('sexuală') || msg.includes('blocat') || msg.includes('filtrat') || msg.includes('inadecvat') || msg.includes('siguranță') || msg.includes('Audio'));
     const icon = isBlocked ? 'fa-ban' : 'fa-triangle-exclamation';
     const iconColor = isBlocked ? 'rgba(251,146,60,0.8)' : 'rgba(248,113,113,0.8)';
-    const extraMsg = isBlocked
-        ? `<p class="text-xs font-semibold px-3 py-2 rounded-xl mt-1" style="color:rgba(251,146,60,0.8);background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.15)">✏️ Modifică promptul și regenerează!</p>`
+    const actionBtn = isBlocked
+        ? `<button onclick="document.getElementById('prompt-in').value='';document.getElementById('prompt-in').focus();" class="text-xs font-bold px-4 py-2 rounded-xl mt-1 transition-all hover:scale-105" style="color:rgba(251,146,60,0.9);background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.2)">✏️ Modifică promptul și regenerează!</button>`
         : '';
 
     body.innerHTML=`
-        <div class="flex flex-col items-center gap-3 py-3 w-full">
+        <div class="flex flex-col items-center gap-2 py-4 w-full">
             <i class="fa-solid ${icon} text-2xl" style="color:${iconColor}"></i>
-            <p class="text-sm text-center max-w-xs" style="color:rgba(255,255,255,0.4)">${escHtml(msg)}</p>
-            ${extraMsg}
+            <p class="text-xs text-center max-w-xs leading-relaxed" style="color:rgba(255,255,255,0.4)">${escHtml(msg)}</p>
+            ${actionBtn}
         </div>`;
 }
 
@@ -1383,7 +1451,8 @@ async function generate(){
     const jobId=++jobCounter;
 
     activeJobs.set(jobId,{aborted:false,reader:null});
-    const card=createJobCard(jobId,promptText,currentMode);
+    const count = currentMode==='image' ? imgCount : vidCount;
+    const card=createJobCard(jobId,promptText,currentMode,count);
     document.getElementById('jobs-area').prepend(card);
     checkEmptyState();
 
@@ -1401,45 +1470,94 @@ async function saveToSupabase(urls,promptText,jobMode){
     try { await fetch('/api/media/save-history',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({urls,type:jobMode||mode,prompt:promptText})}); } catch(e){}
 }
 
-async function loadHistory(){
+let historyPage = 1;
+let historyLoading = false;
+let historyHasMore = true;
+
+async function loadHistory(append=false){
     const token=getToken(); if(!token) return;
+    if(historyLoading) return;
+    if(!append){ historyPage=1; historyHasMore=true; }
+    if(!historyHasMore) return;
+    historyLoading=true;
     try {
-        const res=await fetch(`/api/media/history?type=${mode}`,{headers:{'Authorization':'Bearer '+token}});
+        const res=await fetch(`/api/media/history?type=${mode}&page=${historyPage}`,{headers:{'Authorization':'Bearer '+token}});
         const data=await res.json();
         const grid=document.getElementById('history-grid');
-        if(!data.history?.length){
+
+        if(!append) grid.innerHTML='';
+
+        if(!data.history?.length && !append){
             grid.innerHTML=`<p class="text-sm text-center py-8 rounded-2xl" style="color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.06)">Nu ai nicio generare recentă.</p>`;
-            return;
+            historyLoading=false; return;
         }
+
+        // Remove old "load more" button if exists
+        const oldBtn = grid.querySelector('.history-load-more');
+        if(oldBtn) oldBtn.remove();
+
         let grouped=[];
         data.history.forEach(item=>{
             const last=grouped[grouped.length-1]; const ps=item.prompt||'Fără prompt';
-            if(last&&last.prompt===ps&&last.type===item.type) last.urls.push(item.supabaseUrl||item.originalUrl);
-            else grouped.push({prompt:ps,type:item.type,urls:[item.supabaseUrl||item.originalUrl]});
+            const url=item.supabaseUrl||item.originalUrl;
+            if(!url) return; // skip entries without URL
+            if(last&&last.prompt===ps&&last.type===item.type) last.urls.push(url);
+            else grouped.push({prompt:ps,type:item.type,urls:[url]});
         });
-        window.currentHistoryMedia=grouped.flatMap(g=>g.urls.map(u=>({url:u,type:g.type})));
-        let counter=0;
-        grid.innerHTML=grouped.map((group,i)=>{
+
+        if(!append) window.currentHistoryMedia=[];
+        else window.currentHistoryMedia=window.currentHistoryMedia||[];
+
+        let counter=window.currentHistoryMedia.length;
+
+        grouped.forEach(g=>g.urls.forEach(u=>window.currentHistoryMedia.push({url:u,type:g.type})));
+
+        grouped.forEach((group,i)=>{
             const mediaHtml=group.urls.map((url)=>{
                 const idx=counter++;
-                if(group.type==='image') return `<div class="aspect-square rounded-xl overflow-hidden cursor-pointer transition-all hover:scale-[1.03] hover:shadow-lg" style="border:1px solid rgba(255,255,255,0.06)" onclick="openLightbox(window.currentHistoryMedia,${idx},'image')"><img src="${url}" loading="lazy" class="w-full h-full object-cover"></div>`;
-                return `<div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer transition-all hover:scale-[1.03]" style="border:1px solid rgba(255,255,255,0.06)" onclick="openLightbox(window.currentHistoryMedia,${idx},'video')"><video src="${url}" class="w-full h-full object-cover"></video><div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.4)"><i class="fa-solid fa-play text-white text-2xl opacity-90"></i></div></div>`;
+                if(group.type==='image') return `
+                    <div class="aspect-square rounded-xl overflow-hidden cursor-pointer transition-all hover:scale-[1.03] hover:shadow-lg relative bg-white/5" style="border:1px solid rgba(255,255,255,0.06)" onclick="openLightbox(window.currentHistoryMedia,${idx},'image')">
+                        <img src="${url}" loading="lazy" class="w-full h-full object-cover" onerror="this.parentElement.style.opacity='0.3';this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1 1%22/>'">
+                    </div>`;
+                return `
+                    <div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer transition-all hover:scale-[1.03] bg-black" style="border:1px solid rgba(255,255,255,0.06)" onclick="openLightbox(window.currentHistoryMedia,${idx},'video')">
+                        <video src="${url}" class="w-full h-full object-cover" preload="none" onerror="this.parentElement.style.opacity='0.3'"></video>
+                        <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.4)"><i class="fa-solid fa-play text-white text-2xl opacity-90"></i></div>
+                    </div>`;
             }).join('');
-            return `<div class="history-group animate-slide-up" style="animation-delay:${i*0.05}s">
+
+            const div=document.createElement('div');
+            div.className='history-group animate-slide-up';
+            div.style.animationDelay=`${i*0.04}s`;
+            div.innerHTML=`
                 <div class="flex items-start gap-3 mb-3 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.05)">
                     <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(99,102,241,0.15)">
                         <i class="fa-solid ${group.type==='image'?'fa-image':'fa-clapperboard'} text-xs" style="color:rgba(165,168,255,0.7)"></i>
                     </div>
                     <div class="flex-1 overflow-hidden">
                         <p class="text-[0.8rem] font-medium truncate cursor-pointer hover:text-white transition-colors" style="color:rgba(255,255,255,0.5)" data-prompt="${escHtml(group.prompt)}" onclick="document.getElementById('prompt-in').value=this.dataset.prompt;updateCharCount();">"${escHtml(group.prompt)}"</p>
-                        <span class="text-[0.6rem] font-display font-black uppercase tracking-widest mt-0.5 block" style="color:rgba(255,255,255,0.2)">Generat anterior</span>
+                        <span class="text-[0.6rem] font-bold uppercase tracking-widest mt-0.5 block" style="color:rgba(255,255,255,0.2)">Generat anterior</span>
                     </div>
                     <button data-prompt="${escHtml(group.prompt)}" onclick="document.getElementById('prompt-in').value=this.dataset.prompt;updateCharCount();" class="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:scale-110" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.3)"><i class="fa-solid fa-rotate-right text-xs"></i></button>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">${mediaHtml}</div>
-            </div>`;
-        }).join('');
-    } catch(e){ console.error('Eroare istoric:',e); }
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">${mediaHtml}</div>`;
+            grid.appendChild(div);
+        });
+
+        historyHasMore = data.page < data.pages;
+        historyPage++;
+
+        if(historyHasMore){
+            const loadMoreBtn=document.createElement('button');
+            loadMoreBtn.className='history-load-more w-full py-3 rounded-xl text-xs font-bold transition-all mt-2';
+            loadMoreBtn.style.cssText='color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)';
+            loadMoreBtn.innerHTML='<i class="fa-solid fa-chevron-down mr-1.5"></i>Încarcă mai multe';
+            loadMoreBtn.onclick=()=>loadHistory(true);
+            grid.appendChild(loadMoreBtn);
+        }
+
+        historyLoading=false;
+    } catch(e){ console.error('Eroare istoric:',e); historyLoading=false; }
 }
 
 // ===================== THEME TOGGLE =====================
