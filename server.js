@@ -479,11 +479,21 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
             reject(err);
         };
 
-        const pump = async () => {
+const pump = async () => {
+    try {
+        while (true) {
+            let result;
             try {
-                while (true) {
-                    const { done: streamDone, value } = await reader.read();
-                    if (streamDone) break;
+                result = await reader.read();
+            } catch (readErr) {
+                // ← Aici pică cu "terminated" / UND_ERR_SOCKET
+                // Tratăm ca stream închis, nu ca crash
+                if (!settled) fail(new Error('terminated'));
+                return;
+            }
+
+            const { done: streamDone, value } = result;
+            if (streamDone) break;
 
                     buf += dec.decode(value, { stream: true });
                     resetActivity();
