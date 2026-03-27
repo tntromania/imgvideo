@@ -190,7 +190,7 @@ const MODEL_PRICES = {
 const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
     for (let i = 0; i < maxRetries; i++) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000);
+        const timeoutId = setTimeout(() => controller.abort(), 180000);
         try {
             const response = await fetch(url, { ...options, signal: controller.signal });
             clearTimeout(timeoutId);
@@ -449,7 +449,7 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
             clearTimeout(globalTimeout);
             try { reader.cancel(); } catch (_) {}
             reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
-        }, 120000);
+        }, 180000);
 
         const resetActivity = () => {
             clearTimeout(activityTimeout);
@@ -460,7 +460,7 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
                 clearTimeout(globalTimeout);
                 try { reader.cancel(); } catch (_) {}
                 reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
-            }, 120000);
+            }, 180000);
         };
 
         const done = (urls) => {
