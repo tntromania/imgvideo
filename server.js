@@ -238,7 +238,14 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
     const startTime = Date.now();
     const elapsed = () => `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
 
+    // ✅ Set SSE headers FIRST so status updates stream live
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
     let clientAborted = false;
+    res.on('close', () => { clientAborted = true; console.log(`[Imagini] ⚠️ Client a anulat | ${req.userId}`); });
 
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -248,15 +255,16 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         const totalCost = count * costPerImg;
 
         const user = await User.findById(req.userId);
-        if (!user) return res.status(401).json({ error: "User negăsit." });
-        if (user.credits < totalCost) return res.status(403).json({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` });
+        if (!user) { res.write(`data: ${JSON.stringify({ error: "User negăsit." })}\n\n`); res.end(); return; }
+        if (user.credits < totalCost) { res.write(`data: ${JSON.stringify({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` })}\n\n`); res.end(); return; }
 
         const isFlash = (model_id === 'gemini-flash' || model_id === 'nano-banana-pro-1k');
         const MODEL_ID = isFlash ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview';
 
         console.log(`[Imagini] START | model=${MODEL_ID} count=${count} cost=${totalCost} | ${user.email}`);
+        res.write(`data: ${JSON.stringify({ status: `Se pregătește generarea a ${count} imagini...` })}\n\n`);
 
-        // ✅ Construiește parts o singură dată
+        // ✅ Build parts once
         let baseParts = [];
         if (req.files && req.files.length > 0) {
             console.log(`[Imagini] ${req.files.length} imagini referință primite`);
@@ -269,6 +277,8 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             finalPrompt += `\n\n[Instruction: Aspect Ratio: ${aspect_ratio}]`;
         }
         baseParts.push({ text: finalPrompt });
+
+        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
 
         const buildRequestBody = (seed) => {
             const body = {
@@ -288,101 +298,98 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             return body;
         };
 
-        const endpoint = `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL_ID}:generateContent?key=${process.env.VERTEX_API_KEY}`;
+        // ✅ Process each image request and upload immediately as it completes
+        const urls = [];
+        let completedCount = 0;
 
-        // ✅ Trimite N request-uri în paralel, fiecare cu seed diferit
-        const seeds = Array.from({ length: count }, () => Math.floor(Math.random() * 999999));
-        console.log(`[Imagini] Trimit ${count} request-uri paralel... | ${user.email}`);
+        // Run all N requests in parallel, each uploads independently
+        const imagePromises = Array.from({ length: count }, async (_, idx) => {
+            if (clientAborted) return;
+            // Each request gets a unique seed
+            const seed = Math.floor(Math.random() * 999999);
+            let attempts = 0;
+            const maxAttempts = 3;
 
-const results = await Promise.allSettled(
-    seeds.map((seed) =>
-        fetchWithRetry(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(buildRequestBody(seed))
-        })
-    )
-);
+            while (attempts < maxAttempts) {
+                if (clientAborted) return;
+                attempts++;
+                try {
+                    const response = await fetchWithRetry(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(buildRequestBody(seed + attempts * 1000))
+                    });
+                    const rawText = await response.text();
+                    let data;
+                    try { data = JSON.parse(rawText); } catch { continue; }
 
-        if (clientAborted) {
-            console.log(`[Imagini] ⚠️ Anulat de client după răspuns AI | ${user.email}`);
-            return;
-        }
-
-        let urls = [];
-        const finishReasons = [];
-
-        for (const result of results) {
-            if (result.status === 'rejected') {
-                console.error(`[Imagini] Request eșuat: ${result.reason?.message}`);
-                continue;
-            }
-            const apiRes = result.value;
-            const rawText = await apiRes.text();
-            let data;
-            try { data = JSON.parse(rawText); }
-            catch { console.error(`[Imagini] JSON invalid`); continue; }
-
-            if (!apiRes.ok) {
-                console.error(`[Imagini] Vertex error: ${data.error?.message}`);
-                continue;
-            }
-
-            if (data.candidates) {
-                for (const candidate of data.candidates) {
-                    finishReasons.push(candidate.finishReason || 'unknown');
-                    if (candidate.content?.parts) {
-                        for (const part of candidate.content.parts) {
-                            if (part.inlineData?.data) {
-                                const mime = part.inlineData.mimeType || 'image/png';
-                                const ext = mime.split('/')[1] || 'png';
-                                const buffer = Buffer.from(part.inlineData.data, 'base64');
-                                const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-                                try {
-                                    const publicUrl = await uploadToR2(buffer, fileName, mime);
-                                    urls.push(publicUrl);
-                                    console.log(`[Imagini] ✅ Upload OK: ${publicUrl}`);
-                                } catch (uploadErr) {
-                                    console.error(`[Imagini] ❌ R2 upload eșuat: ${uploadErr.message}`);
+                    if (data.candidates) {
+                        for (const candidate of data.candidates) {
+                            if (candidate.content?.parts) {
+                                for (const part of candidate.content.parts) {
+                                    if (part.inlineData?.data) {
+                                        const mime = part.inlineData.mimeType || 'image/png';
+                                        const ext = mime.split('/')[1] || 'png';
+                                        const buffer = Buffer.from(part.inlineData.data, 'base64');
+                                        const fileName = `generated/${req.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+                                        try {
+                                            const publicUrl = await uploadToR2(buffer, fileName, mime);
+                                            urls.push(publicUrl);
+                                            completedCount++;
+                                            console.log(`[Imagini] ✅ ${completedCount}/${count} gata: ${publicUrl}`);
+                                            if (!clientAborted) res.write(`data: ${JSON.stringify({ status: `${completedCount} din ${count} imagini gata...` })}\n\n`);
+                                            return; // success, exit retry loop
+                                        } catch (uploadErr) {
+                                            console.error(`[Imagini] ❌ R2 upload eșuat: ${uploadErr.message}`);
+                                        }
+                                    }
                                 }
+                            }
+                            // If candidate had no image (filtered), retry with different seed
+                            const reason = candidate.finishReason;
+                            if (reason && reason !== 'STOP') {
+                                console.warn(`[Imagini] Imagine ${idx+1} filtrată (${reason}), reîncerc cu alt seed...`);
+                                break; // break parts loop, retry outer while
                             }
                         }
                     }
+                } catch (err) {
+                    console.error(`[Imagini] Eroare imagine ${idx+1}, attempt ${attempts}: ${err.message}`);
                 }
+                // small delay before retry
+                await new Promise(r => setTimeout(r, 1500));
             }
-        }
+            console.warn(`[Imagini] ⚠️ Imagine ${idx+1} nu a putut fi generată după ${maxAttempts} încercări`);
+        });
+
+        await Promise.allSettled(imagePromises);
 
         if (clientAborted) return;
 
         if (urls.length === 0) {
-            console.error(`[Imagini] ❌ 0 imagini. finishReasons: [${finishReasons.join(', ')}]`);
-            throw new Error("Imaginea nu a putut fi generată. Promptul poate conține elemente blocate de filtrul de siguranță — încearcă să îl modifici.");
+            console.error(`[Imagini] ❌ 0 imagini generate`);
+            res.write(`data: ${JSON.stringify({ error: "Imaginile nu au putut fi generate. Promptul poate conține elemente blocate de filtrul de siguranță — încearcă să îl modifici." })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+            return;
         }
 
+        // Deduct only for successfully generated images
         await Log.create({ userEmail: user.email, type: 'image', count: urls.length, cost: urls.length * costPerImg });
         user.credits -= (urls.length * costPerImg);
         await user.save();
         console.log(`[Imagini] ✅ ${urls.length}/${count} imagini gata în ${elapsed()} | -${urls.length * costPerImg} cr | ${user.email}`);
 
-        if (clientAborted) return;
-
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.on('close', () => {
-            if (!res.writableEnded) {
-                clientAborted = true;
-                console.log(`[Imagini] ⚠️ Client a anulat | ${req.userId}`);
-            }
-        });
         res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
         res.write('data: [DONE]\n\n');
         res.end();
 
     } catch (e) {
         console.error(`[Imagini] ❌ Eroare la ${elapsed()}: ${e.message}`);
-        if (!res.headersSent && !clientAborted) {
-            res.status(500).json({ error: e.message });
+        if (!clientAborted) {
+            res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
         }
     }
 });
