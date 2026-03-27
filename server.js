@@ -808,8 +808,15 @@ app.get('/api/admin/api-quota', authenticateAdmin, async (req, res) => {
 app.get('/api/media/history', authenticate, async (req, res) => {
     try {
         const type = req.query.type || 'image';
-        const history = await History.find({ userId: req.userId, type }).sort({ createdAt: -1 }).limit(50);
-        res.json({ history });
+        const page = parseInt(req.query.page) || 1;
+        const limit = 80;
+        const skip = (page - 1) * limit;
+        const history = await History.find({ userId: req.userId, type })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+        const total = await History.countDocuments({ userId: req.userId, type });
+        res.json({ history, total, page, pages: Math.ceil(total / limit) });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
