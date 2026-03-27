@@ -12,128 +12,681 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: { viralio: { 50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 900: '#09090b', accent: '#ec4899' } },
-                    animation: { 'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards' },
-                    keyframes: { slideUp: { '0%': { opacity: 0, transform: 'translateY(20px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } } }
+                    fontFamily: {
+                        display: ['Inter', 'sans-serif'],
+                        body: ['Inter', 'sans-serif'],
+                        sans: ['Inter', 'sans-serif']
+                    },
+                    colors: {
+                        viralio: {
+                            50: '#f0f0ff', 100: '#e0e0ff', 200: '#c4c6ff',
+                            400: '#8183f4', 500: '#6366f1', 600: '#4f46e5',
+                            900: '#0a0a14', accent: '#ff6b6b', gold: '#f5c842'
+                        }
+                    }
                 }
             }
         }
     </script>
     <style>
         *, *::before, *::after { box-sizing: border-box; }
-        body { background: #F8FAFC; color: #0f172a; overflow: hidden; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
-        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; } ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .bg-gradient-viralio { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); }
-        #login-modal { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.65); backdrop-filter: blur(10px); z-index: 99999; align-items: center; justify-content: center; opacity: 0; transition: .3s; }
+        html { background: #07070f; }
+        body {
+            background: #07070f;
+            color: #e8e8f0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #2a2a3e; border-radius: 10px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ---- NOISE TEXTURE OVERLAY ---- */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.6;
+        }
+
+        /* ---- AMBIENT ORBS ---- */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .orb-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%); top: -200px; right: -100px; }
+        .orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(255,107,107,0.08) 0%, transparent 70%); bottom: -100px; left: 100px; }
+        .orb-3 { width: 300px; height: 300px; background: radial-gradient(circle, rgba(245,200,66,0.06) 0%, transparent 70%); top: 40%; left: 30%; }
+
+        /* ---- MODAL ---- */
+        #login-modal { display: none; position: fixed; inset: 0; background: rgba(7,7,15,0.85); backdrop-filter: blur(20px); z-index: 99999; align-items: center; justify-content: center; opacity: 0; transition: .3s; }
         #login-modal.show { display: flex; opacity: 1; }
-        .modal-content { background: #fff; border-radius: 28px; padding: 40px; text-align: center; max-width: 420px; width: 90%; transform: translateY(24px); transition: .4s; box-shadow: 0 40px 80px -20px rgba(0,0,0,.22); position: relative; }
+        .modal-content {
+            background: linear-gradient(135deg, #12121e 0%, #0e0e1a 100%);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 28px;
+            padding: 44px;
+            text-align: center;
+            max-width: 420px;
+            width: 90%;
+            transform: translateY(24px);
+            transition: .4s cubic-bezier(0.16,1,0.3,1);
+            box-shadow: 0 40px 80px -20px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.15);
+            position: relative;
+        }
         #login-modal.show .modal-content { transform: translateY(0); }
-        .mode-tab { padding: 10px 24px; border-radius: 14px; font-size: 0.85rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; border: none; background: none; color: #64748b; }
-        .mode-tab.active { background: white; color: #0f172a; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
-        .prompt-wrap { border: 2px solid #e2e8f0; border-radius: 18px; background: #fafafa; transition: all 0.2s; }
-        .prompt-wrap:focus-within { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,0.08); background: white; }
-        .ratio-pill input[type=radio] { display: none; }
-        .ratio-pill input:checked + span { background: white; color: #4f46e5; box-shadow: 0 2px 8px rgba(79,70,229,0.15); font-weight: 800; border-color: transparent; }
-        .ratio-pill span { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; border-radius: 12px; font-size: 0.7rem; font-weight: 800; color: #64748b; cursor: pointer; transition: all 0.2s; user-select: none; border: 1px solid transparent; }
-        .ratio-pill span:hover { color: #4f46e5; }
-        .count-btn { width: 36px; height: 36px; border-radius: 12px; background: white; border: 1px solid #e2e8f0; font-size: 1.2rem; font-weight: 800; color: #475569; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; }
-        .count-btn:hover { background: #e0e7ff; border-color: #6366f1; color: #4f46e5; }
-        .count-btn:active { transform: scale(0.9); }
-        .styled-select { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 14px; padding: 12px 36px 12px 16px; font-size: 0.85rem; font-weight: 800; color: #0f172a; outline: none; width: 100%; -webkit-appearance: none; cursor: pointer; transition: all 0.2s; }
-        .styled-select:focus { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,0.08); background: white; }
-        .select-wrap { position: relative; }
-        .select-wrap::after { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.7rem; pointer-events: none; }
-        .gen-btn { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); transition: all 0.3s; overflow: hidden; position: relative; }
-        .gen-btn:not(:disabled):hover { box-shadow: 0 15px 35px rgba(79,70,229,0.3); transform: translateY(-2px); }
-        .gen-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
-        .result-card { background: white; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: all 0.3s; position: relative; }
-        .result-card:hover { box-shadow: 0 20px 40px rgba(0,0,0,0.1); transform: translateY(-4px); border-color: #c7d2fe; }
-        .card-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(9,9,11,0.8) 0%, transparent 60%); opacity: 0; transition: opacity 0.3s; display: flex; align-items: flex-end; justify-content: center; padding: 20px; gap: 10px; }
-        .result-card:hover .card-overlay { opacity: 1; }
-        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #0f172a; color: white; padding: 14px 28px; border-radius: 16px; font-size: 0.9rem; font-weight: 700; z-index: 200000; transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s; opacity: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
-        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-        #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); z-index: 300000; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
-        #lightbox.show { display: flex; opacity: 1; }
-        .panel-s { border-bottom: 1px solid #f1f5f9; padding: 24px; }
+
+        /* ---- NAV ---- */
+        .nav-glass {
+            background: rgba(12,12,20,0.8);
+            border: 1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(24px);
+            border-radius: 18px;
+        }
+
+        /* ---- MODE TABS ---- */
+        .mode-tab {
+            padding: 8px 20px;
+            border-radius: 12px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            border: none;
+            background: none;
+            color: rgba(255,255,255,0.35);
+            letter-spacing: 0.01em;
+            line-height: 1;
+            overflow: visible;
+        }
+        .mode-tab.active {
+            background: rgba(99,102,241,0.2);
+            color: #a5a8ff;
+            border: 1px solid rgba(99,102,241,0.35);
+            box-shadow: 0 0 20px rgba(99,102,241,0.15);
+        }
+
+        /* ---- SIDEBAR ---- */
+        .sidebar-glass {
+            background: rgba(10,10,18,0.95);
+            border: 1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(20px);
+        }
+
+        /* ---- PANELS ---- */
+        .panel-s { border-bottom: 1px solid rgba(255,255,255,0.05); padding: 20px 24px; }
         .panel-s:last-child { border-bottom: none; }
-        .field-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 10px; display: block; }
-        .dropzone { border: 2px dashed #cbd5e1; border-radius: 16px; background: #f8fafc; transition: all 0.2s; cursor: pointer; }
-        .dropzone:hover { border-color: #6366f1; background: #eef2ff; }
-        .dropzone.has-file { border-color: #6366f1; background: #eef2ff; border-style: solid; }
-        .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
-        @keyframes premiumShine { 0% { transform: translateX(-150%) skewX(-20deg); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(250%) skewX(-20deg); opacity: 0; } }
-        .animate-shine-fast { animation: premiumShine 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1); }
-        .job-card { background: white; border: 1.5px solid #e2e8f0; border-radius: 20px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.04); animation: slideUp 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
-        .job-card.processing { border-color: #c7d2fe; }
-        .job-card.done { border-color: #a7f3d0; }
-        .job-card.error { border-color: #fecaca; }
-        #autocomplete-menu { display: none; position: absolute; bottom: calc(100% + 5px); left: 10px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 50; max-height: 200px; overflow-y: auto; width: max-content; min-width: 150px; }
-        #autocomplete-menu.show { display: block; }
-        .autocomplete-item { padding: 8px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid #f1f5f9; }
-        .autocomplete-item:last-child { border-bottom: none; }
-        .autocomplete-item:hover { background: #f8fafc; }
-        /* Frame preview */
-        .frame-preview { position: relative; width: 100%; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 2px solid #6366f1; }
+        .field-label { font-size: 0.65rem; font-weight: 700; font-family: 'Inter', sans-serif; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.3); margin-bottom: 10px; display: block; }
+
+        /* ---- PROMPT AREA ---- */
+        .prompt-wrap {
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.03);
+            transition: all 0.25s;
+        }
+        .prompt-wrap:focus-within {
+            border-color: rgba(99,102,241,0.5);
+            background: rgba(99,102,241,0.04);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.08), 0 0 30px rgba(99,102,241,0.1);
+        }
+        #prompt-in { color: rgba(255,255,255,0.85); }
+        #prompt-in::placeholder { color: rgba(255,255,255,0.2); }
+
+        /* ---- RATIO PILLS ---- */
+        .ratio-pill input[type=radio] { display: none; }
+        .ratio-pill input:checked + span {
+            background: rgba(99,102,241,0.25);
+            color: #a5a8ff;
+            border-color: rgba(99,102,241,0.4);
+            box-shadow: 0 0 15px rgba(99,102,241,0.15);
+        }
+        .ratio-pill span {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+            padding: 8px 4px; border-radius: 10px; font-size: 0.68rem; font-weight: 700;
+            color: rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s;
+            border: 1px solid transparent; user-select: none;
+        }
+        .ratio-pill span:hover { color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.05); }
+
+        /* ---- COUNT BTN ---- */
+        .count-btn {
+            width: 34px; height: 34px; border-radius: 10px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            font-size: 1.1rem; font-weight: 700;
+            color: rgba(255,255,255,0.5);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .count-btn:hover { background: rgba(99,102,241,0.2); border-color: rgba(99,102,241,0.4); color: #a5a8ff; }
+        .count-btn:active { transform: scale(0.9); }
+
+        /* ---- SELECT ---- */
+        .styled-select {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 11px 34px 11px 14px;
+            font-size: 0.84rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.8);
+            outline: none; width: 100%; -webkit-appearance: none; cursor: pointer; transition: all 0.2s;
+        }
+        .styled-select:focus { border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.06); }
+        .styled-select option { background: #12121e; color: #e8e8f0; }
+        .select-wrap { position: relative; }
+        .select-wrap::after { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.25); font-size: 0.65rem; pointer-events: none; }
+
+        /* ---- GENERATE BUTTON ---- */
+        .gen-btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);
+            background-size: 200% 200%;
+            animation: gradShift 4s ease infinite;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        @keyframes gradShift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        .gen-btn::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s;
+        }
+        .gen-btn:not(:disabled):hover::before { transform: translateX(100%); }
+        .gen-btn:not(:disabled):hover { box-shadow: 0 20px 40px rgba(99,102,241,0.4), 0 0 0 1px rgba(255,255,255,0.1); transform: translateY(-2px); }
+        .gen-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+        /* ---- JOB CARDS ---- */
+        .job-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 14px;
+            animation: cardIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards;
+        }
+        @keyframes cardIn { from { opacity:0; transform: translateY(16px) scale(0.98); } to { opacity:1; transform: translateY(0) scale(1); } }
+        .job-card.processing { border-color: rgba(99,102,241,0.25); background: rgba(99,102,241,0.04); }
+        .job-card.done { border-color: rgba(52,211,153,0.25); background: rgba(52,211,153,0.03); }
+        .job-card.error { border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.03); }
+
+        /* ---- SHIMMER LOADING ---- */
+        .shimmer-box {
+            background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.04) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 1.8s ease-in-out infinite;
+            border-radius: 12px;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* ---- PULSE RING ---- */
+        .pulse-ring {
+            position: relative;
+        }
+        .pulse-ring::before, .pulse-ring::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 1px solid rgba(99,102,241,0.5);
+            animation: pulseRing 2s ease-out infinite;
+        }
+        .pulse-ring::after { animation-delay: 1s; }
+        @keyframes pulseRing { 0% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(1.8); } }
+
+        /* ---- RESULT CARD ---- */
+        .result-card {
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.06);
+            transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+            background: rgba(255,255,255,0.03);
+            position: relative;
+        }
+        .result-card:hover { transform: translateY(-4px) scale(1.01); border-color: rgba(99,102,241,0.3); box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 30px rgba(99,102,241,0.1); }
+        .card-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%); opacity: 0; transition: opacity 0.3s; display: flex; align-items: flex-end; justify-content: center; padding: 16px; gap: 8px; }
+        .result-card:hover .card-overlay { opacity: 1; }
+
+        /* ---- TOAST ---- */
+        #toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: white; padding: 12px 24px; border-radius: 100px;
+            font-size: 0.88rem; font-weight: 600; z-index: 200000;
+            transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s; opacity: 0;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* ---- LIGHTBOX ---- */
+        #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.97); backdrop-filter: blur(20px); z-index: 300000; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+        #lightbox.show { display: flex; opacity: 1; }
+
+        /* ---- DROPZONE ---- */
+        .dropzone { border: 1.5px dashed rgba(255,255,255,0.12); border-radius: 14px; background: rgba(255,255,255,0.02); transition: all 0.2s; cursor: pointer; }
+        .dropzone:hover { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.05); }
+        .dropzone.has-file { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.06); border-style: solid; }
+
+        /* ---- FRAME PREVIEW ---- */
+        .frame-preview { position: relative; width: 100%; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 1.5px solid rgba(99,102,241,0.4); }
         .frame-preview img { width: 100%; height: 100%; object-fit: cover; }
-        .frame-preview .remove-btn { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: rgba(239,68,68,0.9); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; cursor: pointer; opacity: 0; transition: opacity 0.2s; }
+        .frame-preview .remove-btn { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; background: rgba(239,68,68,0.85); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.55rem; cursor: pointer; opacity: 0; transition: opacity 0.2s; }
         .frame-preview:hover .remove-btn { opacity: 1; }
+
+        /* ---- AUTOCOMPLETE ---- */
+        #autocomplete-menu { display: none; position: absolute; bottom: calc(100% + 5px); left: 10px; background: #12121e; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 50; max-height: 200px; overflow-y: auto; width: max-content; min-width: 150px; }
+        #autocomplete-menu.show { display: block; }
+        .autocomplete-item { padding: 8px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); font-size: 0.85rem; }
+        .autocomplete-item:last-child { border-bottom: none; }
+        .autocomplete-item:hover { background: rgba(99,102,241,0.15); }
+
+        /* ---- CONTENT AREA ---- */
+        .content-glass {
+            background: rgba(10,10,18,0.6);
+            border: 1px solid rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+        }
+
+        /* ---- SUPPORT PILL ---- */
+        .support-pill {
+            background: rgba(255,255,255,0.06);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        /* ---- CREDITS BADGE ---- */
+        .credits-badge {
+            background: rgba(245,200,66,0.1);
+            border: 1px solid rgba(245,200,66,0.2);
+            color: #f5c842;
+            border-radius: 100px;
+            padding: 2px 10px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ---- PROCESSING ANIMATION ---- */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+
+        /* ---- SLIDE ANIMATE ---- */
+        @keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+        .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+
+        /* ---- STAT ORBS IN EMPTY STATE ---- */
+        @keyframes float { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+        .float { animation: float 4s ease-in-out infinite; }
+
+        /* History */
+        .history-group {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 18px;
+            padding: 16px;
+        }
+
+        /* ---- THEME TOGGLE BUTTON ---- */
+        #theme-toggle {
+            width: 38px; height: 38px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+            border: none;
+            position: relative;
+            overflow: hidden;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.6);
+            flex-shrink: 0;
+        }
+        #theme-toggle:hover {
+            background: rgba(99,102,241,0.2);
+            border-color: rgba(99,102,241,0.4);
+            color: #a5a8ff;
+            transform: scale(1.05);
+        }
+        #theme-toggle .icon-sun, #theme-toggle .icon-moon { transition: all 0.3s; position: absolute; }
+        #theme-toggle .icon-sun { opacity: 0; transform: rotate(90deg) scale(0.5); }
+        #theme-toggle .icon-moon { opacity: 1; transform: rotate(0deg) scale(1); }
+
+        /* ---- LIGHT THEME ---- */
+        html.light { background: #f0f0f8; }
+        html.light body {
+            background: #f0f0f8;
+            color: #1a1a2e;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        html.light body::before { opacity: 0.15; }
+
+        html.light .orb-1 { background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%); }
+        html.light .orb-2 { background: radial-gradient(circle, rgba(255,107,107,0.12) 0%, transparent 70%); }
+        html.light .orb-3 { background: radial-gradient(circle, rgba(245,200,66,0.1) 0%, transparent 70%); }
+
+        html.light ::-webkit-scrollbar-thumb { background: #c4c4d4; }
+
+        html.light .nav-glass {
+            background: rgba(255,255,255,0.85);
+            border-color: rgba(0,0,0,0.07);
+        }
+        html.light .nav-glass a { color: #1a1a2e; }
+        html.light #login-top-btn, html.light #login-top-btn-mobile {
+            background: rgba(0,0,0,0.06) !important;
+            border-color: rgba(0,0,0,0.1) !important;
+            color: #1a1a2e !important;
+        }
+        html.light #user-profile {
+            background: rgba(0,0,0,0.04) !important;
+            border-color: rgba(0,0,0,0.08) !important;
+        }
+        html.light #nav-name { color: #1a1a2e; }
+
+        html.light .mode-tab { color: rgba(0,0,0,0.4); }
+        html.light .mode-tab i { color: rgba(0,0,0,0.3) !important; }
+        html.light .mode-tab.active { background: rgba(99,102,241,0.15); color: #4f46e5; border-color: rgba(99,102,241,0.3); }
+        html.light .mode-tab.active i { color: rgba(99,102,241,0.9) !important; }
+        /* tabs container */
+        html.light div[style*="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06)"] {
+            background: rgba(0,0,0,0.05) !important;
+            border-color: rgba(0,0,0,0.08) !important;
+        }
+
+        html.light #theme-toggle {
+            background: rgba(0,0,0,0.06);
+            border-color: rgba(0,0,0,0.1);
+            color: rgba(0,0,0,0.5);
+        }
+        html.light #theme-toggle:hover { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.3); color: #4f46e5; }
+        html.light #theme-toggle .icon-sun { opacity: 1; transform: rotate(0deg) scale(1); }
+        html.light #theme-toggle .icon-moon { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+
+        html.light .sidebar-glass {
+            background: rgba(255,255,255,0.92);
+            border-color: rgba(0,0,0,0.06);
+        }
+        html.light .panel-s { border-bottom-color: rgba(0,0,0,0.05); }
+        html.light .field-label { color: rgba(0,0,0,0.35); }
+
+        html.light .prompt-wrap {
+            border-color: rgba(0,0,0,0.1);
+            background: rgba(255,255,255,0.6);
+        }
+        html.light .prompt-wrap:focus-within {
+            border-color: rgba(99,102,241,0.5);
+            background: rgba(99,102,241,0.03);
+        }
+        html.light #prompt-in { color: rgba(0,0,0,0.85); }
+        html.light #prompt-in::placeholder { color: rgba(0,0,0,0.25); }
+
+        html.light .styled-select {
+            background: rgba(255,255,255,0.8);
+            border-color: rgba(0,0,0,0.1);
+            color: rgba(0,0,0,0.8);
+        }
+        html.light .styled-select option { background: #ffffff; color: #1a1a2e; }
+        html.light .select-wrap::after { color: rgba(0,0,0,0.3); }
+
+        html.light .ratio-pill span { color: rgba(0,0,0,0.35); }
+        html.light .ratio-pill span:hover { color: rgba(0,0,0,0.6); background: rgba(0,0,0,0.05); }
+        html.light .ratio-pill input:checked + span { background: rgba(99,102,241,0.15); color: #4f46e5; border-color: rgba(99,102,241,0.35); }
+
+        html.light .count-btn {
+            background: rgba(0,0,0,0.05);
+            border-color: rgba(0,0,0,0.08);
+            color: rgba(0,0,0,0.5);
+        }
+        html.light .count-btn:hover { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.3); color: #4f46e5; }
+
+        html.light .content-glass {
+            background: rgba(255,255,255,0.6);
+            border-color: rgba(0,0,0,0.05);
+        }
+
+        html.light .job-card {
+            background: rgba(255,255,255,0.5);
+            border-color: rgba(0,0,0,0.07);
+            color: #1a1a2e;
+        }
+        html.light .job-card.processing { border-color: rgba(99,102,241,0.3); background: rgba(99,102,241,0.05); }
+        html.light .job-card.done { border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.05); }
+        html.light .job-card.error { border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.05); }
+
+        html.light .shimmer-box {
+            background: linear-gradient(90deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.04) 100%);
+            background-size: 200% 100%;
+        }
+
+        html.light .result-card {
+            background: rgba(255,255,255,0.5);
+            border-color: rgba(0,0,0,0.07);
+        }
+
+        html.light .history-group {
+            background: rgba(255,255,255,0.4);
+            border-color: rgba(0,0,0,0.06);
+        }
+
+        html.light .support-pill {
+            background: rgba(255,255,255,0.7);
+            border-color: rgba(0,0,0,0.08);
+        }
+
+        html.light #toast {
+            background: rgba(0,0,0,0.85);
+            border-color: rgba(0,0,0,0.15);
+        }
+
+        html.light .dropzone {
+            border-color: rgba(0,0,0,0.12);
+            background: rgba(0,0,0,0.02);
+        }
+        html.light .dropzone:hover { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.04); }
+
+        html.light #autocomplete-menu { background: #ffffff; border-color: rgba(0,0,0,0.1); }
+        html.light .autocomplete-item { color: rgba(0,0,0,0.8); border-bottom-color: rgba(0,0,0,0.05); }
+        html.light .autocomplete-item:hover { background: rgba(99,102,241,0.1); }
+
+        html.light #login-modal { background: rgba(240,240,248,0.85); }
+        html.light .modal-content { background: linear-gradient(135deg, #ffffff 0%, #f5f5ff 100%); border-color: rgba(0,0,0,0.08); color: #1a1a2e; }
+        html.light .modal-content h2 { color: #1a1a2e; }
+
+        /* --- Fix all inline white colors for light mode --- */
+        /* Text colors */
+        html.light #char-count { color: rgba(0,0,0,0.3) !important; }
+        html.light #count-val, html.light #vcount-val { color: #1a1a2e !important; }
+        html.light .field-label span[style*="rgba(255,255,255,0.2)"] { color: rgba(0,0,0,0.3) !important; }
+
+        /* Exemplu button */
+        html.light button[onclick="fillExample()"] {
+            color: rgba(0,0,0,0.4) !important;
+            background: rgba(0,0,0,0.05) !important;
+            border-color: rgba(0,0,0,0.08) !important;
+        }
+
+        /* Ratio/count grid backgrounds */
+        html.light .rounded-xl[style*="background:rgba(255,255,255,0.03)"] { background: rgba(0,0,0,0.04) !important; }
+
+        /* Cadre video labels */
+        html.light span[style*="rgba(255,255,255,0.2)"] { color: rgba(0,0,0,0.3) !important; }
+        html.light span[style*="rgba(255,255,255,0.25)"] { color: rgba(0,0,0,0.35) !important; }
+        html.light p[style*="rgba(255,255,255,0.25)"] { color: rgba(0,0,0,0.35) !important; }
+
+        /* Dropzone icons and text */
+        html.light .dropzone i[style*="rgba(255,255,255,0.2)"] { color: rgba(0,0,0,0.2) !important; }
+        html.light .dropzone span[style*="rgba(255,255,255,0.3)"] { color: rgba(0,0,0,0.35) !important; }
+
+        /* Ref zone upload icon/text */
+        html.light #ref-zone div[style*="background:rgba(255,255,255,0.05)"] { background: rgba(0,0,0,0.05) !important; }
+        html.light #ref-zone i[style*="rgba(255,255,255,0.3)"] { color: rgba(0,0,0,0.3) !important; }
+        html.light #ref-zone span[style*="rgba(255,255,255,0.3)"] { color: rgba(0,0,0,0.35) !important; }
+
+        /* Generate button area (bottom bar of sidebar) */
+        html.light #gen-bar {
+            background: rgba(245,245,255,0.97) !important;
+            border-top-color: rgba(0,0,0,0.07) !important;
+        }
+        html.light span[style*="color:rgba(255,255,255,0.3)"] { color: rgba(0,0,0,0.35) !important; }
+
+        /* Mobile sidebar header */
+        html.light div[style*="border-bottom:1px solid rgba(255,255,255,0.05)"] { border-bottom-color: rgba(0,0,0,0.07) !important; }
+        html.light h3.font-display { color: #1a1a2e !important; }
+        html.light h3.font-display i[style*="rgba(255,255,255,0.3)"] { color: rgba(0,0,0,0.3) !important; }
+        html.light button[onclick="toggleMobileSettings()"][style*="rgba(255,255,255,0.06)"] {
+            background: rgba(0,0,0,0.05) !important;
+            border-color: rgba(0,0,0,0.08) !important;
+            color: rgba(0,0,0,0.4) !important;
+        }
+
+        /* Empty state */
+        html.light #st-empty h2 { color: #1a1a2e !important; }
+        html.light #st-empty p[style*="rgba(255,255,255,0.3)"] { color: rgba(0,0,0,0.4) !important; }
+        html.light #st-empty strong[style*="rgba(255,255,255,0.6)"] { color: rgba(0,0,0,0.65) !important; }
+        html.light #st-empty div[style*="color:rgba(255,255,255,0.2)"] { color: rgba(0,0,0,0.3) !important; }
+        html.light #st-empty span[style*="color:rgba(255,255,255,0.1)"] { color: rgba(0,0,0,0.15) !important; }
+
+        /* History section */
+        html.light div[style*="border-top:1px solid rgba(255,255,255,0.04)"] { border-top-color: rgba(0,0,0,0.06) !important; }
+        html.light h3[style*="color:rgba(255,255,255,0.2)"] { color: rgba(0,0,0,0.3) !important; }
+        html.light .history-group div[style*="border-bottom:1px solid rgba(255,255,255,0.05)"] { border-bottom-color: rgba(0,0,0,0.06) !important; }
+        html.light .history-group p[style*="rgba(255,255,255,0.5)"] { color: rgba(0,0,0,0.5) !important; }
+        html.light .history-group span[style*="rgba(255,255,255,0.2)"] { color: rgba(0,0,0,0.3) !important; }
+        html.light .history-group div[style*="background:rgba(99,102,241,0.15)"] { background: rgba(99,102,241,0.12) !important; }
+        html.light .history-group button[style*="background:rgba(255,255,255,0.04)"] { background: rgba(0,0,0,0.05) !important; border-color: rgba(0,0,0,0.08) !important; color: rgba(0,0,0,0.35) !important; }
+        html.light .history-group div[style*="border:1px solid rgba(255,255,255,0.06)"] { border-color: rgba(0,0,0,0.08) !important; }
+
+        /* History empty text */
+        html.light p[style*="color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.02)"] {
+            color: rgba(0,0,0,0.3) !important;
+            background: rgba(0,0,0,0.02) !important;
+            border-color: rgba(0,0,0,0.06) !important;
+        }
+
+        /* Support buttons */
+        html.light .support-pill a span[style*="rgba(255,255,255,0.3)"] { color: rgba(0,0,0,0.4) !important; }
+        html.light .support-pill a span.text-xs.font-bold { color: #1a1a2e !important; }
+        html.light .support-pill div[style*="background:rgba(255,255,255,0.08)"] { background: rgba(0,0,0,0.08) !important; }
+        html.light .support-pill a:hover { background: rgba(0,0,0,0.04) !important; }
+        html.light span[style*="border-color:#07070f"] { border-color: #f0f0f8 !important; }
+
+        /* Nav logo subtitle */
+        html.light nav span[style*="rgba(255,255,255,0.3)"] { color: rgba(0,0,0,0.35) !important; border-color: rgba(0,0,0,0.1) !important; }
+
+        /* Modal */
+        html.light .modal-content p[style*="rgba(255,255,255,0.4)"] { color: rgba(0,0,0,0.45) !important; }
+        html.light .modal-content div[style*="background:rgba(255,255,255,0.05)"] { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.08) !important; }
+
+        /* Job cards text */
+        html.light .job-card [style*="color:rgba(255,255,255"] { color: rgba(0,0,0,0.6) !important; }
+        html.light .job-card [style*="border:1px solid rgba(255,255,255,0.06)"] { border-color: rgba(0,0,0,0.08) !important; }
+        html.light .job-card [style*="background:rgba(255,255,255,0.04)"] { background: rgba(0,0,0,0.04) !important; }
+
+        /* --- Dynamic job card text in light mode --- */
+        html.light .job-card p[style*="rgba(255,255,255,0.3)"],
+        html.light .job-card p[style*="rgba(255,255,255,0.4)"],
+        html.light .job-card p[style*="rgba(255,255,255,0.6)"] { color: rgba(0,0,0,0.45) !important; }
+        html.light .job-card span[style*="rgba(255,255,255,0.6)"] { color: rgba(0,0,0,0.6) !important; }
+        html.light .job-card span[style*="rgba(165,168,255"] { color: #4f46e5 !important; }
+        html.light .job-card div[style*="border-bottom:1px solid rgba(255,255,255,0.05)"] { border-bottom-color: rgba(0,0,0,0.07) !important; }
+        html.light .job-card div[style*="background:rgba(99,102,241,0.9)"] { background: rgba(99,102,241,0.85) !important; }
+        html.light .job-card button[style*="background:rgba(255,255,255,0.08)"] { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.1) !important; color: rgba(0,0,0,0.5) !important; }
+
+        /* Error/done state texts */
+        html.light .job-card.error span[style*="rgba(248,113,113"] { color: #dc2626 !important; }
+        html.light .job-card.done span[style*="rgba(52,211,153"] { color: #059669 !important; }
+
+        html.light #mobile-settings-btn { background: rgba(79,70,229,0.9) !important; }
     </style>
 </head>
-<body class="h-[100dvh] flex flex-col relative overflow-hidden selection:bg-viralio-500 selection:text-white">
+<body class="h-[100dvh] flex flex-col relative overflow-hidden">
 
-<div class="absolute top-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
-<div class="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-pink-500/10 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
 
 <!-- LOGIN MODAL -->
 <div id="login-modal">
     <div class="modal-content relative">
-        <button onclick="closeLoginModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
-        <div class="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-viralio-600 flex items-center justify-center text-3xl mx-auto mb-4 shadow-inner"><i class="fas fa-fingerprint"></i></div>
-        <h2 class="text-2xl font-extrabold mb-2 text-slate-900">Intră în cont</h2>
-        <p class="text-slate-500 text-sm mb-6">Conectează-te pentru a genera conținut AI premium.</p>
-        <div class="flex justify-center bg-slate-50 py-3 rounded-2xl border border-slate-100 min-h-[60px]">
-            <div id="g_id_onload" data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
-            <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
+        <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-20 h-20 rounded-2xl bg-gradient-to-br from-viralio-500 to-viralio-accent flex items-center justify-center shadow-[0_10px_40px_rgba(99,102,241,0.4)]">
+            <i class="fa-solid fa-fingerprint text-white text-3xl"></i>
+        </div>
+        <div class="mt-6">
+            <h2 class="text-2xl font-display font-extrabold mb-2 text-white">Intră în cont</h2>
+            <p class="text-sm mb-7" style="color:rgba(255,255,255,0.4)">Conectează-te pentru a genera conținut AI premium.</p>
+            <div class="flex justify-center bg-white/5 py-3 rounded-2xl border border-white/8 min-h-[60px]">
+                <div id="g_id_onload" data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+                <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="filled_black" data-text="signin_with" data-size="large"></div>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- LIGHTBOX -->
 <div id="lightbox" onclick="closeLightbox()">
-    <button onclick="closeLightbox()" class="absolute top-4 md:top-6 right-4 md:right-8 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-12 md:h-12 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center"><i class="fa-solid fa-xmark text-xl"></i></button>
-    <button id="lb-download-btn" class="absolute top-4 md:top-6 right-16 md:right-24 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-12 md:h-12 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center"><i class="fa-solid fa-download"></i></button>
-    <button id="lb-prev" onclick="navLightbox(-1,event)" class="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-14 md:h-14 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center hidden"><i class="fa-solid fa-chevron-left"></i></button>
-    <button id="lb-next" onclick="navLightbox(1,event)" class="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-14 md:h-14 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center hidden"><i class="fa-solid fa-chevron-right"></i></button>
-    <img id="lb-img" src="" alt="" class="hidden max-w-[90vw] max-h-[85vh] md:max-w-[75vw] rounded-xl object-contain shadow-[0_20px_60px_rgba(0,0,0,0.6)]" onclick="event.stopPropagation()">
-    <video id="lb-vid" src="" controls class="hidden max-w-[90vw] max-h-[85vh] md:max-w-[75vw] rounded-xl object-contain shadow-[0_20px_60px_rgba(0,0,0,0.6)]" onclick="event.stopPropagation()"></video>
+    <button onclick="closeLightbox()" class="absolute top-5 right-6 bg-white/8 hover:bg-white/15 text-white w-11 h-11 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center border border-white/10"><i class="fa-solid fa-xmark text-lg"></i></button>
+    <button id="lb-download-btn" class="absolute top-5 right-20 bg-white/8 hover:bg-white/15 text-white w-11 h-11 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center border border-white/10"><i class="fa-solid fa-download"></i></button>
+    <button id="lb-prev" onclick="navLightbox(-1,event)" class="absolute left-6 top-1/2 -translate-y-1/2 bg-white/8 hover:bg-white/15 text-white w-12 h-12 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center hidden border border-white/10"><i class="fa-solid fa-chevron-left"></i></button>
+    <button id="lb-next" onclick="navLightbox(1,event)" class="absolute right-6 top-1/2 -translate-y-1/2 bg-white/8 hover:bg-white/15 text-white w-12 h-12 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center hidden border border-white/10"><i class="fa-solid fa-chevron-right"></i></button>
+    <img id="lb-img" src="" alt="" class="hidden max-w-[90vw] max-h-[85vh] md:max-w-[75vw] rounded-2xl object-contain shadow-[0_20px_60px_rgba(0,0,0,0.8)]" onclick="event.stopPropagation()">
+    <video id="lb-vid" src="" controls class="hidden max-w-[90vw] max-h-[85vh] md:max-w-[75vw] rounded-2xl object-contain shadow-[0_20px_60px_rgba(0,0,0,0.8)]" onclick="event.stopPropagation()"></video>
 </div>
 
 <div id="toast"></div>
 
 <!-- NAV -->
-<div class="sticky top-0 z-50 flex w-full justify-center px-4 pt-4 pb-2 md:pt-5 md:pb-3 max-w-screen-2xl mx-auto">
-    <nav class="w-full rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl shadow-sm px-4 md:px-8 py-3 flex justify-between items-center relative">
-        <a href="https://viralio.ro" class="flex items-center font-black text-xl tracking-tight text-slate-900 group">
-            <div class="w-9 h-9 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md group-hover:scale-105 transition-transform"><i class="fa-solid fa-bolt text-sm"></i></div>
+<div class="sticky top-0 z-50 flex w-full justify-center px-4 pt-4 pb-2 max-w-screen-2xl mx-auto relative z-10">
+    <nav class="nav-glass w-full px-4 md:px-6 py-3 flex justify-between items-center">
+        <a href="https://viralio.ro" class="flex items-center font-display font-black text-lg tracking-tight text-white group">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-viralio-500 to-viralio-accent flex items-center justify-center text-white mr-2.5 shadow-[0_0_20px_rgba(99,102,241,0.4)] group-hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] transition-shadow">
+                <i class="fa-solid fa-bolt text-sm"></i>
+            </div>
             <span class="hidden sm:block">Viralio</span>
-            <span class="hidden sm:inline-flex items-center text-xs font-medium text-slate-400 ml-2 border-l border-slate-200 pl-2 mt-0.5"><i class="fa-solid fa-wand-magic-sparkles text-viralio-500 mr-1.5 text-[0.7rem]"></i>Media Studio</span>
+            <span class="hidden sm:inline-flex items-center text-xs font-medium ml-2 border-l pl-2 mt-0.5" style="color:rgba(255,255,255,0.3);border-color:rgba(255,255,255,0.1)">
+                <i class="fa-solid fa-wand-magic-sparkles mr-1.5" style="color:rgba(99,102,241,0.8)"></i>Media Studio
+            </span>
         </a>
-        <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-100/80 p-1.5 rounded-2xl flex gap-1 border border-slate-200/50 backdrop-blur-sm">
-            <button class="mode-tab active" id="tab-image" onclick="switchMode('image')"><i class="fa-solid fa-image text-viralio-500"></i><span class="hidden sm:inline">Imagini</span></button>
-            <button class="mode-tab" id="tab-video" onclick="switchMode('video')"><i class="fa-solid fa-clapperboard"></i><span class="hidden sm:inline">Video</span></button>
+        <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 p-1.5 rounded-2xl flex gap-1" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);overflow:visible">
+            <button class="mode-tab active" id="tab-image" onclick="switchMode('image')">
+                <i class="fa-solid fa-image" style="color:rgba(99,102,241,0.8);font-size:0.8rem;line-height:1"></i>
+                <span class="hidden sm:inline">Imagini</span>
+            </button>
+            <button class="mode-tab" id="tab-video" onclick="switchMode('video')">
+                <i class="fa-solid fa-clapperboard" style="font-size:0.8rem;line-height:1"></i>
+                <span class="hidden sm:inline">Video</span>
+            </button>
         </div>
         <div class="flex items-center gap-2">
-            <button onclick="openLoginModal()" id="login-top-btn" class="hidden sm:flex px-5 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-viralio-600 transition-all font-semibold shadow-md text-sm">Conectează-te</button>
-            <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden w-10 h-10 bg-slate-900 text-white rounded-xl font-bold text-sm flex items-center justify-center shadow-md"><i class="fa-solid fa-user"></i></button>
-            <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1.5 pr-1.5 rounded-full">
-                <img id="nav-avatar" src="" class="w-8 h-8 rounded-full border border-slate-200 object-cover">
-                <div class="flex-col leading-none ml-2.5 mr-3 hidden md:flex">
-                    <span id="nav-name" class="text-xs font-bold text-slate-900 mb-0.5"></span>
-                    <span class="text-[0.65rem] font-bold text-viralio-600"><span id="nav-credits">0</span> Credite</span>
+            <button id="theme-toggle" onclick="toggleTheme()" title="Schimbă tema">
+                <i class="fa-solid fa-sun icon-sun text-sm"></i>
+                <i class="fa-solid fa-moon icon-moon text-sm"></i>
+            </button>
+            <button onclick="openLoginModal()" id="login-top-btn" class="hidden sm:flex px-5 py-2.5 rounded-xl hover:opacity-90 transition-all font-semibold text-sm text-white" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1)">Conectează-te</button>
+            <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden w-10 h-10 rounded-xl font-bold text-sm flex items-center justify-center text-white" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1)"><i class="fa-solid fa-user"></i></button>
+            <div id="user-profile" class="hidden items-center py-1 pl-1.5 pr-3 rounded-full gap-2" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08)">
+                <img id="nav-avatar" src="" class="w-8 h-8 rounded-full border border-white/10 object-cover">
+                <div class="flex-col leading-none hidden md:flex">
+                    <span id="nav-name" class="text-xs font-bold text-white mb-0.5 font-display"></span>
+                    <span class="credits-badge"><span id="nav-credits">0</span> Credite</span>
                 </div>
-                <button onclick="logout()" class="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 ml-1"><i class="fa-solid fa-power-off text-sm"></i></button>
+                <button onclick="logout()" class="p-1.5 transition-colors rounded-full ml-1" style="color:rgba(255,255,255,0.25)" onmouseover="this.style.color='rgba(248,113,113,0.8)'" onmouseout="this.style.color='rgba(255,255,255,0.25)'"><i class="fa-solid fa-power-off text-xs"></i></button>
             </div>
         </div>
     </nav>
@@ -141,18 +694,22 @@
 
 <!-- MAIN -->
 <main class="flex-1 flex flex-col md:flex-row max-w-screen-2xl mx-auto w-full px-4 pb-4 gap-4 overflow-hidden z-10 relative">
-    <div id="mobile-overlay" onclick="toggleMobileSettings()" class="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[95] opacity-0 pointer-events-none transition-opacity duration-300"></div>
-    <button id="mobile-settings-btn" onclick="toggleMobileSettings()" class="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] bg-slate-900 text-white px-6 py-3.5 rounded-full font-black text-sm shadow-[0_10px_30px_rgba(15,23,42,0.3)] flex items-center gap-2 border border-slate-700 w-[85%] justify-center">
-        <i class="fa-solid fa-sliders text-amber-300"></i> SETĂRI GENERARE
+    <div id="mobile-overlay" onclick="toggleMobileSettings()" class="md:hidden fixed inset-0 z-[95] opacity-0 pointer-events-none transition-opacity duration-300" style="background:rgba(0,0,0,0.7);backdrop-filter:blur(8px)"></div>
+    <button id="mobile-settings-btn" onclick="toggleMobileSettings()" class="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] text-white px-6 py-3.5 rounded-full font-display font-black text-sm shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center gap-2 w-[85%] justify-center" style="background:rgba(99,102,241,0.9);border:1px solid rgba(99,102,241,0.5)">
+        <i class="fa-solid fa-sliders" style="color:rgba(245,200,66,0.9)"></i> SETĂRI GENERARE
     </button>
 
     <!-- SIDEBAR -->
-    <aside id="sidebar-settings" class="fixed md:relative bottom-0 left-0 right-0 md:inset-auto w-full md:w-[380px] bg-white md:rounded-[1.5rem] rounded-t-[2rem] border-t md:border border-slate-200 shadow-[0_-20px_50px_rgba(0,0,0,0.15)] md:shadow-sm flex flex-col shrink-0 h-[85vh] md:h-full overflow-hidden z-[100] md:z-10 transition-transform duration-300 translate-y-full md:translate-y-0">
-        <div class="md:hidden flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100 bg-slate-50/50">
-            <h3 class="font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-sliders text-slate-400"></i> Setări Generare</h3>
-            <button onclick="toggleMobileSettings()" class="w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-500 shadow-sm"><i class="fa-solid fa-xmark"></i></button>
+    <aside id="sidebar-settings" class="sidebar-glass fixed md:relative bottom-0 left-0 right-0 md:inset-auto w-full md:w-[360px] rounded-t-[24px] md:rounded-[20px] flex flex-col shrink-0 h-[88vh] md:h-full overflow-hidden z-[100] md:z-10 transition-transform duration-300 translate-y-full md:translate-y-0">
+        <!-- Mobile handle -->
+        <div class="md:hidden flex items-center justify-between px-6 pt-5 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.05)">
+            <h3 class="font-display font-black text-white flex items-center gap-2 text-sm">
+                <i class="fa-solid fa-sliders" style="color:rgba(255,255,255,0.3)"></i> Setări Generare
+            </h3>
+            <button onclick="toggleMobileSettings()" class="w-8 h-8 rounded-full flex items-center justify-center" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.5)"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="flex-1 overflow-y-auto no-scrollbar">
+            <!-- MODEL -->
             <div class="panel-s">
                 <label class="field-label">Model AI</label>
                 <div class="select-wrap">
@@ -168,13 +725,17 @@
                     </select>
                 </div>
             </div>
+
+            <!-- PROMPT -->
             <div class="panel-s">
                 <label class="field-label">Prompt</label>
                 <div class="prompt-wrap" style="position:relative">
-                    <textarea id="prompt-in" rows="5" placeholder="Descrie în detaliu ce vrei să generezi..." class="w-full bg-transparent p-4 text-[0.95rem] font-medium text-slate-800 outline-none placeholder-slate-400 leading-relaxed no-scrollbar" oninput="handlePromptInput()"></textarea>
+                    <textarea id="prompt-in" rows="5" placeholder="Descrie în detaliu ce vrei să generezi..." class="w-full bg-transparent p-4 text-[0.92rem] font-medium outline-none leading-relaxed no-scrollbar" oninput="handlePromptInput()"></textarea>
                     <div class="flex items-center justify-between px-3 pb-3 gap-2">
-                        <button onclick="fillExample()" class="flex items-center gap-1.5 text-[0.7rem] font-bold text-slate-500 bg-slate-100 hover:bg-viralio-50 hover:text-viralio-600 px-3 py-1.5 rounded-lg transition-colors"><i class="fa-solid fa-lightbulb"></i> Exemplu</button>
-                        <span id="char-count" class="text-[0.7rem] font-bold text-slate-400">0 caractere</span>
+                        <button onclick="fillExample()" class="flex items-center gap-1.5 text-[0.68rem] font-bold px-3 py-1.5 rounded-lg transition-all" style="color:rgba(255,255,255,0.35);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)" onmouseover="this.style.color='rgba(165,168,255,0.8)';this.style.borderColor='rgba(99,102,241,0.3)'" onmouseout="this.style.color='rgba(255,255,255,0.35)';this.style.borderColor='rgba(255,255,255,0.07)'">
+                            <i class="fa-solid fa-lightbulb"></i> Exemplu
+                        </button>
+                        <span id="char-count" class="text-[0.68rem] font-bold" style="color:rgba(255,255,255,0.2)">0 caractere</span>
                     </div>
                     <div id="autocomplete-menu"></div>
                 </div>
@@ -184,24 +745,24 @@
             <div id="img-options">
                 <div class="panel-s pt-0">
                     <label class="field-label">Format Imagine</label>
-                    <div class="bg-slate-100 rounded-2xl p-2 grid grid-cols-5 gap-1.5">
-                        <label class="ratio-pill"><input type="radio" name="ratio" value="9:16" checked><span><div class="w-[10px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div>9:16</span></label>
-                        <label class="ratio-pill"><input type="radio" name="ratio" value="3:4"><span><div class="w-[12px] h-[16px] border-[2px] border-current rounded-[3px] opacity-75"></div>3:4</span></label>
-                        <label class="ratio-pill"><input type="radio" name="ratio" value="4:5"><span><div class="w-[14px] h-[16px] border-[2px] border-current rounded-[3px] opacity-75"></div>4:5</span></label>
-                        <label class="ratio-pill"><input type="radio" name="ratio" value="1:1"><span><div class="w-[14px] h-[14px] border-[2px] border-current rounded-[3px] opacity-75"></div>1:1</span></label>
-                        <label class="ratio-pill"><input type="radio" name="ratio" value="16:9"><span><div class="w-[18px] h-[10px] border-[2px] border-current rounded-[3px] opacity-75"></div>16:9</span></label>
-                        <label class="ratio-pill"><input type="radio" name="ratio" value="4:3"><span><div class="w-[16px] h-[12px] border-[2px] border-current rounded-[3px] opacity-75"></div>4:3</span></label>
-                        <label class="ratio-pill"><input type="radio" name="ratio" value="3:2"><span><div class="w-[18px] h-[12px] border-[2px] border-current rounded-[3px] opacity-75"></div>3:2</span></label>
-                        <label class="ratio-pill"><input type="radio" name="ratio" value="2:3"><span><div class="w-[12px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div>2:3</span></label>
-                        <label class="ratio-pill"><input type="radio" name="ratio" value="5:4"><span><div class="w-[16px] h-[14px] border-[2px] border-current rounded-[3px] opacity-75"></div>5:4</span></label>
-                        <label class="ratio-pill"><input type="radio" name="ratio" value="21:9"><span><div class="w-[22px] h-[8px] border-[2px] border-current rounded-[3px] opacity-75"></div>21:9</span></label>
+                    <div class="rounded-xl p-2 grid grid-cols-5 gap-1.5" style="background:rgba(255,255,255,0.03)">
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="9:16" checked><span><div class="w-[9px] h-[17px] border-[2px] border-current rounded-[2px] opacity-60"></div>9:16</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="3:4"><span><div class="w-[11px] h-[15px] border-[2px] border-current rounded-[2px] opacity-60"></div>3:4</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="4:5"><span><div class="w-[13px] h-[16px] border-[2px] border-current rounded-[2px] opacity-60"></div>4:5</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="1:1"><span><div class="w-[13px] h-[13px] border-[2px] border-current rounded-[2px] opacity-60"></div>1:1</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="16:9"><span><div class="w-[17px] h-[9px] border-[2px] border-current rounded-[2px] opacity-60"></div>16:9</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="4:3"><span><div class="w-[15px] h-[11px] border-[2px] border-current rounded-[2px] opacity-60"></div>4:3</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="3:2"><span><div class="w-[17px] h-[11px] border-[2px] border-current rounded-[2px] opacity-60"></div>3:2</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="2:3"><span><div class="w-[11px] h-[17px] border-[2px] border-current rounded-[2px] opacity-60"></div>2:3</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="5:4"><span><div class="w-[15px] h-[13px] border-[2px] border-current rounded-[2px] opacity-60"></div>5:4</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="21:9"><span><div class="w-[21px] h-[7px] border-[2px] border-current rounded-[2px] opacity-60"></div>21:9</span></label>
                     </div>
                 </div>
                 <div class="panel-s pt-0 border-none">
                     <label class="field-label">Număr Imagini (1–4)</label>
-                    <div class="flex items-center gap-4 bg-slate-100 rounded-2xl p-1.5 w-fit">
+                    <div class="flex items-center gap-3 rounded-xl p-1.5 w-fit" style="background:rgba(255,255,255,0.03)">
                         <button class="count-btn" onclick="updateCount(-1)">−</button>
-                        <span id="count-val" class="font-black text-slate-900 text-base w-6 text-center">1</span>
+                        <span id="count-val" class="font-display font-black text-white text-base w-6 text-center">1</span>
                         <button class="count-btn" onclick="updateCount(1)">+</button>
                     </div>
                 </div>
@@ -211,132 +772,146 @@
             <div id="vid-options" class="hidden">
                 <div class="panel-s pt-0">
                     <label class="field-label">Format Video</label>
-                    <div class="bg-slate-100 rounded-2xl p-1.5 grid grid-cols-2 gap-1.5">
-                        <label class="ratio-pill"><input type="radio" name="vratio" value="9:16" checked><span><div class="w-[10px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div>9:16</span></label>
-                        <label class="ratio-pill"><input type="radio" name="vratio" value="16:9"><span><div class="w-[18px] h-[10px] border-[2px] border-current rounded-[3px] opacity-75"></div>16:9</span></label>
+                    <div class="rounded-xl p-1.5 grid grid-cols-2 gap-1.5" style="background:rgba(255,255,255,0.03)">
+                        <label class="ratio-pill"><input type="radio" name="vratio" value="9:16" checked><span><div class="w-[9px] h-[17px] border-[2px] border-current rounded-[2px] opacity-60"></div>9:16</span></label>
+                        <label class="ratio-pill"><input type="radio" name="vratio" value="16:9"><span><div class="w-[17px] h-[9px] border-[2px] border-current rounded-[2px] opacity-60"></div>16:9</span></label>
                     </div>
                 </div>
                 <div class="panel-s pt-0">
                     <label class="field-label">Număr Videoclipuri (1–4)</label>
-                    <div class="flex items-center gap-4 bg-slate-100 rounded-2xl p-1.5 w-fit">
+                    <div class="flex items-center gap-3 rounded-xl p-1.5 w-fit" style="background:rgba(255,255,255,0.03)">
                         <button class="count-btn" onclick="updateVCount(-1)">−</button>
-                        <span id="vcount-val" class="font-black text-slate-900 text-base w-6 text-center">1</span>
+                        <span id="vcount-val" class="font-display font-black text-white text-base w-6 text-center">1</span>
                         <button class="count-btn" onclick="updateVCount(1)">+</button>
                     </div>
                 </div>
-
-                <!-- ── START & END FRAME ── -->
+                <!-- START & END FRAME -->
                 <div class="panel-s pt-0 border-none">
-                    <label class="field-label mb-3">Cadre Video <span class="normal-case text-slate-400 font-medium">(opțional)</span></label>
-                    <p class="text-[0.7rem] text-slate-400 font-medium mb-3 leading-relaxed">Adaugă un cadru de start și/sau end pentru a controla animația. Fără imagini = generare din text.</p>
+                    <label class="field-label mb-3">Cadre Video <span class="normal-case font-medium" style="color:rgba(255,255,255,0.2)">(opțional)</span></label>
+                    <p class="text-[0.68rem] font-medium mb-3 leading-relaxed" style="color:rgba(255,255,255,0.25)">Start/end frame pentru control animație. Fără imagini = generare din text.</p>
                     <input type="file" id="start-frame-input" class="hidden" accept="image/*" onchange="handleFrameSelect('start', event)">
                     <input type="file" id="end-frame-input" class="hidden" accept="image/*" onchange="handleFrameSelect('end', event)">
-
                     <div class="grid grid-cols-2 gap-3">
-                        <!-- Start Frame -->
                         <div>
-                            <span class="text-[0.65rem] font-black text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-1">
-                                <i class="fa-solid fa-play text-emerald-500 text-[0.55rem]"></i> Start Frame
+                            <span class="text-[0.62rem] font-display font-black uppercase tracking-wider mb-2 block flex items-center gap-1" style="color:rgba(52,211,153,0.7)">
+                                <i class="fa-solid fa-play text-[0.5rem]"></i> Start Frame
                             </span>
                             <div id="start-frame-preview" class="hidden frame-preview">
                                 <img id="start-frame-img" src="" alt="start">
                                 <div class="remove-btn" onclick="removeFrame('start')"><i class="fa-solid fa-xmark"></i></div>
                             </div>
                             <div id="start-frame-zone" class="dropzone flex flex-col items-center justify-center text-center p-3 min-h-[80px]" onclick="document.getElementById('start-frame-input').click()">
-                                <div class="flex flex-col items-center gap-1 pointer-events-none">
-                                    <i class="fa-solid fa-cloud-arrow-up text-slate-400 text-lg"></i>
-                                    <span class="text-[0.65rem] font-bold text-slate-500">Încarcă</span>
-                                </div>
+                                <i class="fa-solid fa-cloud-arrow-up mb-1" style="color:rgba(255,255,255,0.2);font-size:1.2rem"></i>
+                                <span class="text-[0.62rem] font-bold" style="color:rgba(255,255,255,0.3)">Încarcă</span>
                             </div>
                         </div>
-                        <!-- End Frame -->
                         <div>
-                            <span class="text-[0.65rem] font-black text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-1">
-                                <i class="fa-solid fa-stop text-red-400 text-[0.55rem]"></i> End Frame
+                            <span class="text-[0.62rem] font-display font-black uppercase tracking-wider mb-2 block flex items-center gap-1" style="color:rgba(248,113,113,0.7)">
+                                <i class="fa-solid fa-stop text-[0.5rem]"></i> End Frame
                             </span>
                             <div id="end-frame-preview" class="hidden frame-preview">
                                 <img id="end-frame-img" src="" alt="end">
                                 <div class="remove-btn" onclick="removeFrame('end')"><i class="fa-solid fa-xmark"></i></div>
                             </div>
                             <div id="end-frame-zone" class="dropzone flex flex-col items-center justify-center text-center p-3 min-h-[80px]" onclick="document.getElementById('end-frame-input').click()">
-                                <div class="flex flex-col items-center gap-1 pointer-events-none">
-                                    <i class="fa-solid fa-cloud-arrow-up text-slate-400 text-lg"></i>
-                                    <span class="text-[0.65rem] font-bold text-slate-500">Încarcă</span>
-                                </div>
+                                <i class="fa-solid fa-cloud-arrow-up mb-1" style="color:rgba(255,255,255,0.2);font-size:1.2rem"></i>
+                                <span class="text-[0.62rem] font-bold" style="color:rgba(255,255,255,0.3)">Încarcă</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- REFS (imagini) — doar pentru modul imagine -->
+            <!-- REFS -->
             <div id="refs-section" class="panel-s pt-0 border-none mt-2">
                 <label class="field-label flex justify-between items-center mb-3">
-                    <span>Referințe <span class="normal-case text-slate-400 font-medium">(opțional)</span></span>
-                    <span class="text-[0.65rem] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg cursor-pointer hover:bg-indigo-100 font-bold border border-indigo-100" onclick="document.getElementById('ref-file').click()">+ Adaugă</span>
+                    <span>Referințe <span class="normal-case font-medium" style="color:rgba(255,255,255,0.2)">(opțional)</span></span>
+                    <span class="text-[0.62rem] px-2.5 py-1 rounded-lg cursor-pointer font-display font-bold transition-all" style="background:rgba(99,102,241,0.15);color:rgba(165,168,255,0.8);border:1px solid rgba(99,102,241,0.25)" onclick="document.getElementById('ref-file').click()">+ Adaugă</span>
                 </label>
                 <input type="file" id="ref-file" class="hidden" accept="image/*" multiple onchange="handleFileSelect(event)">
                 <div id="ref-gallery" class="flex flex-wrap gap-2 mb-3 hidden"></div>
                 <div id="ref-zone" class="dropzone flex flex-col items-center justify-center text-center p-5 min-h-[90px] mb-3" onclick="document.getElementById('ref-file').click()">
-                    <div class="flex flex-col items-center gap-1.5 pointer-events-none">
-                        <div class="w-8 h-8 rounded-xl bg-slate-200/50 flex items-center justify-center text-slate-500"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-                        <span class="text-xs font-bold text-slate-600">Încarcă referințe</span>
+                    <div class="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5" style="background:rgba(255,255,255,0.05)">
+                        <i class="fa-solid fa-cloud-arrow-up" style="color:rgba(255,255,255,0.3)"></i>
                     </div>
+                    <span class="text-xs font-bold" style="color:rgba(255,255,255,0.3)">Încarcă referințe</span>
                 </div>
             </div>
         </div>
-        <div class="shrink-0 p-5 border-t border-slate-100 bg-slate-50/80 backdrop-blur-md">
+
+        <!-- GENERATE BUTTON AREA -->
+        <div id="gen-bar" class="shrink-0 p-5" style="border-top:1px solid rgba(255,255,255,0.05);background:rgba(10,10,18,0.8)">
             <div class="flex items-center justify-between mb-4">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Cost Estimat</span>
-                <span class="text-lg font-black text-amber-500"><span id="total-cost">1</span> <i class="fa-solid fa-coins text-sm ml-0.5"></i></span>
+                <span class="text-[0.65rem] font-display font-black uppercase tracking-widest" style="color:rgba(255,255,255,0.3)">Cost Estimat</span>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-xl font-display font-black text-yellow-400" id="total-cost">1</span>
+                    <i class="fa-solid fa-coins text-yellow-400 text-sm opacity-80"></i>
+                </div>
             </div>
-            <button id="gen-btn" class="gen-btn w-full text-white py-4 rounded-2xl font-black text-[1.05rem] flex items-center justify-center gap-2 shadow-lg" onclick="generate()">
-                <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> GENEREAZĂ
+            <button id="gen-btn" class="gen-btn w-full text-white py-4 rounded-2xl font-display font-black text-[1rem] flex items-center justify-center gap-2 shadow-lg" onclick="generate()">
+                <i class="fa-solid fa-wand-magic-sparkles" style="color:rgba(245,200,66,0.9)"></i> GENEREAZĂ
             </button>
         </div>
     </aside>
 
-    <!-- CONTENT -->
-    <section class="flex-1 bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-y-auto no-scrollbar relative flex flex-col">
-        <div class="flex-1 flex flex-col p-6 md:p-10 max-w-5xl mx-auto w-full">
-            <div id="st-empty" class="w-full flex items-center justify-center animate-slide-up px-2 py-8 md:py-16 min-h-[40vh]">
-                <div class="flex flex-col md:flex-row items-center justify-center gap-6 max-w-2xl bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_15px_50px_-12px_rgba(0,0,0,0.08)] border border-slate-100 relative overflow-hidden">
-                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl"></div>
-                    <div class="flex items-center gap-4 md:border-r border-slate-100 md:pr-8 relative z-10">
-                        <div class="w-12 h-20 bg-indigo-50/80 rounded-full flex flex-col items-center justify-center border border-indigo-100/50 shrink-0 text-indigo-500 shadow-sm"><i class="fa-solid fa-layer-group text-xl"></i></div>
-                        <h2 class="text-[2rem] md:text-[2.5rem] font-black text-slate-800 tracking-tight leading-[1.05]"><span class="block">Studio</span><span class="block">Creativ</span></h2>
+    <!-- CONTENT AREA -->
+    <section class="content-glass flex-1 rounded-[20px] overflow-y-auto no-scrollbar relative flex flex-col">
+        <div class="flex-1 flex flex-col p-5 md:p-8 max-w-5xl mx-auto w-full">
+
+            <!-- EMPTY STATE -->
+            <div id="st-empty" class="w-full flex items-center justify-center px-2 py-12 md:py-20 min-h-[40vh] animate-slide-up">
+                <div class="text-center max-w-md">
+                    <div class="float w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-[0_0_40px_rgba(99,102,241,0.3)]" style="background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(236,72,153,0.3));border:1px solid rgba(99,102,241,0.3)">
+                        <i class="fa-solid fa-layer-group text-3xl" style="color:rgba(165,168,255,0.8)"></i>
                     </div>
-                    <p class="text-slate-500 font-medium text-[0.85rem] leading-relaxed text-center md:text-left relative z-10 max-w-[300px]">
-                        <span class="hidden md:block">Scrie un prompt, alege setările și lasă AI-ul să genereze. Poți rula mai multe generări simultan!</span>
-                        <span class="block md:hidden">Apasă <strong class="text-slate-700">Setări Generare</strong> și generează imagini sau video cu AI.</span>
+                    <h2 class="text-3xl md:text-4xl font-display font-black text-white mb-3 leading-tight">Studio <span style="background:linear-gradient(135deg,#a5a8ff,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Creativ</span></h2>
+                    <p class="text-sm leading-relaxed" style="color:rgba(255,255,255,0.3)">
+                        <span class="hidden md:block">Scrie un prompt, alege setările și lasă AI-ul să creeze. Poți rula mai multe generări simultan!</span>
+                        <span class="block md:hidden">Apasă <strong style="color:rgba(255,255,255,0.6)">Setări Generare</strong> și generează imagini sau video cu AI.</span>
                     </p>
+                    <div class="mt-6 flex items-center justify-center gap-3 text-xs font-bold" style="color:rgba(255,255,255,0.2)">
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-bolt" style="color:rgba(245,200,66,0.6)"></i> Imagini HD</span>
+                        <span style="color:rgba(255,255,255,0.1)">•</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-film" style="color:rgba(99,102,241,0.6)"></i> Video AI</span>
+                        <span style="color:rgba(255,255,255,0.1)">•</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-layer-group" style="color:rgba(236,72,153,0.6)"></i> Multi-Gen</span>
+                    </div>
                 </div>
             </div>
+
             <div id="jobs-area" class="w-full"></div>
-            <div class="w-full mt-auto border-t border-slate-100 pt-8 pb-4">
-                <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Istoric Generări</h3>
-                <div id="history-grid" class="flex flex-col gap-4"></div>
+
+            <!-- HISTORY -->
+            <div class="w-full mt-auto pt-8 pb-4" style="border-top:1px solid rgba(255,255,255,0.04)">
+                <h3 class="text-[0.62rem] font-display font-black uppercase tracking-widest mb-5" style="color:rgba(255,255,255,0.2)">Istoric Generări</h3>
+                <div id="history-grid" class="flex flex-col gap-3"></div>
             </div>
         </div>
     </section>
 </main>
 
-<!-- FLOAT BUTTONS -->
-<div id="support-buttons" class="fixed bottom-24 md:bottom-5 right-5 md:right-6 z-[90] flex items-center bg-white/70 backdrop-blur-2xl glass-premium-fin rounded-full p-1.5 transition-all duration-300 hover:-translate-y-1">
-    <a href="https://discord.gg/h8Ah6VKDzm" target="_blank" class="group flex items-center gap-2 hover:bg-slate-100 rounded-full px-3 py-1.5 transition-all duration-300">
-        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-900 text-white shadow-sm group-hover:bg-[#5865F2] group-hover:scale-105 transition-all duration-300"><i class="fa-brands fa-discord text-sm"></i></div>
-        <div class="flex-col hidden sm:flex text-left"><span class="text-[0.55rem] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Ai Întrebări?</span><span class="text-xs font-black text-slate-800 leading-none">Suport Discord</span></div>
-    </a>
-    <div class="w-px h-6 bg-gradient-to-b from-transparent via-slate-300 to-transparent mx-1"></div>
-    <a href="https://t.me/SmartCreator_official" target="_blank" class="group flex items-center gap-2 rounded-full px-3 py-1.5 transition-all duration-300">
-        <div class="relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300">
-            <div class="absolute inset-0 rounded-full bg-gradient-to-br from-[#0088cc] to-[#00aaff] overflow-hidden shadow-[0_0_15px_rgba(0,136,204,0.4)]">
-                <div class="absolute inset-0 w-[250%] h-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shine-fast z-10"></div>
-            </div>
-            <i class="fa-brands fa-telegram text-white text-sm pr-0.5 relative z-20"></i>
-            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse z-30"></span>
+<!-- SUPPORT BUTTONS -->
+<div id="support-buttons" class="fixed bottom-24 md:bottom-5 right-5 md:right-6 z-[90] flex items-center support-pill rounded-full p-1.5 transition-all duration-300 hover:-translate-y-1">
+    <a href="https://discord.gg/h8Ah6VKDzm" target="_blank" class="group flex items-center gap-2 hover:bg-white/5 rounded-full px-3 py-1.5 transition-all">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center text-white transition-all group-hover:shadow-[0_0_20px_rgba(88,101,242,0.4)]" style="background:#5865F2">
+            <i class="fa-brands fa-discord text-sm"></i>
         </div>
-        <div class="flex-col hidden sm:flex text-left"><span class="text-[0.55rem] font-bold text-red-500 uppercase tracking-widest leading-none mb-0.5">Giveaways</span><span class="text-xs font-black text-slate-800 leading-none">Telegram VIP</span></div>
+        <div class="flex-col hidden sm:flex">
+            <span class="text-[0.5rem] font-display font-black uppercase tracking-widest leading-none mb-0.5" style="color:rgba(255,255,255,0.3)">Ai Întrebări?</span>
+            <span class="text-xs font-bold text-white leading-none">Suport Discord</span>
+        </div>
+    </a>
+    <div class="w-px h-6 mx-1" style="background:rgba(255,255,255,0.08)"></div>
+    <a href="https://t.me/SmartCreator_official" target="_blank" class="group flex items-center gap-2 rounded-full px-3 py-1.5 transition-all">
+        <div class="relative w-9 h-9 group-hover:scale-110 transition-transform">
+            <div class="absolute inset-0 rounded-full overflow-hidden shadow-[0_0_15px_rgba(0,136,204,0.4)]" style="background:linear-gradient(135deg,#0088cc,#00aaff)"></div>
+            <i class="fa-brands fa-telegram text-white text-sm relative z-10 flex items-center justify-center w-full h-full"></i>
+            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 animate-pulse z-20" style="border-color:#07070f"></span>
+        </div>
+        <div class="flex-col hidden sm:flex">
+            <span class="text-[0.5rem] font-display font-black uppercase tracking-widest leading-none mb-0.5 text-red-400">Giveaways</span>
+            <span class="text-xs font-bold text-white leading-none">Telegram VIP</span>
+        </div>
     </a>
 </div>
 
@@ -352,8 +927,8 @@ let mode = 'image';
 let imgCount = 1;
 let vidCount = 1;
 let uploadedRefs = [];
-let startFrameFile = null;   // File pentru start_image
-let endFrameFile   = null;   // File pentru end_image
+let startFrameFile = null;
+let endFrameFile   = null;
 let activeJobs = new Map();
 let jobCounter = 0;
 let lbMediaList = [], lbCurrentIndex = 0, lbCurrentType = 'image';
@@ -373,6 +948,7 @@ async function handleCredentialResponse(resp) {
         if(d.token){ setToken(d.token); closeLoginModal(); updateUI(d.user); }
     } catch(e){ toast('Eroare conectare server.'); }
 }
+
 function updateUI(user) {
     document.getElementById('login-top-btn').style.display = 'none';
     document.getElementById('login-top-btn-mobile').style.display = 'none';
@@ -383,7 +959,9 @@ function updateUI(user) {
     document.getElementById('nav-credits').innerText = user.credits;
     loadHistory();
 }
+
 function logout() { removeToken(); location.reload(); }
+
 window.onload = async () => {
     const t = getToken();
     if(t) {
@@ -403,6 +981,7 @@ function updateCharCount(){ document.getElementById('char-count').textContent = 
 function fillExample(){ document.getElementById('prompt-in').value='A cinematic wide shot of a futuristic cyberpunk city at sunset, neon lights reflecting on wet streets, 8k resolution, photorealistic'; updateCharCount(); }
 function updateCount(d){ imgCount=Math.min(4,Math.max(1,imgCount+d)); document.getElementById('count-val').textContent=imgCount; refreshBadges(); }
 function updateVCount(d){ vidCount=Math.min(4,Math.max(1,vidCount+d)); document.getElementById('vcount-val').textContent=vidCount; refreshBadges(); }
+
 function refreshBadges(){
     const sel = document.getElementById('model-sel');
     const m = MODEL_META[sel?.value]||{type:'image',cost:1};
@@ -420,7 +999,6 @@ function switchMode(m){
     document.getElementById('model-sel').value = isVid?'veo3.1fast':'gemini-flash';
     document.getElementById('img-options').classList.toggle('hidden',isVid);
     document.getElementById('vid-options').classList.toggle('hidden',!isVid);
-    // Referințele (cu @img tags) sunt utile doar la imagini
     document.getElementById('refs-section').classList.toggle('hidden', isVid);
     refreshBadges();
     if(getToken()) loadHistory();
@@ -435,8 +1013,7 @@ function aspectClass(r){
 
 // ===================== START / END FRAME =====================
 function handleFrameSelect(type, e) {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files[0]; if (!file) return;
     const url = URL.createObjectURL(file);
     if (type === 'start') {
         startFrameFile = file;
@@ -466,11 +1043,8 @@ function removeFrame(type) {
     }
 }
 
-// ===================== REFS (imagini) =====================
-function handleFileSelect(e){
-    Array.from(e.target.files).forEach(f=>{ if(uploadedRefs.length<4) uploadedRefs.push(f); });
-    renderRefGallery(); e.target.value='';
-}
+// ===================== REFS =====================
+function handleFileSelect(e){ Array.from(e.target.files).forEach(f=>{ if(uploadedRefs.length<4) uploadedRefs.push(f); }); renderRefGallery(); e.target.value=''; }
 function removeRef(i,e){ e.stopPropagation(); uploadedRefs.splice(i,1); renderRefGallery(); }
 function insertTag(i){ const ta=document.getElementById('prompt-in'); const tag=`@img${i+1}`; const s=ta.selectionStart; ta.value=ta.value.substring(0,s)+` ${tag} `+ta.value.substring(ta.selectionEnd); ta.focus(); updateCharCount(); }
 function renderRefGallery(){
@@ -479,10 +1053,10 @@ function renderRefGallery(){
     else { gal.classList.add('hidden'); zone.classList.remove('hidden'); }
     gal.innerHTML=uploadedRefs.map((f,i)=>{
         const url=window.URL.createObjectURL(f);
-        return `<div class="relative w-[4.5rem] h-[4.5rem] rounded-xl border-2 border-indigo-200 overflow-hidden group cursor-pointer shadow-sm" onclick="insertTag(${i})">
+        return `<div class="relative w-[4.5rem] h-[4.5rem] rounded-xl overflow-hidden group cursor-pointer" style="border:1.5px solid rgba(99,102,241,0.3)" onclick="insertTag(${i})">
             <img src="${url}" class="w-full h-full object-cover">
-            <span class="absolute top-1 left-1 bg-indigo-500 text-white text-[0.55rem] font-bold px-1.5 py-0.5 rounded">@img${i+1}</span>
-            <button onclick="removeRef(${i},event)" class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[0.6rem] opacity-0 group-hover:opacity-100 transition-all"><i class="fa-solid fa-xmark"></i></button>
+            <span class="absolute top-1 left-1 text-white text-[0.52rem] font-bold px-1.5 py-0.5 rounded" style="background:rgba(99,102,241,0.8)">@img${i+1}</span>
+            <button onclick="removeRef(${i},event)" class="absolute top-1 right-1 w-5 h-5 bg-red-500/80 text-white rounded-full flex items-center justify-center text-[0.55rem] opacity-0 group-hover:opacity-100 transition-all"><i class="fa-solid fa-xmark"></i></button>
         </div>`;
     }).join('');
 }
@@ -500,7 +1074,7 @@ function showAutocomplete(){
     uploadedRefs.forEach((f,i)=>{
         const url=window.URL.createObjectURL(f);
         const item=document.createElement('div'); item.className='autocomplete-item';
-        item.innerHTML=`<img src="${url}" class="w-8 h-8 rounded-lg object-cover border border-slate-200"><span class="text-sm font-bold text-slate-700">@img${i+1}</span>`;
+        item.innerHTML=`<img src="${url}" class="w-8 h-8 rounded-lg object-cover border border-white/10"><span class="text-sm font-bold">@img${i+1}</span>`;
         item.onclick=(e)=>{ e.stopPropagation(); const ta=document.getElementById('prompt-in'); const pos=ta.selectionStart; ta.value=ta.value.substring(0,pos)+`img${i+1} `+ta.value.substring(pos); ta.focus(); updateCharCount(); menu.classList.remove('show'); };
         menu.appendChild(item);
     });
@@ -556,69 +1130,128 @@ function checkEmptyState(){
 }
 
 // ===================== JOB SYSTEM =====================
-function cancelJob(jobId){
-    const job=activeJobs.get(jobId);
-    if(job){ job.aborted=true; try{ if(job.reader) job.reader.cancel(); }catch(e){} }
-    activeJobs.delete(jobId);
-    const card=document.getElementById(`job-${jobId}`); if(card) card.remove();
-    checkEmptyState();
-}
+// NOTA: Nu mai există cancelJob — generările nu se pot opri din frontend.
 
 function createJobCard(jobId, promptText, currentMode){
     const el=document.createElement('div');
     el.id=`job-${jobId}`;
     el.className='job-card processing';
+
+    const typeLabel = currentMode==='video'
+        ? `<span class="flex items-center gap-1.5" style="color:rgba(165,168,255,0.7)"><i class="fa-solid fa-clapperboard text-[0.6rem]"></i> <span class="font-display font-black text-[0.65rem] uppercase tracking-wider">Video</span></span>`
+        : `<span class="flex items-center gap-1.5" style="color:rgba(165,168,255,0.7)"><i class="fa-solid fa-image text-[0.6rem]"></i> <span class="font-display font-black text-[0.65rem] uppercase tracking-wider">Imagine</span></span>`;
+
     el.innerHTML=`
-        <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/80">
-            <div class="flex items-center gap-3 overflow-hidden">
-                <div class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse shrink-0"></div>
-                <span class="text-sm font-semibold text-slate-700 truncate max-w-[240px] md:max-w-md">${escHtml(promptText)}</span>
+        <div class="flex items-center justify-between px-5 py-3.5" style="border-bottom:1px solid rgba(255,255,255,0.05)">
+            <div class="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                <div class="pulse-ring shrink-0">
+                    <div class="w-2.5 h-2.5 rounded-full" style="background:rgba(99,102,241,0.9)"></div>
+                </div>
+                <span class="text-sm font-medium truncate" style="color:rgba(255,255,255,0.6);max-width:240px">${escHtml(promptText)}</span>
             </div>
-            <div class="flex items-center gap-2 shrink-0 ml-2">
-                <span class="text-xs font-bold text-slate-400 bg-white border border-slate-200 px-2 py-1 rounded-lg">${currentMode==='video'?'🎬 Video':'🖼️ Imagine'}</span>
-                <button onclick="cancelJob(${jobId})" class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center text-xs transition-all"><i class="fa-solid fa-xmark"></i></button>
-            </div>
+            <div class="shrink-0 ml-3">${typeLabel}</div>
         </div>
-        <div id="job-body-${jobId}" class="px-5 py-4 flex items-center gap-4">
-            <div class="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                <i class="fa-solid fa-wand-magic-sparkles text-sm text-viralio-500 animate-bounce"></i>
-            </div>
-            <p id="job-status-${jobId}" class="text-sm text-slate-500 font-medium flex-1">Se pregătește...</p>
-            <button onclick="cancelJob(${jobId})" class="text-xs text-slate-400 hover:text-red-500 transition-colors shrink-0">Anulează</button>
+        <div id="job-body-${jobId}" class="p-5">
+            ${buildShimmerLoading(currentMode)}
         </div>`;
     return el;
 }
 
-function setJobStatus(jobId, text){ const el=document.getElementById(`job-status-${jobId}`); if(el) el.textContent=text; }
+function buildShimmerLoading(mode) {
+    if(mode === 'video') {
+        return `
+        <div class="flex flex-col gap-3">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-8 h-8 rounded-xl shimmer-box shrink-0"></div>
+                <div class="flex-1">
+                    <div class="h-3 rounded-full shimmer-box mb-2" style="width:60%"></div>
+                    <div class="h-2.5 rounded-full shimmer-box" style="width:40%;opacity:0.6"></div>
+                </div>
+            </div>
+            <div class="rounded-xl shimmer-box" style="aspect-ratio:9/16;max-width:160px;margin:0 auto"></div>
+            <p id="job-status-${typeof jobId !== 'undefined' ? jobId : 'X'}" class="text-center text-xs font-medium mt-1" style="color:rgba(255,255,255,0.3)">Se generează...</p>
+        </div>`;
+    }
+    return `
+    <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-3 mb-1">
+            <div class="w-8 h-8 rounded-xl shimmer-box shrink-0"></div>
+            <div class="flex-1">
+                <div class="h-3 rounded-full shimmer-box mb-2" style="width:55%"></div>
+                <div class="h-2.5 rounded-full shimmer-box" style="width:35%;opacity:0.6"></div>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div class="rounded-xl shimmer-box aspect-square"></div>
+            <div class="rounded-xl shimmer-box aspect-square" style="animation-delay:0.2s"></div>
+        </div>
+        <p class="text-center text-xs font-medium mt-1" style="color:rgba(255,255,255,0.3)">Se generează...</p>
+    </div>`;
+}
+
+function setJobStatus(jobId, text){
+    // Status apare în corpul cardului
+    const el = document.getElementById(`job-status-${jobId}`);
+    if(el){ el.textContent = text; return; }
+    // Dacă nu există element dedicat, updatăm textul din shimmer
+    const body = document.getElementById(`job-body-${jobId}`);
+    if(!body) return;
+    let st = body.querySelector('[data-status]');
+    if(!st){
+        st = body.querySelector('p');
+        if(st) st.setAttribute('data-status','1');
+    }
+    if(st) st.textContent = text;
+}
 
 function setJobDone(jobId, urls, ratioVal, currentMode){
     const body=document.getElementById(`job-body-${jobId}`); const card=document.getElementById(`job-${jobId}`);
     if(!body||!card) return;
     card.className='job-card done';
-    const dot=card.querySelector('.w-2.h-2'); if(dot){ dot.classList.remove('bg-indigo-400','animate-pulse'); dot.classList.add('bg-emerald-500'); }
+
+    // Update dot to green
+    const pulseWrap = card.querySelector('.pulse-ring');
+    if(pulseWrap){
+        pulseWrap.classList.remove('pulse-ring');
+        const dot = pulseWrap.querySelector('div') || pulseWrap;
+        dot.style.background = 'rgba(52,211,153,0.9)';
+    }
+
     const isPortrait=(ratioVal==='9:16'||ratioVal==='2:3'||ratioVal==='3:4');
     const isLandscape=(ratioVal==='16:9'||ratioVal==='21:9'||ratioVal==='3:2'||ratioVal==='4:3');
-    const maxW=urls.length===1?(isPortrait?'300px':isLandscape?'600px':'400px'):'100%';
+    const maxW=urls.length===1?(isPortrait?'260px':isLandscape?'560px':'360px'):'100%';
+
     body.innerHTML='';
     const wrapper=document.createElement('div'); wrapper.className='p-4 w-full';
     const grid=document.createElement('div');
     if(urls.length===1){ grid.style.maxWidth=maxW; grid.style.margin='0 auto'; }
-    else { grid.className='grid grid-cols-2 gap-4'; }
+    else { grid.className='grid gap-3'; grid.style.gridTemplateColumns = urls.length <= 2 ? 'repeat(2,1fr)' : 'repeat(2,1fr)'; }
+
     urls.forEach((url)=>{
         const cardEl=document.createElement('div'); cardEl.className='result-card';
         if(currentMode==='image'){
             cardEl.innerHTML=`
                 <div class="${aspectClass(ratioVal)} w-full relative group">
                     <img src="${url}" class="absolute inset-0 w-full h-full object-cover">
-                    <div class="card-overlay"><button onclick="openLightbox(['${url}'],0,'image')" class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-expand mr-1"></i>Mărește</button></div>
+                    <div class="card-overlay">
+                        <button onclick="openLightbox(['${url}'],0,'image')" class="text-white backdrop-blur-md text-xs font-bold px-3 py-2 rounded-xl transition-all hover:scale-105" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2)"><i class="fa-solid fa-expand mr-1.5"></i>Mărește</button>
+                    </div>
                 </div>
-                <div class="p-3 bg-white border-t border-slate-100"><button onclick="downloadMedia('${url}','viralio_img_${Date.now()}.png')" class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button></div>`;
+                <div class="p-3" style="border-top:1px solid rgba(255,255,255,0.05)">
+                    <button onclick="downloadMedia('${url}','viralio_img_${Date.now()}.png')" class="w-full text-xs font-bold px-4 py-2.5 rounded-xl transition-all hover:scale-[1.02]" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)">
+                        <i class="fa-solid fa-download mr-1.5"></i>Descarcă
+                    </button>
+                </div>`;
         } else {
             cardEl.innerHTML=`
-                <div class="${aspectClass(ratioVal)} w-full relative bg-black overflow-hidden rounded-t-[20px]">
+                <div class="${aspectClass(ratioVal)} w-full relative overflow-hidden" style="background:#000;border-radius:16px 16px 0 0">
                     <video src="${url}" controls playsinline preload="metadata" class="absolute inset-0 w-full h-full object-contain"></video>
                 </div>
-                <div class="p-3 bg-white border-t border-slate-100"><button onclick="downloadMedia('${url}','viralio_vid_${Date.now()}.mp4')" class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button></div>`;
+                <div class="p-3" style="border-top:1px solid rgba(255,255,255,0.05)">
+                    <button onclick="downloadMedia('${url}','viralio_vid_${Date.now()}.mp4')" class="w-full text-xs font-bold px-4 py-2.5 rounded-xl transition-all hover:scale-[1.02]" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)">
+                        <i class="fa-solid fa-download mr-1.5"></i>Descarcă
+                    </button>
+                </div>`;
         }
         grid.appendChild(cardEl);
     });
@@ -629,44 +1262,38 @@ function setJobError(jobId, msg){
     const body=document.getElementById(`job-body-${jobId}`); const card=document.getElementById(`job-${jobId}`);
     if(!body) return;
     card.className='job-card error';
-    const dot=card.querySelector('.w-2.h-2'); if(dot){ dot.classList.remove('bg-indigo-400','animate-pulse'); dot.classList.add('bg-red-400'); }
 
-    // Detectăm dacă e eroare de conținut blocat vs eroare tehnică
-    const isBlocked = msg && (
-        msg.includes('sexuală') || msg.includes('blocat') ||
-        msg.includes('filtrat') || msg.includes('inadecvat') ||
-        msg.includes('siguranță')
-    );
+    const pulseWrap = card.querySelector('.pulse-ring');
+    if(pulseWrap){
+        pulseWrap.classList.remove('pulse-ring');
+        const dot = pulseWrap.querySelector('div') || pulseWrap;
+        dot.style.background = 'rgba(248,113,113,0.9)';
+    }
 
+    const isBlocked = msg && (msg.includes('sexuală') || msg.includes('blocat') || msg.includes('filtrat') || msg.includes('inadecvat') || msg.includes('siguranță'));
     const icon = isBlocked ? 'fa-ban' : 'fa-triangle-exclamation';
-    const iconColor = isBlocked ? 'text-orange-400' : 'text-red-400';
+    const iconColor = isBlocked ? 'rgba(251,146,60,0.8)' : 'rgba(248,113,113,0.8)';
     const extraMsg = isBlocked
-        ? `<p class="text-xs text-orange-500 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 mt-1 font-semibold">✏️ Modifică promptul și regenerează — nu apăsa de mai multe ori cu același text!</p>`
+        ? `<p class="text-xs font-semibold px-3 py-2 rounded-xl mt-1" style="color:rgba(251,146,60,0.8);background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.15)">✏️ Modifică promptul și regenerează!</p>`
         : '';
 
     body.innerHTML=`
-        <div class="flex flex-col items-center gap-3 py-2 w-full">
-            <i class="fa-solid ${icon} ${iconColor} text-2xl"></i>
-            <p class="text-sm text-slate-500 text-center max-w-xs">${escHtml(msg)}</p>
+        <div class="flex flex-col items-center gap-3 py-3 w-full">
+            <i class="fa-solid ${icon} text-2xl" style="color:${iconColor}"></i>
+            <p class="text-sm text-center max-w-xs" style="color:rgba(255,255,255,0.4)">${escHtml(msg)}</p>
             ${extraMsg}
-            <button onclick="cancelJob(${jobId})" class="text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition-colors">Închide</button>
         </div>`;
 }
 
 // ===================== SSE READER =====================
 async function readSSEJob(jobId, response){
     const reader=response.body.getReader();
-    const job=activeJobs.get(jobId); if(job) job.reader=reader;
     const dec=new TextDecoder(); let buf=''; let finalData={}; let lastError=null;
     try {
         while(true){
-            if(job?.aborted) break;
             const {done,value}=await reader.read();
             if(value) buf+=dec.decode(value,{stream:true});
-            if(done){
-                // Procesăm ce a mai rămas în buffer la închiderea stream-ului
-                if(buf.trim()) buf+='\n';
-            }
+            if(done){ if(buf.trim()) buf+='\n'; }
             const lines=buf.split('\n'); buf=lines.pop();
             for(const line of lines){
                 const t=line.trim(); if(!t||t.startsWith(':')) continue;
@@ -713,30 +1340,25 @@ async function runJob(jobId, promptText, currentMode, ratio, refs, token, startF
             if(!resp.ok){ const j=await resp.json().catch(()=>{}); throw new Error(j?.error||'Eroare server'); }
             const data=await readSSEJob(jobId,resp);
             const urls=extractUrls(data); if(!urls?.length) throw new Error('Nu s-au generat imagini.');
-            if(!activeJobs.get(jobId)?.aborted){ setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText,currentMode); }
+            setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText,currentMode);
         } else {
             const model_id=document.getElementById('model-sel').value;
-            // Descriere în status
             let statusMsg = 'Se trimite la AI...';
             if (startFrame && endFrame) statusMsg = 'Se trimite cu start + end frame...';
             else if (startFrame) statusMsg = 'Se trimite cu start frame...';
             setJobStatus(jobId, statusMsg);
-
             fd.append('prompt',promptText); fd.append('aspect_ratio',ratio); fd.append('number_of_videos',vidCount); fd.append('model_id',model_id);
-            // Trimitem start/end frame pe câmpuri separate
             if (startFrame) fd.append('start_image', startFrame, startFrame.name);
             if (endFrame)   fd.append('end_image',   endFrame,   endFrame.name);
-            // Refs dacă există (pentru @img tags în prompt)
             refs.forEach(f=>fd.append('ref_images',f,f.name));
             const resp=await fetch('/api/media/video',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
             if(!resp.ok){ const j=await resp.json().catch(()=>{}); throw new Error(j?.error||'Eroare server'); }
             const data=await readSSEJob(jobId,resp);
             const urls=extractUrls(data); if(!urls?.length) throw new Error('Nu s-a generat video.');
-            if(!activeJobs.get(jobId)?.aborted){ setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText,currentMode); }
+            setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText,currentMode);
         }
         setTimeout(loadHistory,2000);
     } catch(err){
-        if(activeJobs.get(jobId)?.aborted) return;
         setJobError(jobId,err.message);
     } finally {
         activeJobs.delete(jobId);
@@ -752,11 +1374,6 @@ async function generate(){
     const token=getToken(); if(!token){ openLoginModal(); return; }
     const promptText=document.getElementById('prompt-in').value.trim();
     if(!promptText){ toast('Introdu un prompt descriptiv!'); return; }
-
-    if(mode === 'image'){
-        const imageJobsRunning = [...activeJobs.values()].filter(j => !j.aborted).length;
-        if(imageJobsRunning >= 2){ toast('⏳ Așteaptă să se termine generările curente!'); return; }
-    }
 
     const currentMode=mode;
     const ratio=currentMode==='image'?(document.querySelector('input[name="ratio"]:checked')?.value||'9:16'):(document.querySelector('input[name="vratio"]:checked')?.value||'16:9');
@@ -790,7 +1407,10 @@ async function loadHistory(){
         const res=await fetch(`/api/media/history?type=${mode}`,{headers:{'Authorization':'Bearer '+token}});
         const data=await res.json();
         const grid=document.getElementById('history-grid');
-        if(!data.history?.length){ grid.innerHTML='<p class="text-sm text-slate-400 text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">Nu ai nicio generare recentă.</p>'; return; }
+        if(!data.history?.length){
+            grid.innerHTML=`<p class="text-sm text-center py-8 rounded-2xl" style="color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.06)">Nu ai nicio generare recentă.</p>`;
+            return;
+        }
         let grouped=[];
         data.history.forEach(item=>{
             const last=grouped[grouped.length-1]; const ps=item.prompt||'Fără prompt';
@@ -802,23 +1422,37 @@ async function loadHistory(){
         grid.innerHTML=grouped.map((group,i)=>{
             const mediaHtml=group.urls.map((url)=>{
                 const idx=counter++;
-                if(group.type==='image') return `<div class="aspect-square rounded-xl overflow-hidden cursor-pointer border border-slate-200 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox(window.currentHistoryMedia,${idx},'image')"><img src="${url}" loading="lazy" class="w-full h-full object-cover"></div>`;
-                return `<div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer border border-slate-800 hover:border-viralio-400 hover:shadow-md transition-all" onclick="openLightbox(window.currentHistoryMedia,${idx},'video')"><video src="${url}" class="w-full h-full object-cover"></video><div class="absolute inset-0 flex items-center justify-center bg-black/40"><i class="fa-solid fa-play text-white text-2xl opacity-90"></i></div></div>`;
+                if(group.type==='image') return `<div class="aspect-square rounded-xl overflow-hidden cursor-pointer transition-all hover:scale-[1.03] hover:shadow-lg" style="border:1px solid rgba(255,255,255,0.06)" onclick="openLightbox(window.currentHistoryMedia,${idx},'image')"><img src="${url}" loading="lazy" class="w-full h-full object-cover"></div>`;
+                return `<div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer transition-all hover:scale-[1.03]" style="border:1px solid rgba(255,255,255,0.06)" onclick="openLightbox(window.currentHistoryMedia,${idx},'video')"><video src="${url}" class="w-full h-full object-cover"></video><div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.4)"><i class="fa-solid fa-play text-white text-2xl opacity-90"></i></div></div>`;
             }).join('');
-            return `<div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] animate-slide-up flex flex-col gap-4" style="animation-delay:${i*0.05}s">
-                <div class="flex items-start gap-3 border-b border-slate-100 pb-3">
-                    <div class="w-8 h-8 rounded-full bg-viralio-50 text-viralio-500 flex items-center justify-center shrink-0"><i class="fa-solid ${group.type==='image'?'fa-image':'fa-clapperboard'} text-sm"></i></div>
-                    <div class="flex-1 overflow-hidden">
-                        <p class="text-[0.85rem] font-medium text-slate-700 truncate cursor-pointer" data-prompt="${escHtml(group.prompt)}" onclick="document.getElementById('prompt-in').value=this.dataset.prompt;updateCharCount();">"${escHtml(group.prompt)}"</p>
-                        <span class="text-[0.65rem] font-bold text-slate-400 mt-1 block uppercase tracking-wider"><i class="fa-solid fa-clock mr-1"></i>Generat anterior</span>
+            return `<div class="history-group animate-slide-up" style="animation-delay:${i*0.05}s">
+                <div class="flex items-start gap-3 mb-3 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                    <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(99,102,241,0.15)">
+                        <i class="fa-solid ${group.type==='image'?'fa-image':'fa-clapperboard'} text-xs" style="color:rgba(165,168,255,0.7)"></i>
                     </div>
-                    <button data-prompt="${escHtml(group.prompt)}" onclick="document.getElementById('prompt-in').value=this.dataset.prompt;updateCharCount();" class="shrink-0 w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-viralio-50 hover:text-viralio-600 transition-colors flex items-center justify-center"><i class="fa-solid fa-rotate-right text-xs"></i></button>
+                    <div class="flex-1 overflow-hidden">
+                        <p class="text-[0.8rem] font-medium truncate cursor-pointer hover:text-white transition-colors" style="color:rgba(255,255,255,0.5)" data-prompt="${escHtml(group.prompt)}" onclick="document.getElementById('prompt-in').value=this.dataset.prompt;updateCharCount();">"${escHtml(group.prompt)}"</p>
+                        <span class="text-[0.6rem] font-display font-black uppercase tracking-widest mt-0.5 block" style="color:rgba(255,255,255,0.2)">Generat anterior</span>
+                    </div>
+                    <button data-prompt="${escHtml(group.prompt)}" onclick="document.getElementById('prompt-in').value=this.dataset.prompt;updateCharCount();" class="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:scale-110" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.3)"><i class="fa-solid fa-rotate-right text-xs"></i></button>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">${mediaHtml}</div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">${mediaHtml}</div>
             </div>`;
         }).join('');
     } catch(e){ console.error('Eroare istoric:',e); }
 }
+
+// ===================== THEME TOGGLE =====================
+function toggleTheme(){
+    const html = document.documentElement;
+    const isLight = html.classList.toggle('light');
+    localStorage.setItem('viralio-theme', isLight ? 'light' : 'dark');
+}
+
+(function(){
+    const saved = localStorage.getItem('viralio-theme');
+    if(saved === 'light') document.documentElement.classList.add('light');
+})();
 
 // ===================== MOBILE SIDEBAR =====================
 function toggleMobileSettings(){
