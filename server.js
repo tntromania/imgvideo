@@ -455,7 +455,7 @@ if (status === 2) {
     }
 };
 
-app.post('/api/media/video',
+app.post('/api/media/video/fast',
     authenticate,
     upload.fields([
         { name: 'start_image', maxCount: 1 },
