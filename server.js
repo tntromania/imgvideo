@@ -5,8 +5,6 @@ const path = require('path');
 const mongoose = require('mongoose');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
-const sharp = require('sharp');
-sharp.concurrency(1); // folosește un singur thread
 const multer = require('multer');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
