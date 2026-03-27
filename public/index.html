@@ -1,136 +1,839 @@
 <!DOCTYPE html>
-<html lang="ro">
+<html lang="ro" class="scroll-smooth">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>În Lucru | Viralio</title>
+    <title>AI Media Studio | Viralio</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
-                    animation: {
-                        'spin-slow': 'spin 8s linear infinite',
-                        'blob': 'blob 10s infinite alternate',
-                    },
-                    keyframes: {
-                        blob: {
-                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
-                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
-                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
-                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
-                        }
-                    }
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { viralio: { 50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 900: '#09090b', accent: '#ec4899' } },
+                    animation: { 'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards' },
+                    keyframes: { slideUp: { '0%': { opacity: 0, transform: 'translateY(20px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } } }
                 }
             }
         }
     </script>
-
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-font-smoothing: antialiased; background-color: #030712; }
-        
-        .glass-card {
-            background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 30px 60px -15px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05);
-        }
-
-        .code-pattern {
-            background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-            background-size: 24px 24px;
-        }
-
-        .glowing-border {
-            position: relative;
-        }
-        .glowing-border::before {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            background: linear-gradient(90deg, #4f46e5, #ec4899, #06b6d4, #4f46e5);
-            background-size: 300% 300%;
-            border-radius: inherit;
-            z-index: -1;
-            animation: moveGradient 4s linear infinite;
-            filter: blur(8px);
-            opacity: 0.5;
-        }
-
-        @keyframes moveGradient { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background: #F8FAFC; color: #0f172a; overflow: hidden; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; } ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .bg-gradient-viralio { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); }
+        #login-modal { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.65); backdrop-filter: blur(10px); z-index: 99999; align-items: center; justify-content: center; opacity: 0; transition: .3s; }
+        #login-modal.show { display: flex; opacity: 1; }
+        .modal-content { background: #fff; border-radius: 28px; padding: 40px; text-align: center; max-width: 420px; width: 90%; transform: translateY(24px); transition: .4s; box-shadow: 0 40px 80px -20px rgba(0,0,0,.22); position: relative; }
+        #login-modal.show .modal-content { transform: translateY(0); }
+        .mode-tab { padding: 10px 24px; border-radius: 14px; font-size: 0.85rem; font-weight: 800; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; border: none; background: none; color: #64748b; }
+        .mode-tab.active { background: white; color: #0f172a; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .prompt-wrap { border: 2px solid #e2e8f0; border-radius: 18px; background: #fafafa; transition: all 0.2s; }
+        .prompt-wrap:focus-within { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,0.08); background: white; }
+        .ratio-pill input[type=radio] { display: none; }
+        .ratio-pill input:checked + span { background: white; color: #4f46e5; box-shadow: 0 2px 8px rgba(79,70,229,0.15); font-weight: 800; border-color: transparent; }
+        .ratio-pill span { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; border-radius: 12px; font-size: 0.7rem; font-weight: 800; color: #64748b; cursor: pointer; transition: all 0.2s; user-select: none; border: 1px solid transparent; }
+        .ratio-pill span:hover { color: #4f46e5; }
+        .count-btn { width: 36px; height: 36px; border-radius: 12px; background: white; border: 1px solid #e2e8f0; font-size: 1.2rem; font-weight: 800; color: #475569; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; }
+        .count-btn:hover { background: #e0e7ff; border-color: #6366f1; color: #4f46e5; }
+        .count-btn:active { transform: scale(0.9); }
+        .styled-select { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 14px; padding: 12px 36px 12px 16px; font-size: 0.85rem; font-weight: 800; color: #0f172a; outline: none; width: 100%; -webkit-appearance: none; cursor: pointer; transition: all 0.2s; }
+        .styled-select:focus { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,0.08); background: white; }
+        .select-wrap { position: relative; }
+        .select-wrap::after { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.7rem; pointer-events: none; }
+        .gen-btn { background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%); transition: all 0.3s; overflow: hidden; position: relative; }
+        .gen-btn:not(:disabled):hover { box-shadow: 0 15px 35px rgba(79,70,229,0.3); transform: translateY(-2px); }
+        .gen-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+        .result-card { background: white; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: all 0.3s; position: relative; }
+        .result-card:hover { box-shadow: 0 20px 40px rgba(0,0,0,0.1); transform: translateY(-4px); border-color: #c7d2fe; }
+        .card-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(9,9,11,0.8) 0%, transparent 60%); opacity: 0; transition: opacity 0.3s; display: flex; align-items: flex-end; justify-content: center; padding: 20px; gap: 10px; }
+        .result-card:hover .card-overlay { opacity: 1; }
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #0f172a; color: white; padding: 14px 28px; border-radius: 16px; font-size: 0.9rem; font-weight: 700; z-index: 200000; transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s; opacity: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); z-index: 300000; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+        #lightbox.show { display: flex; opacity: 1; }
+        .panel-s { border-bottom: 1px solid #f1f5f9; padding: 24px; }
+        .panel-s:last-child { border-bottom: none; }
+        .field-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 10px; display: block; }
+        .dropzone { border: 2px dashed #cbd5e1; border-radius: 16px; background: #f8fafc; transition: all 0.2s; cursor: pointer; }
+        .dropzone:hover { border-color: #6366f1; background: #eef2ff; }
+        .dropzone.has-file { border-color: #6366f1; background: #eef2ff; border-style: solid; }
+        .glass-premium-fin { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8); }
+        @keyframes premiumShine { 0% { transform: translateX(-150%) skewX(-20deg); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(250%) skewX(-20deg); opacity: 0; } }
+        .animate-shine-fast { animation: premiumShine 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+        .job-card { background: white; border: 1.5px solid #e2e8f0; border-radius: 20px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.04); animation: slideUp 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .job-card.processing { border-color: #c7d2fe; }
+        .job-card.done { border-color: #a7f3d0; }
+        .job-card.error { border-color: #fecaca; }
+        #autocomplete-menu { display: none; position: absolute; bottom: calc(100% + 5px); left: 10px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 50; max-height: 200px; overflow-y: auto; width: max-content; min-width: 150px; }
+        #autocomplete-menu.show { display: block; }
+        .autocomplete-item { padding: 8px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid #f1f5f9; }
+        .autocomplete-item:last-child { border-bottom: none; }
+        .autocomplete-item:hover { background: #f8fafc; }
+        /* Frame preview */
+        .frame-preview { position: relative; width: 100%; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 2px solid #6366f1; }
+        .frame-preview img { width: 100%; height: 100%; object-fit: cover; }
+        .frame-preview .remove-btn { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: rgba(239,68,68,0.9); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; cursor: pointer; opacity: 0; transition: opacity 0.2s; }
+        .frame-preview:hover .remove-btn { opacity: 1; }
     </style>
 </head>
-<body class="text-white min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden relative selection:bg-pink-500 selection:text-white">
+<body class="h-[100dvh] flex flex-col relative overflow-hidden selection:bg-viralio-500 selection:text-white">
 
-    <div class="absolute inset-0 code-pattern opacity-20 pointer-events-none"></div>
-    <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-indigo-600/30 rounded-full blur-[150px] animate-blob pointer-events-none"></div>
-    <div class="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-pink-600/20 rounded-full blur-[150px] animate-blob pointer-events-none" style="animation-delay: 2s;"></div>
-    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[300px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="absolute top-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
+<div class="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-pink-500/10 rounded-full blur-[100px] pointer-events-none z-0 mix-blend-multiply"></div>
 
-    <div class="relative z-10 w-full max-w-2xl px-6">
-        
-        <div class="glass-card p-10 md:p-14 rounded-[2rem] text-center relative overflow-hidden group">
-            
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-50"></div>
+<!-- LOGIN MODAL -->
+<div id="login-modal">
+    <div class="modal-content relative">
+        <button onclick="closeLoginModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+        <div class="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-viralio-600 flex items-center justify-center text-3xl mx-auto mb-4 shadow-inner"><i class="fas fa-fingerprint"></i></div>
+        <h2 class="text-2xl font-extrabold mb-2 text-slate-900">Intră în cont</h2>
+        <p class="text-slate-500 text-sm mb-6">Conectează-te pentru a genera conținut AI premium.</p>
+        <div class="flex justify-center bg-slate-50 py-3 rounded-2xl border border-slate-100 min-h-[60px]">
+            <div id="g_id_onload" data-client_id="743541351685-br4h5r61n3ai28bbhm9blt34944rju8p.apps.googleusercontent.com" data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+            <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div>
+        </div>
+    </div>
+</div>
 
-            <div class="relative w-28 h-28 mx-auto mb-8 flex items-center justify-center">
-                <div class="absolute inset-0 border-2 border-dashed border-indigo-500/30 rounded-full animate-spin-slow"></div>
-                <div class="absolute inset-2 border-2 border-pink-500/20 rounded-full animate-[spin_10s_linear_infinite_reverse]"></div>
-                
-                <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/25 transform group-hover:scale-110 transition-transform duration-500">
-                    <i class="fa-solid fa-code text-2xl text-white"></i>
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="closeLightbox()">
+    <button onclick="closeLightbox()" class="absolute top-4 md:top-6 right-4 md:right-8 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-12 md:h-12 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center"><i class="fa-solid fa-xmark text-xl"></i></button>
+    <button id="lb-download-btn" class="absolute top-4 md:top-6 right-16 md:right-24 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-12 md:h-12 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center"><i class="fa-solid fa-download"></i></button>
+    <button id="lb-prev" onclick="navLightbox(-1,event)" class="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-14 md:h-14 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center hidden"><i class="fa-solid fa-chevron-left"></i></button>
+    <button id="lb-next" onclick="navLightbox(1,event)" class="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white w-10 h-10 md:w-14 md:h-14 rounded-full backdrop-blur-md transition-all z-20 flex items-center justify-center hidden"><i class="fa-solid fa-chevron-right"></i></button>
+    <img id="lb-img" src="" alt="" class="hidden max-w-[90vw] max-h-[85vh] md:max-w-[75vw] rounded-xl object-contain shadow-[0_20px_60px_rgba(0,0,0,0.6)]" onclick="event.stopPropagation()">
+    <video id="lb-vid" src="" controls class="hidden max-w-[90vw] max-h-[85vh] md:max-w-[75vw] rounded-xl object-contain shadow-[0_20px_60px_rgba(0,0,0,0.6)]" onclick="event.stopPropagation()"></video>
+</div>
+
+<div id="toast"></div>
+
+<!-- NAV -->
+<div class="sticky top-0 z-50 flex w-full justify-center px-4 pt-4 pb-2 md:pt-5 md:pb-3 max-w-screen-2xl mx-auto">
+    <nav class="w-full rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl shadow-sm px-4 md:px-8 py-3 flex justify-between items-center relative">
+        <a href="https://viralio.ro" class="flex items-center font-black text-xl tracking-tight text-slate-900 group">
+            <div class="w-9 h-9 rounded-xl bg-gradient-viralio flex items-center justify-center text-white mr-2.5 shadow-md group-hover:scale-105 transition-transform"><i class="fa-solid fa-bolt text-sm"></i></div>
+            <span class="hidden sm:block">Viralio</span>
+            <span class="hidden sm:inline-flex items-center text-xs font-medium text-slate-400 ml-2 border-l border-slate-200 pl-2 mt-0.5"><i class="fa-solid fa-wand-magic-sparkles text-viralio-500 mr-1.5 text-[0.7rem]"></i>Media Studio</span>
+        </a>
+        <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-100/80 p-1.5 rounded-2xl flex gap-1 border border-slate-200/50 backdrop-blur-sm">
+            <button class="mode-tab active" id="tab-image" onclick="switchMode('image')"><i class="fa-solid fa-image text-viralio-500"></i><span class="hidden sm:inline">Imagini</span></button>
+            <button class="mode-tab" id="tab-video" onclick="switchMode('video')"><i class="fa-solid fa-clapperboard"></i><span class="hidden sm:inline">Video</span></button>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="openLoginModal()" id="login-top-btn" class="hidden sm:flex px-5 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-viralio-600 transition-all font-semibold shadow-md text-sm">Conectează-te</button>
+            <button onclick="openLoginModal()" id="login-top-btn-mobile" class="sm:hidden w-10 h-10 bg-slate-900 text-white rounded-xl font-bold text-sm flex items-center justify-center shadow-md"><i class="fa-solid fa-user"></i></button>
+            <div id="user-profile" class="hidden items-center bg-slate-50 border border-slate-200 py-1 pl-1.5 pr-1.5 rounded-full">
+                <img id="nav-avatar" src="" class="w-8 h-8 rounded-full border border-slate-200 object-cover">
+                <div class="flex-col leading-none ml-2.5 mr-3 hidden md:flex">
+                    <span id="nav-name" class="text-xs font-bold text-slate-900 mb-0.5"></span>
+                    <span class="text-[0.65rem] font-bold text-viralio-600"><span id="nav-credits">0</span> Credite</span>
                 </div>
-                
-                <div class="absolute -bottom-2 -right-2 bg-zinc-900 border border-zinc-700 w-10 h-10 rounded-xl flex items-center justify-center shadow-xl">
-                    <i class="fa-solid fa-hammer text-amber-400 text-sm animate-bounce"></i>
+                <button onclick="logout()" class="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 ml-1"><i class="fa-solid fa-power-off text-sm"></i></button>
+            </div>
+        </div>
+    </nav>
+</div>
+
+<!-- MAIN -->
+<main class="flex-1 flex flex-col md:flex-row max-w-screen-2xl mx-auto w-full px-4 pb-4 gap-4 overflow-hidden z-10 relative">
+    <div id="mobile-overlay" onclick="toggleMobileSettings()" class="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[95] opacity-0 pointer-events-none transition-opacity duration-300"></div>
+    <button id="mobile-settings-btn" onclick="toggleMobileSettings()" class="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] bg-slate-900 text-white px-6 py-3.5 rounded-full font-black text-sm shadow-[0_10px_30px_rgba(15,23,42,0.3)] flex items-center gap-2 border border-slate-700 w-[85%] justify-center">
+        <i class="fa-solid fa-sliders text-amber-300"></i> SETĂRI GENERARE
+    </button>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar-settings" class="fixed md:relative bottom-0 left-0 right-0 md:inset-auto w-full md:w-[380px] bg-white md:rounded-[1.5rem] rounded-t-[2rem] border-t md:border border-slate-200 shadow-[0_-20px_50px_rgba(0,0,0,0.15)] md:shadow-sm flex flex-col shrink-0 h-[85vh] md:h-full overflow-hidden z-[100] md:z-10 transition-transform duration-300 translate-y-full md:translate-y-0">
+        <div class="md:hidden flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100 bg-slate-50/50">
+            <h3 class="font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-sliders text-slate-400"></i> Setări Generare</h3>
+            <button onclick="toggleMobileSettings()" class="w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-500 shadow-sm"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="flex-1 overflow-y-auto no-scrollbar">
+            <div class="panel-s">
+                <label class="field-label">Model AI</label>
+                <div class="select-wrap">
+                    <select id="model-sel" class="styled-select" onchange="onModelChange()">
+                        <optgroup label="Imagini (Gemini)" id="og-img">
+                            <option value="gemini-flash" data-type="image" data-cost="1">Nano Banana 4k (Rapid) ⚡ — 1 Credit</option>
+                            <option value="gemini-pro" data-type="image" data-cost="2">Nano Banana 4k (Pro) 💎 — 2 Credite</option>
+                        </optgroup>
+                        <optgroup label="Video (Veo)" id="og-vid" style="display:none">
+                            <option value="veo3.1fast" data-type="video" data-cost="2">Veo 3.1 Fast ⚡ — 2 Credite</option>
+                            <option value="veo3.1" data-type="video" data-cost="3">Veo 3.1 Premium 🏆 — 3 Credite</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+            <div class="panel-s">
+                <label class="field-label">Prompt</label>
+                <div class="prompt-wrap" style="position:relative">
+                    <textarea id="prompt-in" rows="5" placeholder="Descrie în detaliu ce vrei să generezi..." class="w-full bg-transparent p-4 text-[0.95rem] font-medium text-slate-800 outline-none placeholder-slate-400 leading-relaxed no-scrollbar" oninput="handlePromptInput()"></textarea>
+                    <div class="flex items-center justify-between px-3 pb-3 gap-2">
+                        <button onclick="fillExample()" class="flex items-center gap-1.5 text-[0.7rem] font-bold text-slate-500 bg-slate-100 hover:bg-viralio-50 hover:text-viralio-600 px-3 py-1.5 rounded-lg transition-colors"><i class="fa-solid fa-lightbulb"></i> Exemplu</button>
+                        <span id="char-count" class="text-[0.7rem] font-bold text-slate-400">0 caractere</span>
+                    </div>
+                    <div id="autocomplete-menu"></div>
                 </div>
             </div>
 
-            <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight leading-tight">
-                Construim viitorul <br/>
-                <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">Viralio Studio</span>
-            </h1>
-            
-            <p class="text-zinc-400 text-base md:text-lg leading-relaxed mb-10 max-w-lg mx-auto font-medium">
-                Platforma noastră este în plin proces de dezvoltare. Antrenăm modelele AI și pregătim instrumente revoluționare pentru tine.
-            </p>
-
-            <div class="mb-10 text-left">
-                <div class="flex justify-between text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 px-1">
-                    <span>Faza de Dezvoltare</span>
-                    <span class="text-indigo-400">85%</span>
+            <!-- IMAGE OPTIONS -->
+            <div id="img-options">
+                <div class="panel-s pt-0">
+                    <label class="field-label">Format Imagine</label>
+                    <div class="bg-slate-100 rounded-2xl p-2 grid grid-cols-5 gap-1.5">
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="9:16" checked><span><div class="w-[10px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div>9:16</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="3:4"><span><div class="w-[12px] h-[16px] border-[2px] border-current rounded-[3px] opacity-75"></div>3:4</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="4:5"><span><div class="w-[14px] h-[16px] border-[2px] border-current rounded-[3px] opacity-75"></div>4:5</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="1:1"><span><div class="w-[14px] h-[14px] border-[2px] border-current rounded-[3px] opacity-75"></div>1:1</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="16:9"><span><div class="w-[18px] h-[10px] border-[2px] border-current rounded-[3px] opacity-75"></div>16:9</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="4:3"><span><div class="w-[16px] h-[12px] border-[2px] border-current rounded-[3px] opacity-75"></div>4:3</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="3:2"><span><div class="w-[18px] h-[12px] border-[2px] border-current rounded-[3px] opacity-75"></div>3:2</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="2:3"><span><div class="w-[12px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div>2:3</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="5:4"><span><div class="w-[16px] h-[14px] border-[2px] border-current rounded-[3px] opacity-75"></div>5:4</span></label>
+                        <label class="ratio-pill"><input type="radio" name="ratio" value="21:9"><span><div class="w-[22px] h-[8px] border-[2px] border-current rounded-[3px] opacity-75"></div>21:9</span></label>
+                    </div>
                 </div>
-                <div class="h-2 w-full bg-zinc-900 rounded-full overflow-hidden border border-white/5">
-                    <div class="h-full bg-gradient-to-r from-indigo-500 to-pink-500 w-[85%] relative">
-                        <div class="absolute inset-0 bg-white/20 w-full animate-[moveGradient_2s_linear_infinite]" style="background-image: linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent);"></div>
+                <div class="panel-s pt-0 border-none">
+                    <label class="field-label">Număr Imagini (1–4)</label>
+                    <div class="flex items-center gap-4 bg-slate-100 rounded-2xl p-1.5 w-fit">
+                        <button class="count-btn" onclick="updateCount(-1)">−</button>
+                        <span id="count-val" class="font-black text-slate-900 text-base w-6 text-center">1</span>
+                        <button class="count-btn" onclick="updateCount(1)">+</button>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-zinc-900/50 p-2 rounded-2xl border border-white/10 flex flex-col sm:flex-row gap-2 max-w-md mx-auto glowing-border">
-                <input type="email" placeholder="Adresa ta de email..." class="flex-1 bg-transparent border-none outline-none text-white px-4 py-3 text-sm placeholder-zinc-500">
-                <button class="bg-white text-black font-bold text-sm px-6 py-3 rounded-xl hover:bg-zinc-200 transition-colors whitespace-nowrap">
-                    Anunță-mă
-                </button>
+            <!-- VIDEO OPTIONS -->
+            <div id="vid-options" class="hidden">
+                <div class="panel-s pt-0">
+                    <label class="field-label">Format Video</label>
+                    <div class="bg-slate-100 rounded-2xl p-1.5 grid grid-cols-2 gap-1.5">
+                        <label class="ratio-pill"><input type="radio" name="vratio" value="9:16" checked><span><div class="w-[10px] h-[18px] border-[2px] border-current rounded-[3px] opacity-75"></div>9:16</span></label>
+                        <label class="ratio-pill"><input type="radio" name="vratio" value="16:9"><span><div class="w-[18px] h-[10px] border-[2px] border-current rounded-[3px] opacity-75"></div>16:9</span></label>
+                    </div>
+                </div>
+                <div class="panel-s pt-0">
+                    <label class="field-label">Număr Videoclipuri (1–4)</label>
+                    <div class="flex items-center gap-4 bg-slate-100 rounded-2xl p-1.5 w-fit">
+                        <button class="count-btn" onclick="updateVCount(-1)">−</button>
+                        <span id="vcount-val" class="font-black text-slate-900 text-base w-6 text-center">1</span>
+                        <button class="count-btn" onclick="updateVCount(1)">+</button>
+                    </div>
+                </div>
+
+                <!-- ── START & END FRAME ── -->
+                <div class="panel-s pt-0 border-none">
+                    <label class="field-label mb-3">Cadre Video <span class="normal-case text-slate-400 font-medium">(opțional)</span></label>
+                    <p class="text-[0.7rem] text-slate-400 font-medium mb-3 leading-relaxed">Adaugă un cadru de start și/sau end pentru a controla animația. Fără imagini = generare din text.</p>
+                    <input type="file" id="start-frame-input" class="hidden" accept="image/*" onchange="handleFrameSelect('start', event)">
+                    <input type="file" id="end-frame-input" class="hidden" accept="image/*" onchange="handleFrameSelect('end', event)">
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Start Frame -->
+                        <div>
+                            <span class="text-[0.65rem] font-black text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-1">
+                                <i class="fa-solid fa-play text-emerald-500 text-[0.55rem]"></i> Start Frame
+                            </span>
+                            <div id="start-frame-preview" class="hidden frame-preview">
+                                <img id="start-frame-img" src="" alt="start">
+                                <div class="remove-btn" onclick="removeFrame('start')"><i class="fa-solid fa-xmark"></i></div>
+                            </div>
+                            <div id="start-frame-zone" class="dropzone flex flex-col items-center justify-center text-center p-3 min-h-[80px]" onclick="document.getElementById('start-frame-input').click()">
+                                <div class="flex flex-col items-center gap-1 pointer-events-none">
+                                    <i class="fa-solid fa-cloud-arrow-up text-slate-400 text-lg"></i>
+                                    <span class="text-[0.65rem] font-bold text-slate-500">Încarcă</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- End Frame -->
+                        <div>
+                            <span class="text-[0.65rem] font-black text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-1">
+                                <i class="fa-solid fa-stop text-red-400 text-[0.55rem]"></i> End Frame
+                            </span>
+                            <div id="end-frame-preview" class="hidden frame-preview">
+                                <img id="end-frame-img" src="" alt="end">
+                                <div class="remove-btn" onclick="removeFrame('end')"><i class="fa-solid fa-xmark"></i></div>
+                            </div>
+                            <div id="end-frame-zone" class="dropzone flex flex-col items-center justify-center text-center p-3 min-h-[80px]" onclick="document.getElementById('end-frame-input').click()">
+                                <div class="flex flex-col items-center gap-1 pointer-events-none">
+                                    <i class="fa-solid fa-cloud-arrow-up text-slate-400 text-lg"></i>
+                                    <span class="text-[0.65rem] font-bold text-slate-500">Încarcă</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
+            <!-- REFS (imagini) — doar pentru modul imagine -->
+            <div id="refs-section" class="panel-s pt-0 border-none mt-2">
+                <label class="field-label flex justify-between items-center mb-3">
+                    <span>Referințe <span class="normal-case text-slate-400 font-medium">(opțional)</span></span>
+                    <span class="text-[0.65rem] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg cursor-pointer hover:bg-indigo-100 font-bold border border-indigo-100" onclick="document.getElementById('ref-file').click()">+ Adaugă</span>
+                </label>
+                <input type="file" id="ref-file" class="hidden" accept="image/*" multiple onchange="handleFileSelect(event)">
+                <div id="ref-gallery" class="flex flex-wrap gap-2 mb-3 hidden"></div>
+                <div id="ref-zone" class="dropzone flex flex-col items-center justify-center text-center p-5 min-h-[90px] mb-3" onclick="document.getElementById('ref-file').click()">
+                    <div class="flex flex-col items-center gap-1.5 pointer-events-none">
+                        <div class="w-8 h-8 rounded-xl bg-slate-200/50 flex items-center justify-center text-slate-500"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                        <span class="text-xs font-bold text-slate-600">Încarcă referințe</span>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div class="mt-8 flex justify-center gap-6">
-            <a href="https://discord.gg/h8Ah6VKDzm" class="text-zinc-500 hover:text-indigo-400 transition-colors text-xl"><i class="fa-brands fa-discord"></i></a>
-            <a href="https://t.me/SmartCreator_official" class="text-zinc-500 hover:text-sky-400 transition-colors text-xl"><i class="fa-brands fa-telegram"></i></a>
-            <a href="#" class="text-zinc-500 hover:text-pink-400 transition-colors text-xl"><i class="fa-brands fa-instagram"></i></a>
+        <div class="shrink-0 p-5 border-t border-slate-100 bg-slate-50/80 backdrop-blur-md">
+            <div class="flex items-center justify-between mb-4">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Cost Estimat</span>
+                <span class="text-lg font-black text-amber-500"><span id="total-cost">1</span> <i class="fa-solid fa-coins text-sm ml-0.5"></i></span>
+            </div>
+            <button id="gen-btn" class="gen-btn w-full text-white py-4 rounded-2xl font-black text-[1.05rem] flex items-center justify-center gap-2 shadow-lg" onclick="generate()">
+                <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> GENEREAZĂ
+            </button>
         </div>
-        
-        <p class="text-center text-zinc-600 text-xs mt-6 font-medium">
-            &copy; 2026 Viralio. Toate drepturile rezervate.
-        </p>
-    </div>
+    </aside>
 
+    <!-- CONTENT -->
+    <section class="flex-1 bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-y-auto no-scrollbar relative flex flex-col">
+        <div class="flex-1 flex flex-col p-6 md:p-10 max-w-5xl mx-auto w-full">
+            <div id="st-empty" class="w-full flex items-center justify-center animate-slide-up px-2 py-8 md:py-16 min-h-[40vh]">
+                <div class="flex flex-col md:flex-row items-center justify-center gap-6 max-w-2xl bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_15px_50px_-12px_rgba(0,0,0,0.08)] border border-slate-100 relative overflow-hidden">
+                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl"></div>
+                    <div class="flex items-center gap-4 md:border-r border-slate-100 md:pr-8 relative z-10">
+                        <div class="w-12 h-20 bg-indigo-50/80 rounded-full flex flex-col items-center justify-center border border-indigo-100/50 shrink-0 text-indigo-500 shadow-sm"><i class="fa-solid fa-layer-group text-xl"></i></div>
+                        <h2 class="text-[2rem] md:text-[2.5rem] font-black text-slate-800 tracking-tight leading-[1.05]"><span class="block">Studio</span><span class="block">Creativ</span></h2>
+                    </div>
+                    <p class="text-slate-500 font-medium text-[0.85rem] leading-relaxed text-center md:text-left relative z-10 max-w-[300px]">
+                        <span class="hidden md:block">Scrie un prompt, alege setările și lasă AI-ul să genereze. Poți rula mai multe generări simultan!</span>
+                        <span class="block md:hidden">Apasă <strong class="text-slate-700">Setări Generare</strong> și generează imagini sau video cu AI.</span>
+                    </p>
+                </div>
+            </div>
+            <div id="jobs-area" class="w-full"></div>
+            <div class="w-full mt-auto border-t border-slate-100 pt-8 pb-4">
+                <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Istoric Generări</h3>
+                <div id="history-grid" class="flex flex-col gap-4"></div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- FLOAT BUTTONS -->
+<div id="support-buttons" class="fixed bottom-24 md:bottom-5 right-5 md:right-6 z-[90] flex items-center bg-white/70 backdrop-blur-2xl glass-premium-fin rounded-full p-1.5 transition-all duration-300 hover:-translate-y-1">
+    <a href="https://discord.gg/h8Ah6VKDzm" target="_blank" class="group flex items-center gap-2 hover:bg-slate-100 rounded-full px-3 py-1.5 transition-all duration-300">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-900 text-white shadow-sm group-hover:bg-[#5865F2] group-hover:scale-105 transition-all duration-300"><i class="fa-brands fa-discord text-sm"></i></div>
+        <div class="flex-col hidden sm:flex text-left"><span class="text-[0.55rem] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Ai Întrebări?</span><span class="text-xs font-black text-slate-800 leading-none">Suport Discord</span></div>
+    </a>
+    <div class="w-px h-6 bg-gradient-to-b from-transparent via-slate-300 to-transparent mx-1"></div>
+    <a href="https://t.me/SmartCreator_official" target="_blank" class="group flex items-center gap-2 rounded-full px-3 py-1.5 transition-all duration-300">
+        <div class="relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300">
+            <div class="absolute inset-0 rounded-full bg-gradient-to-br from-[#0088cc] to-[#00aaff] overflow-hidden shadow-[0_0_15px_rgba(0,136,204,0.4)]">
+                <div class="absolute inset-0 w-[250%] h-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shine-fast z-10"></div>
+            </div>
+            <i class="fa-brands fa-telegram text-white text-sm pr-0.5 relative z-20"></i>
+            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse z-30"></span>
+        </div>
+        <div class="flex-col hidden sm:flex text-left"><span class="text-[0.55rem] font-bold text-red-500 uppercase tracking-widest leading-none mb-0.5">Giveaways</span><span class="text-xs font-black text-slate-800 leading-none">Telegram VIP</span></div>
+    </a>
+</div>
+
+<script>
+// ===================== STATE =====================
+const MODEL_META = {
+    'gemini-flash': { type:'image', cost:1 },
+    'gemini-pro':   { type:'image', cost:2 },
+    'veo3.1fast':   { type:'video', cost:2 },
+    'veo3.1':       { type:'video', cost:3 }
+};
+let mode = 'image';
+let imgCount = 1;
+let vidCount = 1;
+let uploadedRefs = [];
+let startFrameFile = null;   // File pentru start_image
+let endFrameFile   = null;   // File pentru end_image
+let activeJobs = new Map();
+let jobCounter = 0;
+let lbMediaList = [], lbCurrentIndex = 0, lbCurrentType = 'image';
+
+// ===================== AUTH =====================
+const $loginModal = document.getElementById('login-modal');
+function openLoginModal()  { $loginModal.classList.add('show'); }
+function closeLoginModal() { $loginModal.classList.remove('show'); }
+function setToken(t)   { document.cookie = "viralio_token="+t+"; domain=.viralio.ro; path=/; max-age=604800; Secure; SameSite=Lax"; }
+function getToken()    { const m = document.cookie.match(/(?:^|; )viralio_token=([^;]*)/); return m?m[1]:null; }
+function removeToken() { document.cookie = "viralio_token=; domain=.viralio.ro; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
+
+async function handleCredentialResponse(resp) {
+    try {
+        const r = await fetch('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:resp.credential})});
+        const d = await r.json();
+        if(d.token){ setToken(d.token); closeLoginModal(); updateUI(d.user); }
+    } catch(e){ toast('Eroare conectare server.'); }
+}
+function updateUI(user) {
+    document.getElementById('login-top-btn').style.display = 'none';
+    document.getElementById('login-top-btn-mobile').style.display = 'none';
+    const up = document.getElementById('user-profile');
+    up.classList.remove('hidden'); up.style.display = 'flex';
+    document.getElementById('nav-name').innerText = user.name.split(' ')[0];
+    document.getElementById('nav-avatar').src = user.picture;
+    document.getElementById('nav-credits').innerText = user.credits;
+    loadHistory();
+}
+function logout() { removeToken(); location.reload(); }
+window.onload = async () => {
+    const t = getToken();
+    if(t) {
+        try {
+            const r = await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+t}});
+            if(r.ok){ const d=await r.json(); updateUI(d.user); } else removeToken();
+        } catch(e){}
+    }
+    refreshBadges();
+    if(t) loadHistory();
+};
+
+// ===================== UI HELPERS =====================
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2800); }
+function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function updateCharCount(){ document.getElementById('char-count').textContent = document.getElementById('prompt-in').value.length + ' caractere'; }
+function fillExample(){ document.getElementById('prompt-in').value='A cinematic wide shot of a futuristic cyberpunk city at sunset, neon lights reflecting on wet streets, 8k resolution, photorealistic'; updateCharCount(); }
+function updateCount(d){ imgCount=Math.min(4,Math.max(1,imgCount+d)); document.getElementById('count-val').textContent=imgCount; refreshBadges(); }
+function updateVCount(d){ vidCount=Math.min(4,Math.max(1,vidCount+d)); document.getElementById('vcount-val').textContent=vidCount; refreshBadges(); }
+function refreshBadges(){
+    const sel = document.getElementById('model-sel');
+    const m = MODEL_META[sel?.value]||{type:'image',cost:1};
+    const n = mode==='image'?imgCount:vidCount;
+    document.getElementById('total-cost').textContent = m.cost*n;
+}
+function onModelChange(){ refreshBadges(); }
+
+function switchMode(m){
+    mode=m; const isVid=m==='video';
+    document.getElementById('tab-image').classList.toggle('active',!isVid);
+    document.getElementById('tab-video').classList.toggle('active',isVid);
+    document.getElementById('og-img').style.display = isVid?'none':'';
+    document.getElementById('og-vid').style.display = isVid?'':'none';
+    document.getElementById('model-sel').value = isVid?'veo3.1fast':'gemini-flash';
+    document.getElementById('img-options').classList.toggle('hidden',isVid);
+    document.getElementById('vid-options').classList.toggle('hidden',!isVid);
+    // Referințele (cu @img tags) sunt utile doar la imagini
+    document.getElementById('refs-section').classList.toggle('hidden', isVid);
+    refreshBadges();
+    if(getToken()) loadHistory();
+}
+
+function aspectClass(r){
+    if(r==='16:9') return 'aspect-video';
+    if(r==='9:16') return 'aspect-[9/16]';
+    if(r==='21:9') return 'aspect-[21/9]';
+    return 'aspect-square';
+}
+
+// ===================== START / END FRAME =====================
+function handleFrameSelect(type, e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    if (type === 'start') {
+        startFrameFile = file;
+        document.getElementById('start-frame-img').src = url;
+        document.getElementById('start-frame-preview').classList.remove('hidden');
+        document.getElementById('start-frame-zone').classList.add('hidden');
+    } else {
+        endFrameFile = file;
+        document.getElementById('end-frame-img').src = url;
+        document.getElementById('end-frame-preview').classList.remove('hidden');
+        document.getElementById('end-frame-zone').classList.add('hidden');
+    }
+    e.target.value = '';
+}
+
+function removeFrame(type) {
+    if (type === 'start') {
+        startFrameFile = null;
+        document.getElementById('start-frame-img').src = '';
+        document.getElementById('start-frame-preview').classList.add('hidden');
+        document.getElementById('start-frame-zone').classList.remove('hidden');
+    } else {
+        endFrameFile = null;
+        document.getElementById('end-frame-img').src = '';
+        document.getElementById('end-frame-preview').classList.add('hidden');
+        document.getElementById('end-frame-zone').classList.remove('hidden');
+    }
+}
+
+// ===================== REFS (imagini) =====================
+function handleFileSelect(e){
+    Array.from(e.target.files).forEach(f=>{ if(uploadedRefs.length<4) uploadedRefs.push(f); });
+    renderRefGallery(); e.target.value='';
+}
+function removeRef(i,e){ e.stopPropagation(); uploadedRefs.splice(i,1); renderRefGallery(); }
+function insertTag(i){ const ta=document.getElementById('prompt-in'); const tag=`@img${i+1}`; const s=ta.selectionStart; ta.value=ta.value.substring(0,s)+` ${tag} `+ta.value.substring(ta.selectionEnd); ta.focus(); updateCharCount(); }
+function renderRefGallery(){
+    const gal=document.getElementById('ref-gallery'); const zone=document.getElementById('ref-zone');
+    if(uploadedRefs.length>0){ gal.classList.remove('hidden'); zone.classList.add('hidden'); }
+    else { gal.classList.add('hidden'); zone.classList.remove('hidden'); }
+    gal.innerHTML=uploadedRefs.map((f,i)=>{
+        const url=window.URL.createObjectURL(f);
+        return `<div class="relative w-[4.5rem] h-[4.5rem] rounded-xl border-2 border-indigo-200 overflow-hidden group cursor-pointer shadow-sm" onclick="insertTag(${i})">
+            <img src="${url}" class="w-full h-full object-cover">
+            <span class="absolute top-1 left-1 bg-indigo-500 text-white text-[0.55rem] font-bold px-1.5 py-0.5 rounded">@img${i+1}</span>
+            <button onclick="removeRef(${i},event)" class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[0.6rem] opacity-0 group-hover:opacity-100 transition-all"><i class="fa-solid fa-xmark"></i></button>
+        </div>`;
+    }).join('');
+}
+
+function handlePromptInput(){
+    updateCharCount();
+    const menu=document.getElementById('autocomplete-menu');
+    if(uploadedRefs.length===0){ menu.classList.remove('show'); return; }
+    const val=document.getElementById('prompt-in').value;
+    const pos=document.getElementById('prompt-in').selectionStart;
+    if(val.charAt(pos-1)==='@'){ showAutocomplete(); } else { menu.classList.remove('show'); }
+}
+function showAutocomplete(){
+    const menu=document.getElementById('autocomplete-menu'); menu.innerHTML='';
+    uploadedRefs.forEach((f,i)=>{
+        const url=window.URL.createObjectURL(f);
+        const item=document.createElement('div'); item.className='autocomplete-item';
+        item.innerHTML=`<img src="${url}" class="w-8 h-8 rounded-lg object-cover border border-slate-200"><span class="text-sm font-bold text-slate-700">@img${i+1}</span>`;
+        item.onclick=(e)=>{ e.stopPropagation(); const ta=document.getElementById('prompt-in'); const pos=ta.selectionStart; ta.value=ta.value.substring(0,pos)+`img${i+1} `+ta.value.substring(pos); ta.focus(); updateCharCount(); menu.classList.remove('show'); };
+        menu.appendChild(item);
+    });
+    menu.classList.add('show');
+}
+document.addEventListener('click',(e)=>{ const m=document.getElementById('autocomplete-menu'); if(m&&!m.contains(e.target)&&e.target!==document.getElementById('prompt-in')) m.classList.remove('show'); });
+
+// ===================== LIGHTBOX =====================
+function openLightbox(list, idx, type){
+    lbMediaList=list; lbCurrentIndex=idx; lbCurrentType=type;
+    updateLightboxContent();
+    document.getElementById('lb-prev').classList.toggle('hidden',list.length<=1);
+    document.getElementById('lb-next').classList.toggle('hidden',list.length<=1);
+    document.getElementById('lightbox').classList.add('show');
+}
+function updateLightboxContent(){
+    const img=document.getElementById('lb-img'); const vid=document.getElementById('lb-vid'); const dlBtn=document.getElementById('lb-download-btn');
+    img.classList.add('hidden'); vid.classList.add('hidden');
+    try { vid.pause(); } catch(e){}
+    const item=lbMediaList[lbCurrentIndex];
+    let url,type;
+    if(item&&typeof item==='object'&&item.url){ url=item.url; type=item.type; } else { url=item; type=lbCurrentType; }
+    dlBtn.onclick=(e)=>{ e.stopPropagation(); downloadMedia(url,`viralio_${Date.now()}.${type==='video'?'mp4':'png'}`); };
+    if(type==='video'){ vid.src=url; vid.style.cssText='max-width:90vw;max-height:85vh;width:auto;height:auto;'; vid.classList.remove('hidden'); vid.load(); }
+    else { img.src=url; img.classList.remove('hidden'); }
+}
+function navLightbox(dir,e){ if(e)e.stopPropagation(); lbCurrentIndex=(lbCurrentIndex+dir+lbMediaList.length)%lbMediaList.length; updateLightboxContent(); }
+function closeLightbox(){ document.getElementById('lightbox').classList.remove('show'); setTimeout(()=>{ try{document.getElementById('lb-vid').pause();}catch(e){} },300); }
+document.addEventListener('keydown',(e)=>{ if(!document.getElementById('lightbox').classList.contains('show')) return; if(e.key==='ArrowLeft'&&lbMediaList.length>1) navLightbox(-1,null); if(e.key==='ArrowRight'&&lbMediaList.length>1) navLightbox(1,null); if(e.key==='Escape') closeLightbox(); });
+
+// ===================== DOWNLOAD =====================
+async function downloadMedia(url, filename){
+    try {
+        const r = await fetch(url, { mode: 'cors' });
+        if (!r.ok) throw new Error('fetch failed');
+        const blob = await r.blob();
+        const bu = window.URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = bu; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        window.URL.revokeObjectURL(bu);
+    } catch(err){
+        const proxyUrl = `/api/media/proxy-download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`;
+        const a = document.createElement('a'); a.href = proxyUrl; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+}
+
+// ===================== EMPTY STATE =====================
+function checkEmptyState(){
+    const jobs=document.getElementById('jobs-area');
+    const empty=document.getElementById('st-empty');
+    if(jobs.children.length===0){ empty.classList.remove('hidden'); } else { empty.classList.add('hidden'); }
+}
+
+// ===================== JOB SYSTEM =====================
+function cancelJob(jobId){
+    const job=activeJobs.get(jobId);
+    if(job){ job.aborted=true; try{ if(job.reader) job.reader.cancel(); }catch(e){} }
+    activeJobs.delete(jobId);
+    const card=document.getElementById(`job-${jobId}`); if(card) card.remove();
+    checkEmptyState();
+}
+
+function createJobCard(jobId, promptText, currentMode){
+    const el=document.createElement('div');
+    el.id=`job-${jobId}`;
+    el.className='job-card processing';
+    el.innerHTML=`
+        <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/80">
+            <div class="flex items-center gap-3 overflow-hidden">
+                <div class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse shrink-0"></div>
+                <span class="text-sm font-semibold text-slate-700 truncate max-w-[240px] md:max-w-md">${escHtml(promptText)}</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 ml-2">
+                <span class="text-xs font-bold text-slate-400 bg-white border border-slate-200 px-2 py-1 rounded-lg">${currentMode==='video'?'🎬 Video':'🖼️ Imagine'}</span>
+                <button onclick="cancelJob(${jobId})" class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center text-xs transition-all"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+        <div id="job-body-${jobId}" class="px-5 py-4 flex items-center gap-4">
+            <div class="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-wand-magic-sparkles text-sm text-viralio-500 animate-bounce"></i>
+            </div>
+            <p id="job-status-${jobId}" class="text-sm text-slate-500 font-medium flex-1">Se pregătește...</p>
+            <button onclick="cancelJob(${jobId})" class="text-xs text-slate-400 hover:text-red-500 transition-colors shrink-0">Anulează</button>
+        </div>`;
+    return el;
+}
+
+function setJobStatus(jobId, text){ const el=document.getElementById(`job-status-${jobId}`); if(el) el.textContent=text; }
+
+function setJobDone(jobId, urls, ratioVal, currentMode){
+    const body=document.getElementById(`job-body-${jobId}`); const card=document.getElementById(`job-${jobId}`);
+    if(!body||!card) return;
+    card.className='job-card done';
+    const dot=card.querySelector('.w-2.h-2'); if(dot){ dot.classList.remove('bg-indigo-400','animate-pulse'); dot.classList.add('bg-emerald-500'); }
+    const isPortrait=(ratioVal==='9:16'||ratioVal==='2:3'||ratioVal==='3:4');
+    const isLandscape=(ratioVal==='16:9'||ratioVal==='21:9'||ratioVal==='3:2'||ratioVal==='4:3');
+    const maxW=urls.length===1?(isPortrait?'300px':isLandscape?'600px':'400px'):'100%';
+    body.innerHTML='';
+    const wrapper=document.createElement('div'); wrapper.className='p-4 w-full';
+    const grid=document.createElement('div');
+    if(urls.length===1){ grid.style.maxWidth=maxW; grid.style.margin='0 auto'; }
+    else { grid.className='grid grid-cols-2 gap-4'; }
+    urls.forEach((url)=>{
+        const cardEl=document.createElement('div'); cardEl.className='result-card';
+        if(currentMode==='image'){
+            cardEl.innerHTML=`
+                <div class="${aspectClass(ratioVal)} w-full relative group">
+                    <img src="${url}" class="absolute inset-0 w-full h-full object-cover">
+                    <div class="card-overlay"><button onclick="openLightbox(['${url}'],0,'image')" class="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md text-xs font-bold px-3 py-2 rounded-xl"><i class="fa-solid fa-expand mr-1"></i>Mărește</button></div>
+                </div>
+                <div class="p-3 bg-white border-t border-slate-100"><button onclick="downloadMedia('${url}','viralio_img_${Date.now()}.png')" class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button></div>`;
+        } else {
+            cardEl.innerHTML=`
+                <div class="${aspectClass(ratioVal)} w-full relative bg-black overflow-hidden rounded-t-[20px]">
+                    <video src="${url}" controls playsinline preload="metadata" class="absolute inset-0 w-full h-full object-contain"></video>
+                </div>
+                <div class="p-3 bg-white border-t border-slate-100"><button onclick="downloadMedia('${url}','viralio_vid_${Date.now()}.mp4')" class="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"><i class="fa-solid fa-download mr-1"></i>Descarcă</button></div>`;
+        }
+        grid.appendChild(cardEl);
+    });
+    wrapper.appendChild(grid); body.appendChild(wrapper);
+}
+
+function setJobError(jobId, msg){
+    const body=document.getElementById(`job-body-${jobId}`); const card=document.getElementById(`job-${jobId}`);
+    if(!body) return;
+    card.className='job-card error';
+    const dot=card.querySelector('.w-2.h-2'); if(dot){ dot.classList.remove('bg-indigo-400','animate-pulse'); dot.classList.add('bg-red-400'); }
+
+    // Detectăm dacă e eroare de conținut blocat vs eroare tehnică
+    const isBlocked = msg && (
+        msg.includes('sexuală') || msg.includes('blocat') ||
+        msg.includes('filtrat') || msg.includes('inadecvat') ||
+        msg.includes('siguranță')
+    );
+
+    const icon = isBlocked ? 'fa-ban' : 'fa-triangle-exclamation';
+    const iconColor = isBlocked ? 'text-orange-400' : 'text-red-400';
+    const extraMsg = isBlocked
+        ? `<p class="text-xs text-orange-500 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 mt-1 font-semibold">✏️ Modifică promptul și regenerează — nu apăsa de mai multe ori cu același text!</p>`
+        : '';
+
+    body.innerHTML=`
+        <div class="flex flex-col items-center gap-3 py-2 w-full">
+            <i class="fa-solid ${icon} ${iconColor} text-2xl"></i>
+            <p class="text-sm text-slate-500 text-center max-w-xs">${escHtml(msg)}</p>
+            ${extraMsg}
+            <button onclick="cancelJob(${jobId})" class="text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition-colors">Închide</button>
+        </div>`;
+}
+
+// ===================== SSE READER =====================
+async function readSSEJob(jobId, response){
+    const reader=response.body.getReader();
+    const job=activeJobs.get(jobId); if(job) job.reader=reader;
+    const dec=new TextDecoder(); let buf=''; let finalData={}; let lastError=null;
+    try {
+        while(true){
+            if(job?.aborted) break;
+            const {done,value}=await reader.read();
+            if(value) buf+=dec.decode(value,{stream:true});
+            if(done){
+                // Procesăm ce a mai rămas în buffer la închiderea stream-ului
+                if(buf.trim()) buf+='\n';
+            }
+            const lines=buf.split('\n'); buf=lines.pop();
+            for(const line of lines){
+                const t=line.trim(); if(!t||t.startsWith(':')) continue;
+                if(t.startsWith('data:')){
+                    const raw=t.slice(5).trim();
+                    if(raw==='[DONE]') continue;
+                    if(raw.startsWith('{')||raw.startsWith('[')){
+                        try {
+                            const p=JSON.parse(raw);
+                            if(p.error){ lastError=p.error; continue; }
+                            if(p.status&&Object.keys(p).length===1){ setJobStatus(jobId,p.status); continue; }
+                            Object.assign(finalData,p);
+                        } catch(e){}
+                    }
+                }
+            }
+            if(done) break;
+        }
+    } finally {}
+    if(lastError&&!finalData.file_urls&&!finalData.file_url&&!finalData.video_url&&!finalData.url) throw new Error(lastError);
+    return Object.keys(finalData).length>0?finalData:null;
+}
+
+function extractUrls(data){
+    if(!data) return [];
+    if(data.file_urls&&Array.isArray(data.file_urls)&&data.file_urls.length>0) return data.file_urls;
+    if(data.file_url) return [data.file_url];
+    if(data.video_url) return [data.video_url];
+    if(data.url) return [data.url];
+    const found=[]; const scan=(o)=>{ for(let k in o){ if(typeof o[k]==='string'&&(o[k].includes('.mp4')||o[k].includes('.png')||o[k].startsWith('http'))) found.push(o[k]); else if(typeof o[k]==='object'&&o[k]!==null) scan(o[k]); } }; scan(data); return found;
+}
+
+// ===================== RUN JOB =====================
+async function runJob(jobId, promptText, currentMode, ratio, refs, token, startFrame, endFrame){
+    const job=activeJobs.get(jobId); if(!job) return;
+    try {
+        const fd=new FormData();
+        if(currentMode==='image'){
+            const model_id=document.getElementById('model-sel').value;
+            setJobStatus(jobId,'Se generează imaginile...');
+            fd.append('prompt',promptText); fd.append('aspect_ratio',ratio); fd.append('number_of_images',imgCount); fd.append('model_id',model_id);
+            refs.forEach(f=>fd.append('ref_images',f,f.name));
+            const resp=await fetch('/api/media/image',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
+            if(!resp.ok){ const j=await resp.json().catch(()=>{}); throw new Error(j?.error||'Eroare server'); }
+            const data=await readSSEJob(jobId,resp);
+            const urls=extractUrls(data); if(!urls?.length) throw new Error('Nu s-au generat imagini.');
+            if(!activeJobs.get(jobId)?.aborted){ setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText,currentMode); }
+        } else {
+            const model_id=document.getElementById('model-sel').value;
+            // Descriere în status
+            let statusMsg = 'Se trimite la AI...';
+            if (startFrame && endFrame) statusMsg = 'Se trimite cu start + end frame...';
+            else if (startFrame) statusMsg = 'Se trimite cu start frame...';
+            setJobStatus(jobId, statusMsg);
+
+            fd.append('prompt',promptText); fd.append('aspect_ratio',ratio); fd.append('number_of_videos',vidCount); fd.append('model_id',model_id);
+            // Trimitem start/end frame pe câmpuri separate
+            if (startFrame) fd.append('start_image', startFrame, startFrame.name);
+            if (endFrame)   fd.append('end_image',   endFrame,   endFrame.name);
+            // Refs dacă există (pentru @img tags în prompt)
+            refs.forEach(f=>fd.append('ref_images',f,f.name));
+            const resp=await fetch('/api/media/video',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
+            if(!resp.ok){ const j=await resp.json().catch(()=>{}); throw new Error(j?.error||'Eroare server'); }
+            const data=await readSSEJob(jobId,resp);
+            const urls=extractUrls(data); if(!urls?.length) throw new Error('Nu s-a generat video.');
+            if(!activeJobs.get(jobId)?.aborted){ setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText,currentMode); }
+        }
+        setTimeout(loadHistory,2000);
+    } catch(err){
+        if(activeJobs.get(jobId)?.aborted) return;
+        setJobError(jobId,err.message);
+    } finally {
+        activeJobs.delete(jobId);
+        try {
+            const r=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+token}});
+            if(r.ok){ const d=await r.json(); document.getElementById('nav-credits').innerText=d.user.credits; }
+        } catch(e){}
+    }
+}
+
+// ===================== GENERATE =====================
+async function generate(){
+    const token=getToken(); if(!token){ openLoginModal(); return; }
+    const promptText=document.getElementById('prompt-in').value.trim();
+    if(!promptText){ toast('Introdu un prompt descriptiv!'); return; }
+
+    if(mode === 'image'){
+        const imageJobsRunning = [...activeJobs.values()].filter(j => !j.aborted).length;
+        if(imageJobsRunning >= 2){ toast('⏳ Așteaptă să se termine generările curente!'); return; }
+    }
+
+    const currentMode=mode;
+    const ratio=currentMode==='image'?(document.querySelector('input[name="ratio"]:checked')?.value||'9:16'):(document.querySelector('input[name="vratio"]:checked')?.value||'16:9');
+    const refs=[...uploadedRefs];
+    const startFrame = currentMode==='video' ? startFrameFile : null;
+    const endFrame   = currentMode==='video' ? endFrameFile   : null;
+    const jobId=++jobCounter;
+
+    activeJobs.set(jobId,{aborted:false,reader:null});
+    const card=createJobCard(jobId,promptText,currentMode);
+    document.getElementById('jobs-area').prepend(card);
+    checkEmptyState();
+
+    if(window.innerWidth<768){
+        const sidebar=document.getElementById('sidebar-settings');
+        if(sidebar&&!sidebar.classList.contains('translate-y-full')) toggleMobileSettings();
+    }
+
+    runJob(jobId,promptText,currentMode,ratio,refs,token,startFrame,endFrame);
+}
+
+// ===================== HISTORY =====================
+async function saveToSupabase(urls,promptText,jobMode){
+    const token=getToken(); if(!token) return;
+    try { await fetch('/api/media/save-history',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({urls,type:jobMode||mode,prompt:promptText})}); } catch(e){}
+}
+
+async function loadHistory(){
+    const token=getToken(); if(!token) return;
+    try {
+        const res=await fetch(`/api/media/history?type=${mode}`,{headers:{'Authorization':'Bearer '+token}});
+        const data=await res.json();
+        const grid=document.getElementById('history-grid');
+        if(!data.history?.length){ grid.innerHTML='<p class="text-sm text-slate-400 text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">Nu ai nicio generare recentă.</p>'; return; }
+        let grouped=[];
+        data.history.forEach(item=>{
+            const last=grouped[grouped.length-1]; const ps=item.prompt||'Fără prompt';
+            if(last&&last.prompt===ps&&last.type===item.type) last.urls.push(item.supabaseUrl||item.originalUrl);
+            else grouped.push({prompt:ps,type:item.type,urls:[item.supabaseUrl||item.originalUrl]});
+        });
+        window.currentHistoryMedia=grouped.flatMap(g=>g.urls.map(u=>({url:u,type:g.type})));
+        let counter=0;
+        grid.innerHTML=grouped.map((group,i)=>{
+            const mediaHtml=group.urls.map((url)=>{
+                const idx=counter++;
+                if(group.type==='image') return `<div class="aspect-square rounded-xl overflow-hidden cursor-pointer border border-slate-200 hover:border-viralio-400 hover:shadow-md transition-all hover:scale-[1.02]" onclick="openLightbox(window.currentHistoryMedia,${idx},'image')"><img src="${url}" loading="lazy" class="w-full h-full object-cover"></div>`;
+                return `<div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer border border-slate-800 hover:border-viralio-400 hover:shadow-md transition-all" onclick="openLightbox(window.currentHistoryMedia,${idx},'video')"><video src="${url}" class="w-full h-full object-cover"></video><div class="absolute inset-0 flex items-center justify-center bg-black/40"><i class="fa-solid fa-play text-white text-2xl opacity-90"></i></div></div>`;
+            }).join('');
+            return `<div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] animate-slide-up flex flex-col gap-4" style="animation-delay:${i*0.05}s">
+                <div class="flex items-start gap-3 border-b border-slate-100 pb-3">
+                    <div class="w-8 h-8 rounded-full bg-viralio-50 text-viralio-500 flex items-center justify-center shrink-0"><i class="fa-solid ${group.type==='image'?'fa-image':'fa-clapperboard'} text-sm"></i></div>
+                    <div class="flex-1 overflow-hidden">
+                        <p class="text-[0.85rem] font-medium text-slate-700 truncate cursor-pointer" data-prompt="${escHtml(group.prompt)}" onclick="document.getElementById('prompt-in').value=this.dataset.prompt;updateCharCount();">"${escHtml(group.prompt)}"</p>
+                        <span class="text-[0.65rem] font-bold text-slate-400 mt-1 block uppercase tracking-wider"><i class="fa-solid fa-clock mr-1"></i>Generat anterior</span>
+                    </div>
+                    <button data-prompt="${escHtml(group.prompt)}" onclick="document.getElementById('prompt-in').value=this.dataset.prompt;updateCharCount();" class="shrink-0 w-8 h-8 rounded-lg bg-slate-50 text-slate-400 hover:bg-viralio-50 hover:text-viralio-600 transition-colors flex items-center justify-center"><i class="fa-solid fa-rotate-right text-xs"></i></button>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">${mediaHtml}</div>
+            </div>`;
+        }).join('');
+    } catch(e){ console.error('Eroare istoric:',e); }
+}
+
+// ===================== MOBILE SIDEBAR =====================
+function toggleMobileSettings(){
+    const sidebar=document.getElementById('sidebar-settings');
+    const overlay=document.getElementById('mobile-overlay');
+    const btn=document.getElementById('mobile-settings-btn');
+    const sup=document.getElementById('support-buttons');
+    if(sidebar.classList.contains('translate-y-full')){
+        sidebar.classList.remove('translate-y-full'); overlay.classList.remove('opacity-0','pointer-events-none');
+        btn.classList.add('translate-y-24','opacity-0'); if(sup) sup.classList.add('opacity-0','pointer-events-none');
+    } else {
+        sidebar.classList.add('translate-y-full'); overlay.classList.add('opacity-0','pointer-events-none');
+        btn.classList.remove('translate-y-24','opacity-0'); if(sup) sup.classList.remove('opacity-0','pointer-events-none');
+    }
+}
+</script>
 </body>
 </html>
