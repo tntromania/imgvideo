@@ -428,30 +428,28 @@ const pollWuyinResult = async (jobId, apiKey, emailTag, onStatus, abortSignal) =
         }
 
         const status = data?.data?.status;
-        console.log(`[WuyinPoll] attempt=${attempt} status=${status} | ${emailTag}`);
+        if (attempt === 1) console.log(`[WuyinPoll] jobId=${jobId} polling... | ${emailTag}`);
 
 if (status === 2) {
     const d = data.data;
-    console.log(`[WuyinPoll] status=2 data: ${JSON.stringify(d)}`); 
-    
-    // Am adăugat verificarea pentru d.result la final
     const url = d.file_url || d.video_url || d.url ||
         (Array.isArray(d.file_urls) ? d.file_urls[0] : null) ||
         (Array.isArray(d.urls) ? d.urls[0] : null) ||
         (Array.isArray(d.result) ? d.result[0] : (typeof d.result === 'string' ? d.result : null));
-        
-    if (!url) throw new Error('Răspuns succes dar fără URL video.');
+    console.log(`[WuyinPoll] ✅ SUCCESS jobId=${jobId} attempt=${attempt} url=${url} | ${emailTag}`);
+    if (!url) throw new Error('Raspuns succes dar fara URL video.');
     return url;
 }
 
         if (status === 3) {
-            const msg = data?.data?.message || 'Generarea a eșuat.';
+            const msg = data?.data?.message || 'Generarea a esuat.';
+            console.log(`[WuyinPoll] ❌ FAILED jobId=${jobId} attempt=${attempt} msg=${msg} | ${emailTag}`);
             throw new Error(msg);
         }
 
-        // status 0 sau 1 — încă se procesează
+        // status 0 sau 1 — inca se proceseaza
         const elapsed = Math.round((Date.now() - startTime) / 1000);
-        if (onStatus) onStatus(`Se procesează... (${elapsed}s)`);
+        if (onStatus) onStatus(`Se proceseaza... (${elapsed}s)`);
     }
 };
 
@@ -530,40 +528,71 @@ app.post('/api/media/video/fast',
             }
 
             console.log(`[Video] START | ratio=${videoRatio} cost=${totalCost} hasFrames=${hasFrames} | ${emailTag}`);
-            sendStatus('Se trimite cererea...');
+            sendStatus('Se genereaza...');
 
-const submitRes = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Authorization': process.env.WUYIN_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify(requestBody)
-});
+            // Submit un job si poll pana la rezultat, folosind raceAbort shared
+            const submitAndPoll = async (slotId, raceAbort) => {
+                const submitRes = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Authorization': process.env.WUYIN_API_KEY, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                const rawText = await submitRes.text();
+                let submitData;
+                try { submitData = JSON.parse(rawText); }
+                catch { throw new Error(`Eroare parsare JSON (slot ${slotId}). HTTP: ${submitRes.status}`); }
+                if (!submitRes.ok || submitData.code !== 200)
+                    throw new Error(`Eroare API (slot ${slotId}): ${submitData?.msg || submitRes.status}`);
+                const jobId = submitData?.data?.id;
+                if (!jobId) throw new Error(`Fara ID job (slot ${slotId})`);
+                console.log(`[Video] Slot ${slotId} jobId=${jobId} | ${emailTag}`);
+                return await pollWuyinResult(jobId, process.env.WUYIN_API_KEY, emailTag, sendStatus, raceAbort);
+            };
 
-const rawText = await submitRes.text(); // Citim răspunsul ca text mai întâi
+            // Race paralel cu retry: max 2 runde de cate 2 joburi paralele
+            // Daca primul castigator apare, raceAbort.aborted=true opreste celalalt slot imediat
+            const INTERNAL_ERR = '生成过程';
+            const isInternalErr = (m) => m.includes('异常') || m.includes('请重新上传') === false && m.includes('请重新') || m.includes(INTERNAL_ERR);
+            
+            // Traduce mesajele chinezesti in romana pentru user
+            const translateWuyinError = (msgs) => {
+                const raw = msgs.join(' ');
+                if (raw.includes('名人') || raw.includes('celebrity') || raw.includes('celebrit'))
+                    return 'Imaginea conține o persoană publică/celebritate — Wuyin nu permite generarea cu chipuri de persoane cunoscute. Încearcă cu un personaj fictiv.';
+                if (raw.includes('色情') || raw.includes('暴力') || raw.includes('违规'))
+                    return 'Conținutul a fost blocat de filtrul AI (conținut nepermis). Modifică promptul sau imaginea.';
+                if (raw.includes('图片') && raw.includes('上传'))
+                    return 'Problema cu imaginea încărcată — încearcă cu o altă imagine.';
+                if (raw.includes('异常') || raw.includes(INTERNAL_ERR))
+                    return 'Serverul AI este suprasolicitat momentan. Încearcă din nou în câteva minute.';
+                // Extrage primul mesaj non-slot si non-chinezesc
+                const clean = msgs.find(m => !m.includes('slot') && !/[一-鿿]/.test(m));
+                return clean || 'Eroare la generare. Încearcă din nou.';
+            };
 
-let submitData;
-try {
-    submitData = JSON.parse(rawText); // Încercăm să îl facem JSON
-} catch (parseError) {
-    // Dacă pică, înseamnă că am primit HTML/Eroare de la ei. Returnăm eroarea clară.
-    console.error(`[Video] Eroare parsare JSON de la Wuyin. Răspuns primit: ${rawText.substring(0, 200)}`);
-    return sendError(`Eroare comunicare API (a returnat HTML în loc de JSON). Cod HTTP: ${submitRes.status}`);
-}
+            // 3 joburi simultan — primul care reuseste castiga, celelalte 2 se opresc imediat
+            const raceAbort = { aborted: false };
+            const makeSlot = (id) => submitAndPoll(id, raceAbort).then(url => {
+                raceAbort.aborted = true;
+                console.log(`[Video] 🏆 Slot ${id} a castigat race-ul | ${emailTag}`);
+                return url;
+            });
 
-if (!submitRes.ok || submitData.code !== 200) {
-    return sendError(`Eroare server: ${submitData?.msg || submitData?.message || submitRes.status}`);
-}
+            let videoUrl = null;
+            let lastMsgs = [];
 
-            const jobId = submitData?.data?.id;
-            if (!jobId) return sendError('Nu s-a primit ID job.');
-
-            sendStatus('Job trimis, se generează...');
-
-            let videoUrl;
             try {
-                videoUrl = await pollWuyinResult(jobId, process.env.WUYIN_API_KEY, emailTag, sendStatus, abortController);
-            } catch (pollErr) {
-                if (pollErr.message === 'client_aborted') return;
-                return sendError(pollErr.message);
+                videoUrl = await Promise.any([ makeSlot(1), makeSlot(2), makeSlot(3) ]);
+            } catch (aggErr) {
+                if (clientAborted) return;
+                const errors = aggErr.errors || [aggErr];
+                lastMsgs = errors.map(e => e?.message || String(e)).filter(m => m !== 'client_aborted');
+                console.error(`[Video] Toate 3 sloturi au esuat: ${lastMsgs.join(' | ')} | ${emailTag}`);
+            }
+
+            if (!videoUrl) {
+                if (clientAborted) return;
+                return sendError(translateWuyinError(lastMsgs));
             }
 
             if (clientAborted) return;
