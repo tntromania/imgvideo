@@ -245,7 +245,12 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
     res.flushHeaders();
 
     let clientAborted = false;
-    res.on('close', () => { clientAborted = true; console.log(`[Imagini] ⚠️ Client a anulat | ${req.userId}`); });
+    res.on('close', () => {
+        if (!res.writableEnded) {
+            clientAborted = true;
+            console.log(`[Imagini] ⚠️ Client a anulat | ${req.userId}`);
+        }
+    });
 
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
@@ -617,10 +622,7 @@ app.post('/api/media/video',
         res.setHeader('Connection', 'keep-alive');
         let clientAborted = false;
         res.on('close', () => {
-            if (!res.writableEnded) {
-                clientAborted = true;
-                console.log(`[Video] ⚠️ Client a anulat | ${req.userId}`);
-            }
+            if (!res.writableEnded) clientAborted = true;
         });
 
         const sendStatus = (status) => {
@@ -859,10 +861,19 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 
 process.on('uncaughtException', (err) => {
     console.error('❌ uncaughtException (server NU s-a oprit):', err.message);
-    // Nu facem process.exit() — serverul continuă
 });
 
 process.on('unhandledRejection', (reason) => {
+    // Ignorăm erorile de socket de la undici/fetch — sunt tratate intern în retry logic
+    const msg = reason?.message || String(reason);
+    const isKnownSocketError = (
+        msg === 'terminated' ||
+        msg.includes('UND_ERR_SOCKET') ||
+        msg.includes('other side closed') ||
+        msg.includes('UND_ERR_CONNECT_TIMEOUT') ||
+        reason?.code === 'UND_ERR_SOCKET'
+    );
+    if (isKnownSocketError) return; // suprimate — tratate în retry loop
     console.error('❌ unhandledRejection (server NU s-a oprit):', reason);
 });
 app.listen(PORT, () => console.log(`🚀 Media Studio rulează pe portul ${PORT}`));
