@@ -492,17 +492,14 @@ const pump = async () => {
         while (true) {
             let result;
             try {
-                result = await reader.read().catch(err => { 
-    if (!settled) fail(new Error('terminated'));
-    return { done: true };
-});
-if (!result) return;
+                result = await reader.read();
             } catch (readErr) {
-                // ← Aici pică cu "terminated" / UND_ERR_SOCKET
-                // Tratăm ca stream închis, nu ca crash
+                // UND_ERR_SOCKET, terminated, other side closed — all treated as stream end
                 if (!settled) fail(new Error('terminated'));
                 return;
             }
+
+            if (!result) { if (!settled) fail(new Error('terminated')); return; }
 
             const { done: streamDone, value } = result;
             if (streamDone) break;
@@ -583,7 +580,7 @@ if (!result) return;
             }
         };
 
-        pump();
+        pump().catch(err => { if (!settled) fail(err); });
     });
 };
 
@@ -718,8 +715,8 @@ const buildRequest = async () => {
     };
 };
 
-            const MAX_VIDEO_RETRIES = 2;
-            const RETRY_DELAY_MS = 3000;
+            const MAX_VIDEO_RETRIES = 3;
+            const RETRY_DELAY_MS = 4000;
             let videoUrls = null;
             let lastErrorMsg = null;
             const emailTag = user.email;
@@ -762,7 +759,8 @@ const buildRequest = async () => {
                     break;
                 } catch (sseErr) {
                     lastErrorMsg = sseErr.message || 'Eroare SSE';
-                    console.log(`[Video] Tentativa ${attempt} eșuată | ${lastErrorMsg} | ${emailTag}`);
+                    const isSocketError = lastErrorMsg === 'terminated' || lastErrorMsg.includes('UND_ERR') || lastErrorMsg.includes('socket');
+                    console.log(`[Video] Tentativa ${attempt} eșuată | ${isSocketError ? 'conexiune întreruptă' : lastErrorMsg} | ${emailTag}`);
 
                     if (isContentBlockedError(lastErrorMsg)) {
                         console.log(`[Video] ❌ Conținut blocat — nu reîncercăm. | ${emailTag}`);
@@ -770,9 +768,10 @@ const buildRequest = async () => {
                     }
 
                     if (attempt < MAX_VIDEO_RETRIES) {
-                        console.log(`[Video] Reîncerc în ${RETRY_DELAY_MS}ms... (${attempt + 1}/${MAX_VIDEO_RETRIES}) | ${emailTag}`);
-                        sendStatus(`Reîncerc... (${attempt + 1}/${MAX_VIDEO_RETRIES})`);
-                        await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+                        const retryDelay = isSocketError ? RETRY_DELAY_MS * 2 : RETRY_DELAY_MS;
+                        console.log(`[Video] Reîncerc în ${retryDelay}ms... (${attempt + 1}/${MAX_VIDEO_RETRIES}) | ${emailTag}`);
+                        sendStatus(`Conexiune întreruptă, reîncerc... (${attempt + 1}/${MAX_VIDEO_RETRIES})`);
+                        await new Promise(r => setTimeout(r, retryDelay));
                     }
                 }
             }
