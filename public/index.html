@@ -1508,9 +1508,15 @@ async function loadHistory(append=false){
                         <img src="${url}" loading="lazy" class="w-full h-full object-cover" onerror="this.parentElement.style.opacity='0.3';this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1 1%22/>'">
                     </div>`;
                 return `
-                    <div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer transition-all hover:scale-[1.03] bg-black" style="border:1px solid rgba(255,255,255,0.06)" onclick="openLightbox(window.currentHistoryMedia,${idx},'video')">
-                        <video src="${url}" class="w-full h-full object-cover" preload="none" onerror="this.parentElement.style.opacity='0.3'"></video>
-                        <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.4)"><i class="fa-solid fa-play text-white text-2xl opacity-90"></i></div>
+                    <div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer transition-all hover:scale-[1.03]" style="border:1px solid rgba(255,255,255,0.06)" onclick="openLightbox(window.currentHistoryMedia,${idx},'video')">
+                        <video src="${url}" class="w-full h-full object-cover" preload="metadata" muted playsinline
+                            onloadedmetadata="this.currentTime=0.5"
+                            onerror="this.parentElement.style.opacity='0.3'"></video>
+                        <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.35)">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.3);backdrop-filter:blur(4px)">
+                                <i class="fa-solid fa-play text-white text-xs ml-0.5"></i>
+                            </div>
+                        </div>
                     </div>`;
             }).join('');
 
