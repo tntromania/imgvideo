@@ -410,6 +410,8 @@ const toVideoRatio = (ratio) => {
     return portrait.includes(ratio) ? 'VIDEO_ASPECT_RATIO_PORTRAIT' : 'VIDEO_ASPECT_RATIO_LANDSCAPE';
 };
 
+const DISCORD_CONTACT = 'alexcaba pe Discord (discord.gg/h8Ah6VKDzm)';
+
 const mapVideoError = (msg) => {
     if (!msg) return 'Eroare necunoscută la generarea video.';
     if (msg.includes('PUBLIC_ERROR_SEXUAL'))
@@ -418,12 +420,14 @@ const mapVideoError = (msg) => {
         return '🚫 Conținutul solicitat a fost blocat de filtrul de siguranță. Modifică promptul și încearcă din nou.';
     if (msg.includes('AUDIO_FILTERED'))
         return '🚫 Audio-ul generat a fost filtrat — conține elemente inadecvate. Reformulează textul vorbit.';
+    if (msg.includes('PUBLIC_ERROR_IP_INPUT_IMAGE'))
+        return '🚫 Imaginea încărcată nu este acceptată de modelul AI. Încearcă cu altă imagine.';
     if (msg.includes('TIMED_OUT') || msg.includes('TIMEOUT') || msg.includes('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'))
-        return 'Generarea a durat prea mult. Se reîncearcă automat...';
-    if (msg.includes('quota') || msg.includes('QUOTA'))
-        return 'Limita de generări a fost atinsă temporar. Reîncearcă în 1-2 minute.';
+        return 'Generarea a durat prea mult. Reîncearcă.';
+    if (msg.includes('quota') || msg.includes('QUOTA') || msg.includes('rate limit') || msg.includes('RATE_LIMIT') || msg.includes('insufficient') || msg.includes('balance') || msg.includes('credit'))
+        return `⚠️ Capacitatea serverelor AI a fost atinsă temporar. Contactează ${DISCORD_CONTACT} pentru a rezolva problema.`;
     if (msg.includes('Create video error') || msg.includes('Create video failed'))
-        return 'Serverele AI au întâmpinat o eroare internă. Se reîncearcă automat...';
+        return '⚠️ Serverele AI au respins această generare (imagine sau prompt incompatibil). Încearcă cu o altă imagine sau modifică promptul.';
     return msg.replace(/genaipro/gi, 'serverul AI').replace(/GenAIPro/g, 'serverul AI');
 };
 
@@ -433,8 +437,28 @@ const isContentBlockedError = (msg) => {
         msg.includes('PUBLIC_ERROR_DANGER_FILTER') ||
         msg.includes('UNSAFE_GENERATION') ||
         msg.includes('AUDIO_FILTERED') ||
-        msg.includes('PUBLIC_ERROR_SEXUAL')
+        msg.includes('PUBLIC_ERROR_SEXUAL') ||
+        msg.includes('PUBLIC_ERROR_IP_INPUT_IMAGE')
     );
+};
+
+const isQuotaError = (msg) => {
+    if (!msg) return false;
+    return (
+        msg.includes('quota') ||
+        msg.includes('QUOTA') ||
+        msg.includes('rate limit') ||
+        msg.includes('RATE_LIMIT') ||
+        msg.includes('insufficient') ||
+        msg.includes('balance') ||
+        msg.toLowerCase().includes('credit')
+    );
+};
+
+// Erori care nu merită retry — eșuează imediat
+const isNonRetryableError = (msg) => {
+    if (!msg) return false;
+    return isContentBlockedError(msg) || isQuotaError(msg);
 };
 
 const parseVideoSSE = (apiRes, emailTag, onStatus) => {
@@ -762,17 +786,29 @@ const buildRequest = async () => {
                 } catch (sseErr) {
                     lastErrorMsg = sseErr.message || 'Eroare SSE';
                     const isSocketError = lastErrorMsg === 'terminated' || lastErrorMsg.includes('UND_ERR') || lastErrorMsg.includes('socket');
+                    const isGenericError = lastErrorMsg.includes('Create video error') || lastErrorMsg.includes('Create video failed');
                     console.log(`[Video] Tentativa ${attempt} eșuată | ${isSocketError ? 'conexiune întreruptă' : lastErrorMsg} | ${emailTag}`);
 
-                    if (isContentBlockedError(lastErrorMsg)) {
-                        console.log(`[Video] ❌ Conținut blocat — nu reîncercăm. | ${emailTag}`);
+                    // Quota / conținut blocat — oprim imediat, nu reîncercăm
+                    if (isNonRetryableError(lastErrorMsg)) {
+                        if (isQuotaError(lastErrorMsg)) {
+                            console.error(`🚨 [Video] QUOTA EPUIZATĂ pe genaipro.vn! Contactează alexcaba! | ${emailTag} | ${lastErrorMsg}`);
+                        } else {
+                            console.log(`[Video] ❌ Eroare non-retriable (quota/blocat) — oprim. | ${emailTag}`);
+                        }
+                        break;
+                    }
+
+                    // Eroare generică persistentă — oprim după 2 încercări
+                    if (isGenericError && attempt >= 2) {
+                        console.log(`[Video] ❌ Eroare persistentă după ${attempt} încercări — oprim. | ${emailTag}`);
                         break;
                     }
 
                     if (attempt < MAX_VIDEO_RETRIES) {
                         const retryDelay = isSocketError ? RETRY_DELAY_MS * 2 : RETRY_DELAY_MS;
                         console.log(`[Video] Reîncerc în ${retryDelay}ms... (${attempt + 1}/${MAX_VIDEO_RETRIES}) | ${emailTag}`);
-                        sendStatus(`Conexiune întreruptă, reîncerc... (${attempt + 1}/${MAX_VIDEO_RETRIES})`);
+                        sendStatus(`Reîncerc... (${attempt + 1}/${MAX_VIDEO_RETRIES})`);
                         await new Promise(r => setTimeout(r, retryDelay));
                     }
                 }
