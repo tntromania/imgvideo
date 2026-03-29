@@ -877,6 +877,13 @@ app.post('/api/media/save-history', authenticate, async (req, res) => {
 });
 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+
+// ── VERSION CHECK — pentru auto-refresh la deploy nou ──
+const APP_VERSION = Date.now().toString(); // se schimbă la fiecare restart/deploy
+app.get('/api/version', (req, res) => {
+    res.json({ version: APP_VERSION });
+});
+
 app.get('/api/media/proxy-download', authenticate, async (req, res) => {
     const { url, filename } = req.query;
     if (!url) return res.status(400).json({ error: 'URL lipsă' });
