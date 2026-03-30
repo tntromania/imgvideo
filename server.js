@@ -188,7 +188,8 @@ const authenticateAdmin = async (req, res, next) => {
 const MODEL_PRICES = {
     'gemini-flash': 1, 'nano-banana-pro-1k': 1,
     'gemini-pro': 2,   'nano-banana-pro-2k': 2,
-    'veo3.1': 3,       'veo3.1fast': 2,
+    'veo3.1': 2,
+    'grok-480p': 2,    'grok-720p': 3,
 };
 
 const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
@@ -625,6 +626,114 @@ app.post('/api/media/video',
                 }
             }
 
+            const emailTag = req.user.email;
+
+            // ══════════════════════════════════════════════
+            // ██ GROK (DubVoice API) — polling
+            // ══════════════════════════════════════════════
+            if (model_id === 'grok-480p' || model_id === 'grok-720p') {
+                const DUBVOICE_API_KEY = process.env.DUBVOICE_API_KEY;
+                const resolution = model_id === 'grok-720p' ? '720p' : '480p';
+                const grokAspect = ['9:16','3:4','2:3'].includes(aspect_ratio) ? '9:16' : '16:9';
+                const duration = 6;
+
+                sendStatus(`Se trimite cererea Grok ${resolution}...`);
+                console.log(`[Grok] START | res=${resolution} | ${emailTag}`);
+
+                let postRes;
+                try {
+                    postRes = await fetch('https://www.dubvoice.ai/api/video/grok', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${DUBVOICE_API_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            prompt: finalPrompt,
+                            duration,
+                            resolution,
+                            aspect_ratio: grokAspect
+                        })
+                    });
+                } catch (fetchErr) {
+                    return sendError(`Eroare rețea Grok: ${fetchErr.message}`);
+                }
+
+                const postData = await postRes.json().catch(() => ({}));
+
+                if (!postRes.ok) {
+                    const errMsg = postData.error || `HTTP ${postRes.status}`;
+                    console.error(`[Grok] ❌ POST eșuat: ${errMsg} | ${emailTag}`);
+                    return sendError(errMsg);
+                }
+
+                // Dacă răspunsul conține direct video_url (generare sincronă)
+                if (postData.video_url) {
+                    await Log.create({ userEmail: req.user.email, type: 'video', count, cost: totalCost }).catch(() => {});
+                    try { await hubAPI.useCredits(req.userId, totalCost); } catch (e) { console.error('Eroare scădere credite Grok:', e.message); }
+                    console.log(`[Grok] ✅ Done direct în ${elapsed()} | ${emailTag}`);
+                    return sendDone([postData.video_url]);
+                }
+
+                // Polling pentru prediction_id
+                const predictionId = postData.prediction_id || postData.id;
+                if (!predictionId) {
+                    console.error(`[Grok] ❌ Niciun prediction_id în răspuns: ${JSON.stringify(postData)}`);
+                    return sendError('Răspuns invalid de la serverul Grok.');
+                }
+
+                console.log(`[Grok] Polling prediction_id=${predictionId} | ${emailTag}`);
+                sendStatus('Se generează videoclipul Grok...');
+
+                const MAX_POLLS = 60;   // max 5 minute (60 × 5s)
+                const POLL_INTERVAL = 5000;
+
+                for (let poll = 1; poll <= MAX_POLLS; poll++) {
+                    if (clientAborted) return;
+                    await new Promise(r => setTimeout(r, POLL_INTERVAL));
+                    if (clientAborted) return;
+
+                    let pollRes;
+                    try {
+                        pollRes = await fetch(`https://www.dubvoice.ai/api/video/grok?prediction_id=${predictionId}`, {
+                            headers: { 'Authorization': `Bearer ${DUBVOICE_API_KEY}` }
+                        });
+                    } catch (pollErr) {
+                        console.warn(`[Grok] Poll ${poll} eroare rețea: ${pollErr.message}`);
+                        continue;
+                    }
+
+                    const pollData = await pollRes.json().catch(() => ({}));
+                    const status = pollData.status;
+                    console.log(`[Grok] Poll ${poll}/${MAX_POLLS} status=${status} | ${emailTag}`);
+
+                    if (status === 'succeeded' && pollData.video_url) {
+                        await Log.create({ userEmail: req.user.email, type: 'video', count, cost: totalCost }).catch(() => {});
+                        try { await hubAPI.useCredits(req.userId, totalCost); } catch (e) { console.error('Eroare scădere credite Grok:', e.message); }
+                        console.log(`[Grok] ✅ Done în ${elapsed()} | ${emailTag}`);
+                        return sendDone([pollData.video_url]);
+                    }
+
+                    if (status === 'failed' || status === 'canceled') {
+                        const reason = pollData.error || pollData.detail || status;
+                        console.error(`[Grok] ❌ ${reason} | ${emailTag}`);
+                        return sendError(`Generarea Grok a eșuat: ${reason}`);
+                    }
+
+                    // Statusuri intermediare — actualizăm utilizatorul
+                    if (status === 'processing' || status === 'starting' || status === 'pending') {
+                        const pct = Math.round((poll / MAX_POLLS) * 100);
+                        sendStatus(`Grok generează... ~${pct}% (${Math.round(poll * POLL_INTERVAL / 1000)}s)`);
+                    }
+                }
+
+                console.error(`[Grok] ❌ Timeout după ${MAX_POLLS} poll-uri | ${emailTag}`);
+                return sendError('Timeout: generarea Grok a durat prea mult. Reîncearcă.');
+            }
+
+            // ══════════════════════════════════════════════
+            // ██ VEO (genaipro SSE) — flow original
+            // ══════════════════════════════════════════════
             const buildRequest = async () => {
                 if (hasFrames) {
                     const fields = { prompt: finalPrompt, aspect_ratio: videoRatio, number_of_videos: String(count) };
@@ -660,7 +769,6 @@ app.post('/api/media/video',
             const RETRY_DELAY_MS = 4000;
             let videoUrls = null;
             let lastErrorMsg = null;
-            const emailTag = req.user.email;
             const type = hasFrames ? 'frames-to-video' : 'text-to-video';
 
             for (let attempt = 1; attempt <= MAX_VIDEO_RETRIES; attempt++) {
