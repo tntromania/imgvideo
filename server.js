@@ -410,6 +410,9 @@ const mapVideoError = (msg) => {
         return `⚠️ Capacitatea serverelor AI atinsă. Contactează ${DISCORD_CONTACT}`;
     if (msg.includes('Create video error') || msg.includes('Create video failed'))
         return '⚠️ Serverele AI au respins generarea. Posibile cauze: imaginea conține fețe celebre, sau promptul include oameni celebrii. Încearcă cu o altă imagine sau modifică promptul.';
+    // Erori de socket/retea - nu le arata tehnic la user
+    if (msg === 'terminated' || msg.includes('UND_ERR') || msg.includes('other side closed') || msg.includes('Stream inchis'))
+        return '⚠️ Conexiunea cu serverele AI a fost intrerupta dupa toate reincercarile. Te rugam sa reincerci.';
     return msg.replace(/genaipro/gi, 'serverul AI');
 };
 
@@ -562,14 +565,26 @@ app.post('/api/media/video',
         let clientAborted = false;
         res.on('close', () => { if (!res.writableEnded) clientAborted = true; });
 
+        // Keep-alive: trimite un comentariu SSE la fiecare 20s ca browserul sa nu taie conexiunea
+        const keepAliveInterval = setInterval(() => {
+            if (!res.writableEnded && !clientAborted) {
+                res.write(': keep-alive\n\n');
+            } else {
+                clearInterval(keepAliveInterval);
+            }
+        }, 20000);
+        const clearKeepAlive = () => clearInterval(keepAliveInterval);
+
         const sendStatus = (status) => { if (!res.writableEnded && !clientAborted) res.write(`data: ${JSON.stringify({ status })}\n\n`); };
         const sendDone = (urls) => {
+            clearKeepAlive();
             if (!res.writableEnded && !clientAborted) {
                 res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
                 res.write('data: [DONE]\n\n'); res.end();
             }
         };
         const sendError = (msg) => {
+            clearKeepAlive();
             if (!res.writableEnded && !clientAborted) {
                 res.write(`data: ${JSON.stringify({ error: mapVideoError(msg) })}\n\n`);
                 res.write('data: [DONE]\n\n'); res.end();
