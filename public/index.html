@@ -731,8 +731,11 @@
                             <option value="gemini-pro" data-type="image" data-cost="2">Nano Banana 4k (Pro) 💎 — 2 Credite</option>
                         </optgroup>
                         <optgroup label="Video (Veo)" id="og-vid" style="display:none">
-                            <option value="veo3.1fast" data-type="video" data-cost="2">Veo 3.1 Fast ⚡ — 2 Credite</option>
-                            <option value="veo3.1" data-type="video" data-cost="3">Veo 3.1 Premium 🏆 — 3 Credite</option>
+                            <option value="veo3.1" data-type="video" data-cost="2">Veo 3.1 🏆 — 2 Credite</option>
+                        </optgroup>
+                        <optgroup label="Video (Grok)" id="og-grok" style="display:none">
+                            <option value="grok-480p" data-type="video" data-cost="2">Grok 480p ⚡ — 2 Credite</option>
+                            <option value="grok-720p" data-type="video" data-cost="3">Grok 720p 💎 — 3 Credite</option>
                         </optgroup>
                     </select>
                 </div>
@@ -932,8 +935,9 @@
 const MODEL_META = {
     'gemini-flash': { type:'image', cost:1 },
     'gemini-pro':   { type:'image', cost:2 },
-    'veo3.1fast':   { type:'video', cost:2 },
-    'veo3.1':       { type:'video', cost:3 }
+    'veo3.1':       { type:'video', cost:2 },
+    'grok-480p':    { type:'video', cost:2 },
+    'grok-720p':    { type:'video', cost:3 }
 };
 let mode = 'image';
 let imgCount = 1;
@@ -1008,7 +1012,8 @@ function switchMode(m){
     document.getElementById('tab-video').classList.toggle('active',isVid);
     document.getElementById('og-img').style.display = isVid?'none':'';
     document.getElementById('og-vid').style.display = isVid?'':'none';
-    document.getElementById('model-sel').value = isVid?'veo3.1fast':'gemini-flash';
+    document.getElementById('og-grok').style.display = isVid?'':'none';
+    document.getElementById('model-sel').value = isVid?'veo3.1':'gemini-flash';
     document.getElementById('img-options').classList.toggle('hidden',isVid);
     document.getElementById('vid-options').classList.toggle('hidden',!isVid);
     document.getElementById('refs-section').classList.toggle('hidden', isVid);
