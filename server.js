@@ -663,7 +663,7 @@ app.post('/api/media/video',
                 }
 
                 // Dacă POST returnează direct video_url (generare sincronă)
-                const directUrl = postData.video_url || postData.url || postData.output_url ||
+                const directUrl = postData.video_url || postData.file_url || postData.url || postData.output_url ||
                     (Array.isArray(postData.output) ? postData.output[0] : null);
                 if (directUrl) {
                     await Log.create({ userEmail: req.user.email, type: 'video', count, cost: totalCost }).catch(() => {});
@@ -721,7 +721,7 @@ app.post('/api/media/video',
                     }
 
                     // Orice câmp care ar putea conține URL-ul video
-                    const videoUrl = pollData.video_url || pollData.url || pollData.output_url || pollData.result ||
+                    const videoUrl = pollData.video_url || pollData.file_url || pollData.url || pollData.output_url || pollData.result ||
                         (Array.isArray(pollData.output) ? pollData.output[0] : null) ||
                         (pollData.result && typeof pollData.result === 'string' ? pollData.result : null);
 
