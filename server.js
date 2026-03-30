@@ -645,9 +645,16 @@ app.post('/api/media/video',
                     break;
                 } catch (sseErr) {
                     lastErrorMsg = sseErr.message || 'Eroare SSE';
-                    if (isNonRetryableError(lastErrorMsg)) break;
+                    console.warn(`[Video] ⚠️ Tentativa ${attempt}/${MAX_VIDEO_RETRIES} eșuată (${type}) | ${emailTag} | ${lastErrorMsg}`);
+                    if (isNonRetryableError(lastErrorMsg)) {
+                        console.error(`[Video] ❌ Eroare non-retryable: ${lastErrorMsg} | ${emailTag}`);
+                        break;
+                    }
                     const isGenericError = lastErrorMsg.includes('Create video error') || lastErrorMsg.includes('Create video failed');
-                    if (isGenericError && attempt >= 2) break;
+                    if (isGenericError && attempt >= 2) {
+                        console.error(`[Video] ❌ Eroare generică repetată, opresc: ${lastErrorMsg} | ${emailTag}`);
+                        break;
+                    }
                     if (attempt < MAX_VIDEO_RETRIES) {
                         const isSocketError = lastErrorMsg === 'terminated' || lastErrorMsg.includes('UND_ERR');
                         const retryDelay = isSocketError ? RETRY_DELAY_MS * 2 : RETRY_DELAY_MS;
@@ -663,6 +670,7 @@ app.post('/api/media/video',
                 console.log(`[Video] Credite scăzute: -${totalCost} | ${emailTag}`);
                 sendDone(videoUrls);
             } else {
+                console.error(`[Video] ❌ FAIL FINAL după ${MAX_VIDEO_RETRIES} încercări | ${emailTag} | ${lastErrorMsg || 'motiv necunoscut'}`);
                 sendError(lastErrorMsg || 'Generarea video a eșuat.');
             }
 
@@ -735,7 +743,10 @@ process.on('uncaughtException', (err) => { console.error('❌ uncaughtException:
 process.on('unhandledRejection', (reason) => {
     const msg = reason?.message || String(reason);
     const isKnownSocketError = msg === 'terminated' || msg.includes('UND_ERR_SOCKET') || msg.includes('other side closed') || msg.includes('UND_ERR_CONNECT_TIMEOUT');
-    if (isKnownSocketError) return;
+    if (isKnownSocketError) {
+        console.warn(`[Socket] Eroare conexiune ignorată (normală): ${msg}`);
+        return;
+    }
     console.error('❌ unhandledRejection:', reason);
 });
 
