@@ -72,6 +72,29 @@ const uploadToR2 = async (buffer, fileName, contentType) => {
     return `${process.env.R2_PUBLIC_URL}/${fileName}`;
 };
 
+const validateImageForVideo = async (buffer, mimetype, label = 'imagine') => {
+    try {
+        const meta = await sharp(buffer).metadata();
+        const sizeKB = Math.round(buffer.length / 1024);
+        console.log(`[Video] 📸 ${label}: ${meta.width}x${meta.height}px, ${meta.format}, ${sizeKB}KB`);
+
+        const issues = [];
+        if (meta.width < 128 || meta.height < 128) issues.push(`prea mică (${meta.width}x${meta.height}px, minim 128x128)`);
+        if (buffer.length > 15 * 1024 * 1024) issues.push(`prea mare (${sizeKB}KB, max ~15MB)`);
+        const allowed = ['jpeg', 'png', 'webp', 'gif'];
+        if (!allowed.includes(meta.format)) issues.push(`format nesuportat (${meta.format})`);
+
+        if (issues.length > 0) {
+            console.warn(`[Video] ⚠️ Probleme imagine ${label}: ${issues.join(', ')}`);
+            return { valid: false, reason: issues.join(', '), meta };
+        }
+        return { valid: true, meta };
+    } catch (e) {
+        console.error(`[Video] ❌ Nu pot citi imaginea ${label}: ${e.message}`);
+        return { valid: false, reason: 'imaginea nu poate fi citită sau e coruptă' };
+    }
+};
+
 const compressForVideo = async (buffer, mimetype) => {
     try {
         const compressed = await sharp(buffer)
@@ -386,7 +409,7 @@ const mapVideoError = (msg) => {
     if (msg.includes('quota') || msg.includes('QUOTA') || msg.includes('rate limit') || msg.includes('RATE_LIMIT') || msg.includes('insufficient') || msg.includes('balance') || msg.includes('credit'))
         return `⚠️ Capacitatea serverelor AI atinsă. Contactează ${DISCORD_CONTACT}`;
     if (msg.includes('Create video error') || msg.includes('Create video failed'))
-        return '⚠️ Serverele AI au respins generarea. Încearcă altă imagine/prompt.';
+        return '⚠️ Serverele AI au respins generarea. Posibile cauze: imaginea conține text/watermark/fețe celebre, sau promptul e prea restrictiv. Încearcă cu o altă imagine sau modifică promptul.';
     return msg.replace(/genaipro/gi, 'serverul AI');
 };
 
@@ -570,6 +593,16 @@ app.post('/api/media/video',
             const refImages      = req.files?.['ref_images']        || [];
             const hasFrames = startImageFile || endImageFile;
 
+            // Validare imagini înainte de a trimite la API
+            if (startImageFile) {
+                const v = await validateImageForVideo(startImageFile.buffer, startImageFile.mimetype, 'start_image');
+                if (!v.valid) return sendError(`Imaginea de start are probleme: ${v.reason}. Te rugăm să folosești o altă imagine (JPEG/PNG, minim 128x128px).`);
+            }
+            if (endImageFile) {
+                const v = await validateImageForVideo(endImageFile.buffer, endImageFile.mimetype, 'end_image');
+                if (!v.valid) return sendError(`Imaginea de final are probleme: ${v.reason}. Te rugăm să folosești o altă imagine (JPEG/PNG, minim 128x128px).`);
+            }
+
             if (refImages.length > 0) {
                 for (let i = 0; i < refImages.length; i++) {
                     const url = await uploadImageToR2(refImages[i], req.userId, 'refs');
@@ -588,8 +621,7 @@ app.post('/api/media/video',
                     if (endImageFile) {
                         const { buffer, mimetype } = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
                         files.push({ fieldname: 'end_image', buffer, mimetype, filename: 'end.jpg' });
-                    }
-                    const { body: formBody, contentType } = buildMultipartBody(fields, files);
+                    }                    const { body: formBody, contentType } = buildMultipartBody(fields, files);
                     return {
                         endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
                         options: {
