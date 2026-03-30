@@ -705,26 +705,41 @@ app.post('/api/media/video',
 
                     const pollData = await pollRes.json().catch(() => ({}));
                     const status = pollData.status;
-                    console.log(`[Grok] Poll ${poll}/${MAX_POLLS} status=${status} | ${emailTag}`);
+                    // Log complet pentru debugging
+                    console.log(`[Grok] Poll ${poll}/${MAX_POLLS} status=${status} keys=${Object.keys(pollData).join(',')} | ${emailTag}`);
+                    if (poll <= 3) console.log(`[Grok] Poll ${poll} full:`, JSON.stringify(pollData).substring(0, 500));
 
-                    if (status === 'succeeded' && pollData.video_url) {
+                    // Acceptăm orice câmp care conține URL video
+                    const videoUrl = pollData.video_url || pollData.url || pollData.output_url ||
+                        (Array.isArray(pollData.output) ? pollData.output[0] : null) ||
+                        (pollData.result && pollData.result.video_url) ||
+                        (pollData.data && pollData.data.video_url);
+
+                    // Succes cu URL
+                    if ((status === 'succeeded' || status === 'completed' || status === 'success' || status === 'done') && videoUrl) {
                         await Log.create({ userEmail: req.user.email, type: 'video', count, cost: totalCost }).catch(() => {});
                         try { await hubAPI.useCredits(req.userId, totalCost); } catch (e) { console.error('Eroare scădere credite Grok:', e.message); }
                         console.log(`[Grok] ✅ Done în ${elapsed()} | ${emailTag}`);
-                        return sendDone([pollData.video_url]);
+                        return sendDone([videoUrl]);
                     }
 
-                    if (status === 'failed' || status === 'canceled') {
-                        const reason = pollData.error || pollData.detail || status;
+                    // Avem URL dar status neclar — tot îl acceptăm
+                    if (videoUrl && status !== 'processing' && status !== 'starting' && status !== 'pending' && status !== 'running') {
+                        await Log.create({ userEmail: req.user.email, type: 'video', count, cost: totalCost }).catch(() => {});
+                        try { await hubAPI.useCredits(req.userId, totalCost); } catch (e) { console.error('Eroare scădere credite Grok:', e.message); }
+                        console.log(`[Grok] ✅ Done (url prezent, status=${status}) în ${elapsed()} | ${emailTag}`);
+                        return sendDone([videoUrl]);
+                    }
+
+                    if (status === 'failed' || status === 'canceled' || status === 'error') {
+                        const reason = pollData.error || pollData.detail || pollData.message || status;
                         console.error(`[Grok] ❌ ${reason} | ${emailTag}`);
                         return sendError(`Generarea Grok a eșuat: ${reason}`);
                     }
 
-                    // Statusuri intermediare — actualizăm utilizatorul
-                    if (status === 'processing' || status === 'starting' || status === 'pending') {
-                        const pct = Math.round((poll / MAX_POLLS) * 100);
-                        sendStatus(`Grok generează... ~${pct}% (${Math.round(poll * POLL_INTERVAL / 1000)}s)`);
-                    }
+                    // Statusuri intermediare
+                    const elapsed_s = Math.round(poll * POLL_INTERVAL / 1000);
+                    sendStatus(`Grok generează... (~${elapsed_s}s)`);
                 }
 
                 console.error(`[Grok] ❌ Timeout după ${MAX_POLLS} poll-uri | ${emailTag}`);
