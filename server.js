@@ -3,22 +3,21 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const mongoose = require('mongoose');
-const { OAuth2Client } = require('google-auth-library');
-const jwt = require('jsonwebtoken');
 const sharp = require('sharp');
-sharp.concurrency(1); // folosește un singur thread
+sharp.concurrency(1);
 const multer = require('multer');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
-// ✅ Construiește multipart/form-data manual cu Buffer nativ Node.js (fără dependențe externe)
+// ✅ Auth centralizat prin HUB
+const { authenticate, hubAPI } = require('./hub-auth');
+
+// ✅ Construiește multipart/form-data manual cu Buffer nativ Node.js
 function buildMultipartBody(fields, files) {
     const boundary = '----ViralioBoundary' + Math.random().toString(36).substring(2);
     const parts = [];
 
     for (const [name, value] of Object.entries(fields)) {
-        parts.push(
-            `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}`
-        );
+        parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}`);
     }
 
     for (const { fieldname, buffer, mimetype, filename } of files) {
@@ -38,15 +37,11 @@ function buildMultipartBody(fields, files) {
     }
     buffers.push(Buffer.from(`--${boundary}--\r\n`, 'utf8'));
 
-    return {
-        body: Buffer.concat(buffers),
-        contentType: `multipart/form-data; boundary=${boundary}`
-    };
+    return { body: Buffer.concat(buffers), contentType: `multipart/form-data; boundary=${boundary}` };
 }
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -58,9 +53,9 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// =========================================================================
-// ==================== R2 STORAGE =========================================
-// =========================================================================
+// ══════════════════════════════════════════════════════════════
+// ██ R2 STORAGE
+// ══════════════════════════════════════════════════════════════
 const r2 = new S3Client({
     region: 'auto',
     endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -72,10 +67,7 @@ const r2 = new S3Client({
 
 const uploadToR2 = async (buffer, fileName, contentType) => {
     await r2.send(new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME,
-        Key: fileName,
-        Body: buffer,
-        ContentType: contentType,
+        Bucket: process.env.R2_BUCKET_NAME, Key: fileName, Body: buffer, ContentType: contentType,
     }));
     return `${process.env.R2_PUBLIC_URL}/${fileName}`;
 };
@@ -84,8 +76,7 @@ const compressForVideo = async (buffer, mimetype) => {
     try {
         const compressed = await sharp(buffer)
             .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 85 })
-            .toBuffer();
+            .jpeg({ quality: 85 }).toBuffer();
         console.log(`[Video] Comprimat: ${buffer.length} → ${compressed.length} bytes`);
         return { buffer: compressed, mimetype: 'image/jpeg' };
     } catch (e) {
@@ -94,29 +85,17 @@ const compressForVideo = async (buffer, mimetype) => {
     }
 };
 
-// =========================================================================
-// ==================== MONGODB ============================================
-// =========================================================================
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('✅ Media Studio conectat la MongoDB!'))
-    .catch(err => console.error('❌ Eroare MongoDB:', err));
-
-const UserSchema = new mongoose.Schema({
-    googleId: { type: String, required: true, unique: true },
-    email: { type: String, required: true },
-    name: String, picture: String,
-    credits: { type: Number, default: 10 },
-    voice_characters: { type: Number, default: 3000 },
-    createdAt: { type: Date, default: Date.now }
-});
-const User = mongoose.models.User || mongoose.model('User', UserSchema);
-
-// Păstrăm Supabase DOAR pentru MongoDB/auth — NU pentru storage
-const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+// ══════════════════════════════════════════════════════════════
+// ██ MONGODB — DOAR History + Log (NU Users!)
+// ══════════════════════════════════════════════════════════════
+if (process.env.MONGO_URI) {
+    mongoose.connect(process.env.MONGO_URI)
+        .then(() => console.log('✅ Media Studio conectat la MongoDB (history/logs)!'))
+        .catch(err => console.error('❌ Eroare MongoDB:', err));
+}
 
 const HistorySchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, required: true },
     type: { type: String, enum: ['image', 'video'], required: true },
     originalUrl: String, supabaseUrl: String, prompt: String,
     createdAt: { type: Date, default: Date.now }
@@ -132,55 +111,57 @@ const LogSchema = new mongoose.Schema({
 });
 const Log = mongoose.models.Log || mongoose.model('Log', LogSchema);
 
-// =========================================================================
-// ==================== AUTH ===============================================
-// =========================================================================
-const authenticate = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: "Trebuie să fii logat!" });
+// ══════════════════════════════════════════════════════════════
+// ██ AUTH ROUTES — proxy către HUB
+// ══════════════════════════════════════════════════════════════
+app.post('/api/auth/google', async (req, res) => {
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.userId = decoded.userId;
-        next();
-    } catch (e) { return res.status(401).json({ error: "Sesiune expirată." }); }
-};
+        const response = await fetch(`${process.env.HUB_URL}/api/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body),
+        });
+        const data = await response.json();
+        res.status(response.status).json(data);
+    } catch (e) {
+        res.status(500).json({ error: 'Nu pot comunica cu serverul principal.' });
+    }
+});
 
+app.get('/api/auth/me', authenticate, async (req, res) => {
+    res.json({ user: req.user });
+});
+
+// ══════════════════════════════════════════════════════════════
+// ██ ADMIN — verificare prin HUB user info
+// ══════════════════════════════════════════════════════════════
 const ADMIN_EMAILS = ['banicualex3@gmail.com'];
 const authenticateAdmin = async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: "Acces interzis!" });
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.userId);
-        if (!user) return res.status(403).json({ error: "Cont inexistent." });
-        if (ADMIN_EMAILS.some(e => e.toLowerCase() === user.email.toLowerCase())) {
-            req.userId = decoded.userId; next();
-        } else { res.status(403).json({ error: "Ai greșit contul?" }); }
-    } catch (e) { return res.status(401).json({ error: "Sesiune invalidă." }); }
+        // Verificăm token prin HUB
+        const result = await fetch(`${process.env.HUB_URL}/api/internal/verify-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-internal-key': process.env.INTERNAL_API_KEY },
+            body: JSON.stringify({ token }),
+        });
+        const data = await result.json();
+        if (!result.ok) return res.status(403).json({ error: "Sesiune invalidă." });
+        if (!ADMIN_EMAILS.some(e => e.toLowerCase() === data.user.email.toLowerCase())) {
+            return res.status(403).json({ error: "Ai greșit contul?" });
+        }
+        req.userId = data.userId;
+        req.user = data.user;
+        next();
+    } catch (e) {
+        return res.status(401).json({ error: "Sesiune invalidă." });
+    }
 };
 
-app.post('/api/auth/google', async (req, res) => {
-    try {
-        const ticket = await googleClient.verifyIdToken({ idToken: req.body.credential, audience: process.env.GOOGLE_CLIENT_ID });
-        const payload = ticket.getPayload();
-        let user = await User.findOne({ googleId: payload.sub });
-        if (!user) {
-            user = new User({ googleId: payload.sub, email: payload.email, name: payload.name, picture: payload.picture });
-            await user.save();
-        }
-        const sessionToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token: sessionToken, user });
-    } catch (error) { res.status(400).json({ error: "Eroare la autentificarea cu Google." }); }
-});
-
-app.get('/api/auth/me', authenticate, async (req, res) => {
-    const user = await User.findById(req.userId);
-    res.json({ user });
-});
-
-// =========================================================================
-// ==================== HELPERS AI =========================================
-// =========================================================================
+// ══════════════════════════════════════════════════════════════
+// ██ HELPERS AI
+// ══════════════════════════════════════════════════════════════
 const MODEL_PRICES = {
     'gemini-flash': 1, 'nano-banana-pro-1k': 1,
     'gemini-pro': 2,   'nano-banana-pro-2k': 2,
@@ -197,23 +178,21 @@ const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
             if (response.ok) return response;
             const text = await response.text();
             if (response.status === 429 || response.status === 503 || text.toLowerCase().includes('exhausted')) {
-                console.warn(`[AI] Aglomerat (${response.status}), reîncerc ${i+1}/${maxRetries} în ${delayMs}ms...`);
+                console.warn(`[AI] Aglomerat (${response.status}), reîncerc ${i+1}/${maxRetries}`);
                 await new Promise(r => setTimeout(r, delayMs));
-                delayMs *= 2;
-                continue;
+                delayMs *= 2; continue;
             }
             throw new Error(text);
         } catch (error) {
             clearTimeout(timeoutId);
             if (error.name === 'AbortError') throw new Error("Timpul de așteptare a expirat.");
             if (i < maxRetries - 1) {
-                console.warn(`[Network] Eroare conexiune, reîncerc în ${delayMs}ms...`);
                 await new Promise(r => setTimeout(r, delayMs));
                 delayMs *= 2;
             } else throw error;
         }
     }
-    throw new Error("Sistemul AI este suprasolicitat. Te rugăm să încerci din nou.");
+    throw new Error("Sistemul AI este suprasolicitat.");
 };
 
 let imageQueueRunning = false;
@@ -231,48 +210,43 @@ const processImageQueue = async () => {
     finally { imageQueueRunning = false; setTimeout(processImageQueue, 2000); }
 };
 
-// =========================================================================
-// ==================== IMAGINI ============================================
-// =========================================================================
+// ══════════════════════════════════════════════════════════════
+// ██ IMAGINI
+// ══════════════════════════════════════════════════════════════
 app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async (req, res) => {
     const startTime = Date.now();
     const elapsed = () => `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
 
-    // ✅ Set SSE headers FIRST so status updates stream live
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
     let clientAborted = false;
-    res.on('close', () => {
-        if (!res.writableEnded) {
-            clientAborted = true;
-            console.log(`[Imagini] ⚠️ Client a anulat | ${req.userId}`);
-        }
-    });
+    res.on('close', () => { if (!res.writableEnded) { clientAborted = true; } });
 
     try {
         const { prompt, aspect_ratio, number_of_images, model_id } = req.body;
         let finalPrompt = prompt;
-        const count = Math.min(parseInt(number_of_images) || 1, 4); // max 4
+        const count = Math.min(parseInt(number_of_images) || 1, 4);
         const costPerImg = MODEL_PRICES[model_id] || 1;
         const totalCost = count * costPerImg;
 
-        const user = await User.findById(req.userId);
-        if (!user) { res.write(`data: ${JSON.stringify({ error: "User negăsit." })}\n\n`); res.end(); return; }
-        if (user.credits < totalCost) { res.write(`data: ${JSON.stringify({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` })}\n\n`); res.end(); return; }
+        // Verificăm credite prin HUB
+        const balance = await hubAPI.checkCredits(req.userId);
+        if (balance.credits < totalCost) {
+            res.write(`data: ${JSON.stringify({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` })}\n\n`);
+            res.end(); return;
+        }
 
         const isFlash = (model_id === 'gemini-flash' || model_id === 'nano-banana-pro-1k');
         const MODEL_ID = isFlash ? 'gemini-2.5-flash-image' : 'gemini-3-pro-image-preview';
 
-        console.log(`[Imagini] START | model=${MODEL_ID} count=${count} cost=${totalCost} | ${user.email}`);
+        console.log(`[Imagini] START | model=${MODEL_ID} count=${count} cost=${totalCost} | ${req.user.email}`);
         res.write(`data: ${JSON.stringify({ status: `Se pregătește generarea a ${count} imagini...` })}\n\n`);
 
-        // ✅ Build parts once
         let baseParts = [];
         if (req.files && req.files.length > 0) {
-            console.log(`[Imagini] ${req.files.length} imagini referință primite`);
             for (let i = 0; i < req.files.length; i++) {
                 baseParts.push({ inlineData: { mimeType: req.files[i].mimetype, data: req.files[i].buffer.toString('base64') } });
                 finalPrompt = finalPrompt.replace(new RegExp(`@img${i+1}`, 'g'), '').trim();
@@ -303,14 +277,11 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             return body;
         };
 
-        // ✅ Process each image request and upload immediately as it completes
         const urls = [];
         let completedCount = 0;
 
-        // Run all N requests in parallel, each uploads independently
         const imagePromises = Array.from({ length: count }, async (_, idx) => {
             if (clientAborted) return;
-            // Each request gets a unique seed
             const seed = Math.floor(Math.random() * 999999);
             let attempts = 0;
             const maxAttempts = 3;
@@ -343,66 +314,57 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                                             completedCount++;
                                             console.log(`[Imagini] ✅ ${completedCount}/${count} gata: ${publicUrl}`);
                                             if (!clientAborted) res.write(`data: ${JSON.stringify({ status: `${completedCount} din ${count} imagini gata...` })}\n\n`);
-                                            return; // success, exit retry loop
+                                            return;
                                         } catch (uploadErr) {
                                             console.error(`[Imagini] ❌ R2 upload eșuat: ${uploadErr.message}`);
                                         }
                                     }
                                 }
                             }
-                            // If candidate had no image (filtered), retry with different seed
                             const reason = candidate.finishReason;
                             if (reason && reason !== 'STOP') {
-                                console.warn(`[Imagini] Imagine ${idx+1} filtrată (${reason}), reîncerc cu alt seed...`);
-                                break; // break parts loop, retry outer while
+                                console.warn(`[Imagini] Imagine ${idx+1} filtrată (${reason}), reîncerc...`);
+                                break;
                             }
                         }
                     }
                 } catch (err) {
                     console.error(`[Imagini] Eroare imagine ${idx+1}, attempt ${attempts}: ${err.message}`);
                 }
-                // small delay before retry
                 await new Promise(r => setTimeout(r, 1500));
             }
-            console.warn(`[Imagini] ⚠️ Imagine ${idx+1} nu a putut fi generată după ${maxAttempts} încercări`);
         });
 
         await Promise.allSettled(imagePromises);
-
         if (clientAborted) return;
 
         if (urls.length === 0) {
-            console.error(`[Imagini] ❌ 0 imagini generate`);
-            res.write(`data: ${JSON.stringify({ error: "Imaginile nu au putut fi generate. Promptul poate conține elemente blocate de filtrul de siguranță — încearcă să îl modifici." })}\n\n`);
-            res.write('data: [DONE]\n\n');
-            res.end();
-            return;
+            res.write(`data: ${JSON.stringify({ error: "Imaginile nu au putut fi generate. Promptul poate conține elemente blocate." })}\n\n`);
+            res.write('data: [DONE]\n\n'); res.end(); return;
         }
 
-        // Deduct only for successfully generated images
-        await Log.create({ userEmail: user.email, type: 'image', count: urls.length, cost: urls.length * costPerImg });
-        user.credits -= (urls.length * costPerImg);
-        await user.save();
-        console.log(`[Imagini] ✅ ${urls.length}/${count} imagini gata în ${elapsed()} | -${urls.length * costPerImg} cr | ${user.email}`);
+        // Scădem creditele prin HUB
+        const actualCost = urls.length * costPerImg;
+        await Log.create({ userEmail: req.user.email, type: 'image', count: urls.length, cost: actualCost }).catch(() => {});
+        try { await hubAPI.useCredits(req.userId, actualCost); } catch (e) { console.error('Eroare scădere credite:', e.message); }
+
+        console.log(`[Imagini] ✅ ${urls.length}/${count} imagini gata în ${elapsed()} | -${actualCost} cr | ${req.user.email}`);
 
         res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
+        res.write('data: [DONE]\n\n'); res.end();
 
     } catch (e) {
-        console.error(`[Imagini] ❌ Eroare la ${elapsed()}: ${e.message}`);
+        console.error(`[Imagini] ❌ Eroare: ${e.message}`);
         if (!clientAborted) {
             res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
-            res.write('data: [DONE]\n\n');
-            res.end();
+            res.write('data: [DONE]\n\n'); res.end();
         }
     }
 });
 
-// =========================================================================
-// ==================== VIDEO ==============================================
-// =========================================================================
-
+// ══════════════════════════════════════════════════════════════
+// ██ VIDEO
+// ══════════════════════════════════════════════════════════════
 const VIDEO_API_URL = 'https://genaipro.vn/api/v1';
 
 const toVideoRatio = (ratio) => {
@@ -414,52 +376,33 @@ const DISCORD_CONTACT = 'alexcaba pe Discord (discord.gg/h8Ah6VKDzm)';
 
 const mapVideoError = (msg) => {
     if (!msg) return 'Eroare necunoscută la generarea video.';
-    if (msg.includes('PUBLIC_ERROR_SEXUAL'))
-        return '🚫 Conținutul solicitat a fost blocat: promptul conține elemente de natură sexuală sau inadecvată. Modifică descrierea și încearcă din nou.';
+    if (msg.includes('PUBLIC_ERROR_SEXUAL')) return '🚫 Conținutul a fost blocat: elemente inadecvate.';
     if (msg.includes('UNSAFE_GENERATION') || msg.includes('unsafe') || msg.includes('PUBLIC_ERROR_DANGER_FILTER'))
-        return '🚫 Conținutul solicitat a fost blocat de filtrul de siguranță. Modifică promptul și încearcă din nou.';
-    if (msg.includes('AUDIO_FILTERED'))
-        return '🚫 Audio-ul generat a fost filtrat — conține elemente inadecvate. Reformulează textul vorbit.';
-    if (msg.includes('PUBLIC_ERROR_IP_INPUT_IMAGE'))
-        return '🚫 Imaginea încărcată nu este acceptată de modelul AI. Încearcă cu altă imagine.';
+        return '🚫 Conținut blocat de filtrul de siguranță. Modifică promptul.';
+    if (msg.includes('AUDIO_FILTERED')) return '🚫 Audio-ul filtrat — conține elemente inadecvate.';
+    if (msg.includes('PUBLIC_ERROR_IP_INPUT_IMAGE')) return '🚫 Imaginea nu este acceptată. Încearcă cu alta.';
     if (msg.includes('TIMED_OUT') || msg.includes('TIMEOUT') || msg.includes('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'))
         return 'Generarea a durat prea mult. Reîncearcă.';
     if (msg.includes('quota') || msg.includes('QUOTA') || msg.includes('rate limit') || msg.includes('RATE_LIMIT') || msg.includes('insufficient') || msg.includes('balance') || msg.includes('credit'))
-        return `⚠️ Capacitatea serverelor AI a fost atinsă temporar. Contactează ${DISCORD_CONTACT} pentru a rezolva problema.`;
+        return `⚠️ Capacitatea serverelor AI atinsă. Contactează ${DISCORD_CONTACT}`;
     if (msg.includes('Create video error') || msg.includes('Create video failed'))
-        return '⚠️ Serverele AI au respins această generare (imagine sau prompt incompatibil). Încearcă cu o altă imagine sau modifică promptul.';
-    return msg.replace(/genaipro/gi, 'serverul AI').replace(/GenAIPro/g, 'serverul AI');
+        return '⚠️ Serverele AI au respins generarea. Încearcă altă imagine/prompt.';
+    return msg.replace(/genaipro/gi, 'serverul AI');
 };
 
 const isContentBlockedError = (msg) => {
     if (!msg) return false;
-    return (
-        msg.includes('PUBLIC_ERROR_DANGER_FILTER') ||
-        msg.includes('UNSAFE_GENERATION') ||
-        msg.includes('AUDIO_FILTERED') ||
-        msg.includes('PUBLIC_ERROR_SEXUAL') ||
-        msg.includes('PUBLIC_ERROR_IP_INPUT_IMAGE')
-    );
+    return msg.includes('PUBLIC_ERROR_DANGER_FILTER') || msg.includes('UNSAFE_GENERATION') ||
+           msg.includes('AUDIO_FILTERED') || msg.includes('PUBLIC_ERROR_SEXUAL') || msg.includes('PUBLIC_ERROR_IP_INPUT_IMAGE');
 };
 
 const isQuotaError = (msg) => {
     if (!msg) return false;
-    return (
-        msg.includes('quota') ||
-        msg.includes('QUOTA') ||
-        msg.includes('rate limit') ||
-        msg.includes('RATE_LIMIT') ||
-        msg.includes('insufficient') ||
-        msg.includes('balance') ||
-        msg.toLowerCase().includes('credit')
-    );
+    return msg.includes('quota') || msg.includes('QUOTA') || msg.includes('rate limit') ||
+           msg.includes('RATE_LIMIT') || msg.includes('insufficient') || msg.includes('balance') || msg.toLowerCase().includes('credit');
 };
 
-// Erori care nu merită retry — eșuează imediat
-const isNonRetryableError = (msg) => {
-    if (!msg) return false;
-    return isContentBlockedError(msg) || isQuotaError(msg);
-};
+const isNonRetryableError = (msg) => isContentBlockedError(msg) || isQuotaError(msg);
 
 const parseVideoSSE = (apiRes, emailTag, onStatus) => {
     return new Promise((resolve, reject) => {
@@ -471,17 +414,13 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
         let settled = false;
 
         const globalTimeout = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            console.warn(`[Video] ⏰ Timeout global 360s | ${emailTag}`);
+            if (settled) return; settled = true;
             try { reader.cancel(); } catch (_) {}
             reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
         }, 360000);
 
         let activityTimeout = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            console.warn(`[Video] ⏰ Timeout inactivitate 120s | ${emailTag}`);
+            if (settled) return; settled = true;
             clearTimeout(globalTimeout);
             try { reader.cancel(); } catch (_) {}
             reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
@@ -490,9 +429,7 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
         const resetActivity = () => {
             clearTimeout(activityTimeout);
             activityTimeout = setTimeout(() => {
-                if (settled) return;
-                settled = true;
-                console.warn(`[Video] ⏰ Timeout inactivitate 120s | ${emailTag}`);
+                if (settled) return; settled = true;
                 clearTimeout(globalTimeout);
                 try { reader.cancel(); } catch (_) {}
                 reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
@@ -500,38 +437,27 @@ const parseVideoSSE = (apiRes, emailTag, onStatus) => {
         };
 
         const done = (urls) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(globalTimeout);
-            clearTimeout(activityTimeout);
+            if (settled) return; settled = true;
+            clearTimeout(globalTimeout); clearTimeout(activityTimeout);
             resolve(urls);
         };
 
         const fail = (err) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(globalTimeout);
-            clearTimeout(activityTimeout);
+            if (settled) return; settled = true;
+            clearTimeout(globalTimeout); clearTimeout(activityTimeout);
             try { reader.cancel(); } catch (_) {}
             reject(err);
         };
 
-const pump = async () => {
-    try {
-        while (true) {
-            let result;
+        const pump = async () => {
             try {
-                result = await reader.read();
-            } catch (readErr) {
-                // UND_ERR_SOCKET, terminated, other side closed — all treated as stream end
-                if (!settled) fail(new Error('terminated'));
-                return;
-            }
-
-            if (!result) { if (!settled) fail(new Error('terminated')); return; }
-
-            const { done: streamDone, value } = result;
-            if (streamDone) break;
+                while (true) {
+                    let result;
+                    try { result = await reader.read(); }
+                    catch (readErr) { if (!settled) fail(new Error('terminated')); return; }
+                    if (!result) { if (!settled) fail(new Error('terminated')); return; }
+                    const { done: streamDone, value } = result;
+                    if (streamDone) break;
 
                     buf += dec.decode(value, { stream: true });
                     resetActivity();
@@ -541,61 +467,40 @@ const pump = async () => {
                     for (const line of lines) {
                         const trimmed = line.trim();
                         if (!trimmed) { currentEvent = ''; continue; }
-
-                        if (trimmed.startsWith('event:')) {
-                            currentEvent = trimmed.slice(6).trim();
-                            continue;
-                        }
-
+                        if (trimmed.startsWith('event:')) { currentEvent = trimmed.slice(6).trim(); continue; }
                         if (!trimmed.startsWith('data:')) continue;
                         const raw = trimmed.slice(5).trim();
 
-                        if (currentEvent && currentEvent !== 'video_generation_status') {
-                            console.log(`[Video] RAW event="${currentEvent}" data="${raw.substring(0, 300)}" | ${emailTag}`);
-                        }
-
                         if (currentEvent === 'video_generation_status') {
-                            if (raw !== lastLoggedStatus) {
-                                console.log(`[Video] Status → ${raw} | ${emailTag}`);
-                                lastLoggedStatus = raw;
-                                if (onStatus) onStatus(raw);
-                            }
+                            if (raw !== lastLoggedStatus) { lastLoggedStatus = raw; if (onStatus) onStatus(raw); }
                             continue;
                         }
-
                         if (currentEvent === 'error') {
                             let rawMsg = raw;
-                            try {
-                                const errObj = JSON.parse(raw);
-                                rawMsg = errObj.error || errObj.message || raw;
-                            } catch (_) {}
-                            console.error(`[Video] ❌ Server error: ${rawMsg} | ${emailTag}`);
+                            try { const errObj = JSON.parse(raw); rawMsg = errObj.error || errObj.message || raw; } catch (_) {}
                             return fail(new Error(rawMsg));
                         }
-
                         if (currentEvent === 'video_generation_complete') {
-                            console.log(`[Video] ✅ Complet! | ${emailTag}`);
                             try {
                                 const parsed = JSON.parse(raw);
                                 const items = Array.isArray(parsed) ? parsed : [parsed];
                                 const urls = [];
                                 items.forEach(item => {
-                                    if (item.file_url)  urls.push(item.file_url);
+                                    if (item.file_url) urls.push(item.file_url);
                                     if (item.video_url) urls.push(item.video_url);
-                                    if (item.url)       urls.push(item.url);
+                                    if (item.url) urls.push(item.url);
                                     if (Array.isArray(item.file_urls)) urls.push(...item.file_urls);
                                 });
                                 if (urls.length > 0) return done(urls);
                             } catch (_) {}
                         }
-
                         if (raw.startsWith('{') || raw.startsWith('[')) {
                             try {
                                 const obj = JSON.parse(raw);
                                 const urls = [];
-                                if (obj.file_url)  urls.push(obj.file_url);
+                                if (obj.file_url) urls.push(obj.file_url);
                                 if (obj.video_url) urls.push(obj.video_url);
-                                if (obj.url)       urls.push(obj.url);
+                                if (obj.url) urls.push(obj.url);
                                 if (Array.isArray(obj.file_urls)) urls.push(...obj.file_urls);
                                 if (urls.length > 0) return done(urls);
                                 if (obj.error) return fail(new Error(obj.error));
@@ -604,30 +509,17 @@ const pump = async () => {
                     }
                 }
                 if (!settled) fail(new Error('Stream închis fără rezultat'));
-            } catch (e) {
-                if (!settled) fail(e);
-            }
+            } catch (e) { if (!settled) fail(e); }
         };
 
         pump().catch(err => { if (!settled) fail(err); });
     });
 };
 
-// ✅ Upload ref_images la R2 (pentru video)
 const uploadImageToR2 = async (file, userId, prefix = 'refs') => {
     const ext = file.mimetype.split('/')[1] || 'jpg';
     const fileName = `${prefix}/vid_${userId}_${Date.now()}_${Math.random().toString(36).substring(5)}.${ext}`;
     return await uploadToR2(file.buffer, fileName, file.mimetype);
-};
-
-// ✅ Construiește multipart pentru frames-to-video
-const buildVideoFormData = (params) => {
-    const { prompt, videoRatio, count, startImageFile, endImageFile } = params;
-    const fields = { prompt, aspect_ratio: videoRatio, number_of_videos: String(count) };
-    const files = [];
-    if (startImageFile) files.push({ fieldname: 'start_image', buffer: startImageFile.buffer, mimetype: startImageFile.mimetype, filename: startImageFile.originalname || 'start.jpg' });
-    if (endImageFile)   files.push({ fieldname: 'end_image',   buffer: endImageFile.buffer,   mimetype: endImageFile.mimetype,   filename: endImageFile.originalname   || 'end.jpg' });
-    return buildMultipartBody(fields, files);
 };
 
 app.post('/api/media/video',
@@ -645,25 +537,19 @@ app.post('/api/media/video',
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         let clientAborted = false;
-        res.on('close', () => {
-            if (!res.writableEnded) clientAborted = true;
-        });
+        res.on('close', () => { if (!res.writableEnded) clientAborted = true; });
 
-        const sendStatus = (status) => {
-            if (!res.writableEnded && !clientAborted) res.write(`data: ${JSON.stringify({ status })}\n\n`);
-        };
+        const sendStatus = (status) => { if (!res.writableEnded && !clientAborted) res.write(`data: ${JSON.stringify({ status })}\n\n`); };
         const sendDone = (urls) => {
             if (!res.writableEnded && !clientAborted) {
                 res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
-                res.write('data: [DONE]\n\n');
-                res.end();
+                res.write('data: [DONE]\n\n'); res.end();
             }
         };
         const sendError = (msg) => {
             if (!res.writableEnded && !clientAborted) {
                 res.write(`data: ${JSON.stringify({ error: mapVideoError(msg) })}\n\n`);
-                res.write('data: [DONE]\n\n');
-                res.end();
+                res.write('data: [DONE]\n\n'); res.end();
             }
         };
 
@@ -675,106 +561,80 @@ app.post('/api/media/video',
             const totalCost = count * costPerVid;
             const videoRatio = toVideoRatio(aspect_ratio);
 
-            const user = await User.findById(req.userId);
-            if (!user) return sendError('User negăsit.');
-            if (user.credits < totalCost) return sendError(`Fonduri insuficiente! Ai nevoie de ${totalCost} credite.`);
+            // Verificăm credite prin HUB
+            const balance = await hubAPI.checkCredits(req.userId);
+            if (balance.credits < totalCost) return sendError(`Fonduri insuficiente! Ai nevoie de ${totalCost} credite.`);
 
             const startImageFile = req.files?.['start_image']?.[0] || null;
             const endImageFile   = req.files?.['end_image']?.[0]   || null;
             const refImages      = req.files?.['ref_images']        || [];
-
             const hasFrames = startImageFile || endImageFile;
 
-            // ✅ Upload ref_images la R2 și înlocuiește tag-urile @img1, @img2...
             if (refImages.length > 0) {
                 for (let i = 0; i < refImages.length; i++) {
                     const url = await uploadImageToR2(refImages[i], req.userId, 'refs');
-                    const tag = `@img${i + 1}`;
-                    if (finalPrompt.includes(tag)) {
-                        finalPrompt = finalPrompt.replace(new RegExp(tag, 'g'), url);
-                    }
+                    finalPrompt = finalPrompt.replace(new RegExp(`@img${i + 1}`, 'g'), url);
                 }
             }
 
-const buildRequest = async () => {
-    if (hasFrames) {
-        const fields = {
-            prompt: finalPrompt,
-            aspect_ratio: videoRatio,
-            number_of_videos: String(count)
-        };
-        const files = [];
-        if (startImageFile) {
-            const { buffer, mimetype } = await compressForVideo(startImageFile.buffer, startImageFile.mimetype);
-            files.push({ fieldname: 'start_image', buffer, mimetype, filename: 'start.jpg' });
-        }
-        if (endImageFile) {
-            const { buffer, mimetype } = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
-            files.push({ fieldname: 'end_image', buffer, mimetype, filename: 'end.jpg' });
-        }
-
-        console.log(`[Video] Multipart files: ${files.map(f => f.fieldname + '=' + f.buffer.length + 'bytes').join(', ')}`);
-
-        const { body: formBody, contentType } = buildMultipartBody(fields, files);
-        return {
-            endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
-            options: {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
-                    'Content-Type': contentType
-                },
-                body: formBody
-            }
-        };
-    }
-    return {
-        endpoint: `${VIDEO_API_URL}/veo/text-to-video`,
-        options: {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ prompt: finalPrompt, aspect_ratio: videoRatio, number_of_videos: count })
-        }
-    };
-};
+            const buildRequest = async () => {
+                if (hasFrames) {
+                    const fields = { prompt: finalPrompt, aspect_ratio: videoRatio, number_of_videos: String(count) };
+                    const files = [];
+                    if (startImageFile) {
+                        const { buffer, mimetype } = await compressForVideo(startImageFile.buffer, startImageFile.mimetype);
+                        files.push({ fieldname: 'start_image', buffer, mimetype, filename: 'start.jpg' });
+                    }
+                    if (endImageFile) {
+                        const { buffer, mimetype } = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
+                        files.push({ fieldname: 'end_image', buffer, mimetype, filename: 'end.jpg' });
+                    }
+                    const { body: formBody, contentType } = buildMultipartBody(fields, files);
+                    return {
+                        endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
+                        options: {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`, 'Content-Type': contentType },
+                            body: formBody
+                        }
+                    };
+                }
+                return {
+                    endpoint: `${VIDEO_API_URL}/veo/text-to-video`,
+                    options: {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt: finalPrompt, aspect_ratio: videoRatio, number_of_videos: count })
+                    }
+                };
+            };
 
             const MAX_VIDEO_RETRIES = 3;
             const RETRY_DELAY_MS = 4000;
             let videoUrls = null;
             let lastErrorMsg = null;
-            const emailTag = user.email;
+            const emailTag = req.user.email;
             const type = hasFrames ? 'frames-to-video' : 'text-to-video';
 
             for (let attempt = 1; attempt <= MAX_VIDEO_RETRIES; attempt++) {
                 const { endpoint, options } = await buildRequest();
-                console.log(`[Video] Tentativa ${attempt}/${MAX_VIDEO_RETRIES} | ${type} | ratio=${videoRatio} count=${count} | ${emailTag}`);
+                console.log(`[Video] Tentativa ${attempt}/${MAX_VIDEO_RETRIES} | ${type} | ${emailTag}`);
                 sendStatus(`Se generează... (încercare ${attempt}/${MAX_VIDEO_RETRIES})`);
 
                 let apiRes;
-                try {
-                    apiRes = await fetch(endpoint, options);
-                } catch (fetchErr) {
-                    console.warn(`[Video] Fetch network error: ${fetchErr.message} | ${emailTag}`);
+                try { apiRes = await fetch(endpoint, options); }
+                catch (fetchErr) {
                     lastErrorMsg = fetchErr.message;
-                    if (attempt < MAX_VIDEO_RETRIES) {
-                        sendStatus(`Eroare de rețea, reîncerc...`);
-                        await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-                        continue;
-                    }
+                    if (attempt < MAX_VIDEO_RETRIES) { sendStatus('Eroare de rețea, reîncerc...'); await new Promise(r => setTimeout(r, RETRY_DELAY_MS)); continue; }
                     break;
                 }
 
                 if (!apiRes.ok) {
                     const errorDetails = await apiRes.text().catch(() => '');
-                    console.error(`[Video] HTTP ${apiRes.status}: ${errorDetails.substring(0, 300)} | ${emailTag}`);
                     lastErrorMsg = `HTTP ${apiRes.status}: ${errorDetails.substring(0, 100)}`;
                     if ((apiRes.status === 429 || apiRes.status === 503) && attempt < MAX_VIDEO_RETRIES) {
                         sendStatus('Server suprasolicitat, reîncerc...');
-                        await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-                        continue;
+                        await new Promise(r => setTimeout(r, RETRY_DELAY_MS)); continue;
                     }
                     break;
                 }
@@ -785,29 +645,12 @@ const buildRequest = async () => {
                     break;
                 } catch (sseErr) {
                     lastErrorMsg = sseErr.message || 'Eroare SSE';
-                    const isSocketError = lastErrorMsg === 'terminated' || lastErrorMsg.includes('UND_ERR') || lastErrorMsg.includes('socket');
+                    if (isNonRetryableError(lastErrorMsg)) break;
                     const isGenericError = lastErrorMsg.includes('Create video error') || lastErrorMsg.includes('Create video failed');
-                    console.log(`[Video] Tentativa ${attempt} eșuată | ${isSocketError ? 'conexiune întreruptă' : lastErrorMsg} | ${emailTag}`);
-
-                    // Quota / conținut blocat — oprim imediat, nu reîncercăm
-                    if (isNonRetryableError(lastErrorMsg)) {
-                        if (isQuotaError(lastErrorMsg)) {
-                            console.error(`🚨 [Video] QUOTA EPUIZATĂ pe genaipro.vn! Contactează alexcaba! | ${emailTag} | ${lastErrorMsg}`);
-                        } else {
-                            console.log(`[Video] ❌ Eroare non-retriable (quota/blocat) — oprim. | ${emailTag}`);
-                        }
-                        break;
-                    }
-
-                    // Eroare generică persistentă — oprim după 2 încercări
-                    if (isGenericError && attempt >= 2) {
-                        console.log(`[Video] ❌ Eroare persistentă după ${attempt} încercări — oprim. | ${emailTag}`);
-                        break;
-                    }
-
+                    if (isGenericError && attempt >= 2) break;
                     if (attempt < MAX_VIDEO_RETRIES) {
+                        const isSocketError = lastErrorMsg === 'terminated' || lastErrorMsg.includes('UND_ERR');
                         const retryDelay = isSocketError ? RETRY_DELAY_MS * 2 : RETRY_DELAY_MS;
-                        console.log(`[Video] Reîncerc în ${retryDelay}ms... (${attempt + 1}/${MAX_VIDEO_RETRIES}) | ${emailTag}`);
                         sendStatus(`Reîncerc... (${attempt + 1}/${MAX_VIDEO_RETRIES})`);
                         await new Promise(r => setTimeout(r, retryDelay));
                     }
@@ -815,33 +658,30 @@ const buildRequest = async () => {
             }
 
             if (videoUrls && videoUrls.length > 0) {
-                await Log.create({ userEmail: user.email, type: 'video', count, cost: totalCost });
-                user.credits -= totalCost;
-                await user.save();
+                await Log.create({ userEmail: req.user.email, type: 'video', count, cost: totalCost }).catch(() => {});
+                try { await hubAPI.useCredits(req.userId, totalCost); } catch (e) { console.error('Eroare scădere credite video:', e.message); }
                 console.log(`[Video] Credite scăzute: -${totalCost} | ${emailTag}`);
                 sendDone(videoUrls);
             } else {
-                console.log(`[Video] Creditele NU se scad (niciun video generat). | ${emailTag}`);
-                sendError(lastErrorMsg || 'Generarea video a eșuat după toate încercările. Te rugăm să reîncerci.');
+                sendError(lastErrorMsg || 'Generarea video a eșuat.');
             }
 
         } catch (e) {
-            console.error(`[Video] ❌ Eroare neașteptată la ${elapsed()}: ${e.message}`);
+            console.error(`[Video] ❌ Eroare neașteptată: ${e.message}`);
             sendError(e.message);
         }
     }
 );
 
-// =========================================================================
-// ==================== ALTE RUTE ==========================================
-// =========================================================================
+// ══════════════════════════════════════════════════════════════
+// ██ ALTE RUTE
+// ══════════════════════════════════════════════════════════════
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     try {
-        const totalUsers = await User.countDocuments();
         const logs = await Log.find().sort({ createdAt: -1 }).limit(100);
         const totalImages = await Log.aggregate([{ $match: { type: 'image' } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
         const totalVideos = await Log.aggregate([{ $match: { type: 'video' } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
-        res.json({ totalUsers, totalImages: totalImages[0]?.total || 0, totalVideos: totalVideos[0]?.total || 0, recentLogs: logs });
+        res.json({ totalImages: totalImages[0]?.total || 0, totalVideos: totalVideos[0]?.total || 0, recentLogs: logs });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -855,10 +695,7 @@ app.get('/api/media/history', authenticate, async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = 80;
         const skip = (page - 1) * limit;
-        const history = await History.find({ userId: req.userId, type })
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit);
+        const history = await History.find({ userId: req.userId, type }).sort({ createdAt: -1 }).skip(skip).limit(limit);
         const total = await History.countDocuments({ userId: req.userId, type });
         res.json({ history, total, page, pages: Math.ceil(total / limit) });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -870,19 +707,13 @@ app.post('/api/media/save-history', authenticate, async (req, res) => {
     try {
         for (const url of urls) await History.create({ userId: req.userId, type, originalUrl: url, supabaseUrl: url, prompt });
         res.status(200).json({ message: 'Istoric salvat cu succes' });
-    } catch (err) {
-        console.error('Eroare istoric MongoDB:', err.message);
-        res.status(500).json({ error: 'Eroare server' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Eroare server' }); }
 });
 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-// ── VERSION CHECK — pentru auto-refresh la deploy nou ──
-const APP_VERSION = Date.now().toString(); // se schimbă la fiecare restart/deploy
-app.get('/api/version', (req, res) => {
-    res.json({ version: APP_VERSION });
-});
+const APP_VERSION = Date.now().toString();
+app.get('/api/version', (req, res) => { res.json({ version: APP_VERSION }); });
 
 app.get('/api/media/proxy-download', authenticate, async (req, res) => {
     const { url, filename } = req.query;
@@ -895,28 +726,17 @@ app.get('/api/media/proxy-download', authenticate, async (req, res) => {
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Disposition', `attachment; filename="${filename || 'viralio_media'}"`);
         res.send(Buffer.from(buffer));
-    } catch(e) {
-        res.status(500).json({ error: 'Nu s-a putut descărca fișierul.' });
-    }
+    } catch(e) { res.status(500).json({ error: 'Nu s-a putut descărca fișierul.' }); }
 });
+
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-// Adaugă asta chiar înainte de app.listen(), la finalul fișierului
 
-process.on('uncaughtException', (err) => {
-    console.error('❌ uncaughtException (server NU s-a oprit):', err.message);
-});
-
+process.on('uncaughtException', (err) => { console.error('❌ uncaughtException:', err.message); });
 process.on('unhandledRejection', (reason) => {
-    // Ignorăm erorile de socket de la undici/fetch — sunt tratate intern în retry logic
     const msg = reason?.message || String(reason);
-    const isKnownSocketError = (
-        msg === 'terminated' ||
-        msg.includes('UND_ERR_SOCKET') ||
-        msg.includes('other side closed') ||
-        msg.includes('UND_ERR_CONNECT_TIMEOUT') ||
-        reason?.code === 'UND_ERR_SOCKET'
-    );
-    if (isKnownSocketError) return; // suprimate — tratate în retry loop
-    console.error('❌ unhandledRejection (server NU s-a oprit):', reason);
+    const isKnownSocketError = msg === 'terminated' || msg.includes('UND_ERR_SOCKET') || msg.includes('other side closed') || msg.includes('UND_ERR_CONNECT_TIMEOUT');
+    if (isKnownSocketError) return;
+    console.error('❌ unhandledRejection:', reason);
 });
+
 app.listen(PORT, () => console.log(`🚀 Media Studio rulează pe portul ${PORT}`));
