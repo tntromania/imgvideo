@@ -409,7 +409,7 @@ const mapVideoError = (msg) => {
     if (msg.includes('quota') || msg.includes('QUOTA') || msg.includes('rate limit') || msg.includes('RATE_LIMIT') || msg.includes('insufficient') || msg.includes('balance') || msg.includes('credit'))
         return `⚠️ Capacitatea serverelor AI atinsă. Contactează ${DISCORD_CONTACT}`;
     if (msg.includes('Create video error') || msg.includes('Create video failed'))
-        return '⚠️ Serverele AI au respins generarea. Posibile cauze: imaginea conține text/watermark/fețe celebre, sau promptul e prea restrictiv. Încearcă cu o altă imagine sau modifică promptul.';
+        return '⚠️ Serverele AI au respins generarea. Posibile cauze: imaginea conține fețe celebre, sau promptul include oameni celebrii. Încearcă cu o altă imagine sau modifică promptul.';
     return msg.replace(/genaipro/gi, 'serverul AI');
 };
 
