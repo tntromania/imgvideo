@@ -410,9 +410,9 @@ const mapVideoError = (msg) => {
         return `⚠️ Capacitatea serverelor AI atinsă. Contactează ${DISCORD_CONTACT}`;
     if (msg.includes('Create video error') || msg.includes('Create video failed'))
         return '⚠️ Serverele AI au respins generarea. Posibile cauze: imaginea conține fețe celebre, sau promptul include oameni celebrii. Încearcă cu o altă imagine sau modifică promptul.';
-    // Erori de socket/retea - nu le arata tehnic la user
+    // Erori de socket/retea - imaginea a fost refuzată de Veo
     if (msg === 'terminated' || msg.includes('UND_ERR') || msg.includes('other side closed') || msg.includes('Stream inchis'))
-        return '⚠️ Conexiunea cu serverele AI a fost intrerupta dupa toate reincercarile. Te rugam sa reincerci.';
+        return '🚫 Imaginea ta a fost refuzată de AI (fețe celebre, logo-uri sau conținut protejat). Încearcă cu o altă imagine.';
     return msg.replace(/genaipro/gi, 'serverul AI');
 };
 
@@ -661,52 +661,92 @@ app.post('/api/media/video',
             let videoUrls = null;
             let lastErrorMsg = null;
             const emailTag = req.user.email;
-            const type = hasFrames ? 'frames-to-video' : 'text-to-video';
 
-            for (let attempt = 1; attempt <= MAX_VIDEO_RETRIES; attempt++) {
-                const { endpoint, options } = await buildRequest();
-                console.log(`[Video] Tentativa ${attempt}/${MAX_VIDEO_RETRIES} | ${type} | ${emailTag}`);
-                sendStatus(`Se generează... (încercare ${attempt}/${MAX_VIDEO_RETRIES})`);
+            // Încercăm frames-to-video dacă avem imagini, cu fallback la text-to-video
+            // după 2 erori consecutive de socket (terminated) — serverul genaipro e suprasolicitat
+            const modes = hasFrames ? ['frames-to-video', 'text-to-video'] : ['text-to-video'];
+            let terminatedCount = 0; // câte erori de socket consecutive am avut
 
-                let apiRes;
-                try { apiRes = await fetch(endpoint, options); }
-                catch (fetchErr) {
-                    lastErrorMsg = fetchErr.message;
-                    if (attempt < MAX_VIDEO_RETRIES) { sendStatus('Eroare de rețea, reîncerc...'); await new Promise(r => setTimeout(r, RETRY_DELAY_MS)); continue; }
-                    break;
-                }
+            outer:
+            for (const currentType of modes) {
+                const isFramesMode = currentType === 'frames-to-video';
+                const retriesForMode = MAX_VIDEO_RETRIES;
 
-                if (!apiRes.ok) {
-                    const errorDetails = await apiRes.text().catch(() => '');
-                    lastErrorMsg = `HTTP ${apiRes.status}: ${errorDetails.substring(0, 100)}`;
-                    if ((apiRes.status === 429 || apiRes.status === 503) && attempt < MAX_VIDEO_RETRIES) {
-                        sendStatus('Server suprasolicitat, reîncerc...');
-                        await new Promise(r => setTimeout(r, RETRY_DELAY_MS)); continue;
+                for (let attempt = 1; attempt <= retriesForMode; attempt++) {
+                    // buildRequest folosește hasFrames intern — pentru text fallback îl simulăm
+                    let reqData;
+                    if (isFramesMode) {
+                        reqData = await buildRequest(); // frames-to-video
+                    } else {
+                        // fallback text-to-video — ignorăm imaginile
+                        reqData = {
+                            endpoint: `${VIDEO_API_URL}/veo/text-to-video`,
+                            options: {
+                                method: 'POST',
+                                headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ prompt: finalPrompt, aspect_ratio: videoRatio, number_of_videos: count })
+                            }
+                        };
                     }
-                    break;
-                }
 
-                try {
-                    videoUrls = await parseVideoSSE(apiRes, emailTag, (s) => sendStatus(`${s}...`));
-                    console.log(`[Video] ✅ Done în ${elapsed()} | ${emailTag}`);
-                    break;
-                } catch (sseErr) {
-                    lastErrorMsg = sseErr.message || 'Eroare SSE';
-                    console.warn(`[Video] ⚠️ Tentativa ${attempt}/${MAX_VIDEO_RETRIES} eșuată (${type}) | ${emailTag} | ${lastErrorMsg}`);
-                    if (isNonRetryableError(lastErrorMsg)) {
-                        console.error(`[Video] ❌ Eroare non-retryable: ${lastErrorMsg} | ${emailTag}`);
+                    console.log(`[Video] Tentativa ${attempt}/${retriesForMode} | ${currentType} | ${emailTag}`);
+                    sendStatus(`Se generează... (încercare ${attempt}/${retriesForMode})`);
+
+                    let apiRes;
+                    try { apiRes = await fetch(reqData.endpoint, reqData.options); }
+                    catch (fetchErr) {
+                        lastErrorMsg = fetchErr.message;
+                        if (attempt < retriesForMode) { sendStatus('Eroare de rețea, reîncerc...'); await new Promise(r => setTimeout(r, RETRY_DELAY_MS)); continue; }
                         break;
                     }
-                    const isGenericError = lastErrorMsg.includes('Create video error') || lastErrorMsg.includes('Create video failed');
-                    if (isGenericError && attempt >= 2) {
-                        console.error(`[Video] ❌ Eroare generică repetată, opresc: ${lastErrorMsg} | ${emailTag}`);
+
+                    if (!apiRes.ok) {
+                        const errorDetails = await apiRes.text().catch(() => '');
+                        lastErrorMsg = `HTTP ${apiRes.status}: ${errorDetails.substring(0, 100)}`;
+                        if ((apiRes.status === 429 || apiRes.status === 503) && attempt < retriesForMode) {
+                            sendStatus('Server suprasolicitat, reîncerc...');
+                            await new Promise(r => setTimeout(r, RETRY_DELAY_MS)); continue;
+                        }
                         break;
                     }
-                    if (attempt < MAX_VIDEO_RETRIES) {
+
+                    try {
+                        videoUrls = await parseVideoSSE(apiRes, emailTag, (s) => sendStatus(`${s}...`));
+                        console.log(`[Video] ✅ Done în ${elapsed()} | ${emailTag}`);
+                        terminatedCount = 0;
+                        break outer; // succes — ieșim din ambele loop-uri
+                    } catch (sseErr) {
+                        lastErrorMsg = sseErr.message || 'Eroare SSE';
+                        console.warn(`[Video] ⚠️ Tentativa ${attempt}/${retriesForMode} eșuată (${currentType}) | ${emailTag} | ${lastErrorMsg}`);
+
+                        if (isNonRetryableError(lastErrorMsg)) {
+                            console.error(`[Video] ❌ Eroare non-retryable: ${lastErrorMsg} | ${emailTag}`);
+                            break outer;
+                        }
+
+                        const isGenericError = lastErrorMsg.includes('Create video error') || lastErrorMsg.includes('Create video failed');
+                        if (isGenericError && attempt >= 2) {
+                            console.error(`[Video] ❌ Eroare generică repetată, opresc modul ${currentType}: ${lastErrorMsg} | ${emailTag}`);
+                            break; // ieșim din retry-urile pentru modul curent, trecem la fallback
+                        }
+
                         const isSocketError = lastErrorMsg === 'terminated' || lastErrorMsg.includes('UND_ERR');
-                        const retryDelay = isSocketError ? RETRY_DELAY_MS * 2 : RETRY_DELAY_MS;
-                        sendStatus(`Reîncerc... (${attempt + 1}/${MAX_VIDEO_RETRIES})`);
-                        await new Promise(r => setTimeout(r, retryDelay));
+                        if (isSocketError) {
+                            terminatedCount++;
+                            // Dacă avem 2 erori consecutive pe frames-to-video → imaginea e refuzată de Veo
+                            if (isFramesMode && terminatedCount >= 2) {
+                                console.warn(`[Video] ⚠️ ${terminatedCount} terminated consecutive pe frames-to-video → imaginea refuzată de Veo | ${emailTag}`);
+                                sendStatus('⚠️ Imaginea ta a fost refuzată de AI. Încearcă cu o altă imagine — fără fețe celebre, logo-uri sau conținut protejat.');
+                                await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+                                break outer; // nu mai încercăm nici text-to-video — problema e imaginea
+                            }
+                        }
+
+                        if (attempt < retriesForMode) {
+                            const retryDelay = isSocketError ? RETRY_DELAY_MS * 2 : RETRY_DELAY_MS;
+                            sendStatus(`Reîncerc... (${attempt + 1}/${retriesForMode})`);
+                            await new Promise(r => setTimeout(r, retryDelay));
+                        }
                     }
                 }
             }
@@ -717,7 +757,7 @@ app.post('/api/media/video',
                 console.log(`[Video] Credite scăzute: -${totalCost} | ${emailTag}`);
                 sendDone(videoUrls);
             } else {
-                console.error(`[Video] ❌ FAIL FINAL după ${MAX_VIDEO_RETRIES} încercări | ${emailTag} | ${lastErrorMsg || 'motiv necunoscut'}`);
+                console.error(`[Video] ❌ FAIL FINAL | ${emailTag} | ${lastErrorMsg || 'motiv necunoscut'}`);
                 sendError(lastErrorMsg || 'Generarea video a eșuat.');
             }
 
