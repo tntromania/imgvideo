@@ -732,11 +732,11 @@
                             <option value="gemini-pro" data-type="image" data-cost="2">Nano Banana 4k (Pro) 💎 — 2 Credite</option>
                         </optgroup>
                         <optgroup label="Video (Veo)" id="og-vid" style="display:none">
-                            <option value="veo3.1-fast" data-type="video" data-cost="2">Veo 3.1 · 1080p 🏆 — 2 Credite</option>
+                            <option value="veo3.1-fast" data-type="video" data-cost="2">Veo 3.1 Fast · 1080p 🏆 — 2 Credite</option>
                         </optgroup>
                         <optgroup label="Video (Grok 3) — 720p" id="og-grok" style="display:none">
-                            <option value="grok-720p-6s" data-type="video" data-cost="2">Grok · 720p · 6s ⚡ — 2 Credite</option>
-                            <option value="grok-720p-10s" data-type="video" data-cost="2">Grok · 720p · 10s 💎 — 2 Credite</option>
+                            <option value="grok-720p-6s" data-type="video" data-cost="2">Grok 3 · 720p · 6s ⚡ — 2 Credite</option>
+                            <option value="grok-720p-10s" data-type="video" data-cost="2">Grok 3 · 720p · 10s 💎 — 2 Credite</option>
                         </optgroup>
                     </select>
                 </div>
@@ -1383,6 +1383,8 @@ async function readSSEJob(jobId, response){
         }
     } finally {}
     if(lastError&&!finalData.file_urls&&!finalData.file_url&&!finalData.video_url&&!finalData.url) throw new Error(lastError);
+    // Dacă streamul s-a închis fără date și fără eroare explicită → eroare de rețea
+    if(!lastError && Object.keys(finalData).length===0) throw new Error('Conexiunea a fost întreruptă. Reîncearcă.');
     return Object.keys(finalData).length>0?finalData:null;
 }
 
@@ -1428,7 +1430,14 @@ async function runJob(jobId, promptText, currentMode, ratio, refs, token, startF
         }
         setTimeout(loadHistory,2000);
     } catch(err){
-        setJobError(jobId,err.message);
+        // Mapăm erorile native de browser la mesaje prietenoase
+        let msg = err.message || '';
+        if (msg === 'Failed to fetch' || msg === 'NetworkError when attempting to fetch resource.' || msg.toLowerCase().includes('network') || msg === 'Load failed') {
+            msg = 'Conexiunea a fost întreruptă. Verifică internetul și reîncearcă.';
+        } else if (msg === 'Nu s-a generat video.' || msg === 'Nu s-au generat imagini.') {
+            msg = 'Nu s-a putut genera conținut. Reîncearcă sau modifică promptul.';
+        }
+        setJobError(jobId, msg);
     } finally {
         activeJobs.delete(jobId);
         try {
