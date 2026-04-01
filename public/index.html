@@ -188,6 +188,7 @@
         }
         .styled-select:focus { border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.06); }
         .styled-select option { background: #12121e; color: #e8e8f0; }
+        .styled-select optgroup { background: #12121e; color: rgba(255,255,255,0.4); font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
         .select-wrap { position: relative; }
         .select-wrap::after { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.25); font-size: 0.65rem; pointer-events: none; }
 
@@ -678,10 +679,9 @@
                 <i class="fa-solid fa-image" style="color:rgba(99,102,241,0.8);font-size:0.8rem;line-height:1"></i>
                 <span class="hidden sm:inline">Imagini</span>
             </button>
-            <button class="mode-tab" id="tab-video" style="opacity:0.35;cursor:not-allowed;position:relative" title="Generarea video vine în curând!">
+            <button class="mode-tab" id="tab-video" onclick="switchMode('video')">
                 <i class="fa-solid fa-clapperboard" style="font-size:0.8rem;line-height:1"></i>
                 <span class="hidden sm:inline">Video</span>
-                <span style="position:absolute;top:-8px;right:-12px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;font-size:0.45rem;font-weight:900;padding:1px 5px;border-radius:6px;letter-spacing:0.05em;white-space:nowrap;line-height:1.4;text-transform:uppercase;box-shadow:0 2px 8px rgba(245,158,11,0.4)">În Curând</span>
             </button>
         </div>
 
@@ -732,8 +732,11 @@
                             <option value="gemini-pro" data-type="image" data-cost="2">Nano Banana 4k (Pro) 💎 — 2 Credite</option>
                         </optgroup>
                         <optgroup label="Video (Veo)" id="og-vid" style="display:none">
-                            <option value="veo3.1fast" data-type="video" data-cost="2">Veo 3.1 Fast ⚡ — 2 Credite</option>
-                            <option value="veo3.1" data-type="video" data-cost="3">Veo 3.1 Premium 🏆 — 3 Credite</option>
+                            <option value="veo3.1" data-type="video" data-cost="2">Veo 3.1 🏆 — 2 Credite</option>
+                        </optgroup>
+                        <optgroup label="Video (Grok) — Fara Voice Over" id="og-grok" style="display:none">
+                            <option value="grok-480p" data-type="video" data-cost="2">Grok 480p ⚡ — 2 Credite (Fara Voice Over)</option>
+                            <option value="grok-720p" data-type="video" data-cost="3">Grok 720p 💎 — 3 Credite (Fara Voice Over)</option>
                         </optgroup>
                     </select>
                 </div>
@@ -933,8 +936,9 @@
 const MODEL_META = {
     'gemini-flash': { type:'image', cost:1 },
     'gemini-pro':   { type:'image', cost:2 },
-    'veo3.1fast':   { type:'video', cost:2 },
-    'veo3.1':       { type:'video', cost:3 }
+    'veo3.1':       { type:'video', cost:2 },
+    'grok-480p':    { type:'video', cost:2 },
+    'grok-720p':    { type:'video', cost:3 }
 };
 let mode = 'image';
 let imgCount = 1;
@@ -1009,7 +1013,8 @@ function switchMode(m){
     document.getElementById('tab-video').classList.toggle('active',isVid);
     document.getElementById('og-img').style.display = isVid?'none':'';
     document.getElementById('og-vid').style.display = isVid?'':'none';
-    document.getElementById('model-sel').value = isVid?'veo3.1fast':'gemini-flash';
+    document.getElementById('og-grok').style.display = isVid?'':'none';
+    document.getElementById('model-sel').value = isVid?'veo3.1':'gemini-flash';
     document.getElementById('img-options').classList.toggle('hidden',isVid);
     document.getElementById('vid-options').classList.toggle('hidden',!isVid);
     document.getElementById('refs-section').classList.toggle('hidden', isVid);
