@@ -457,7 +457,18 @@ const pollGeminiGenResult = async (uuid, apiKey, emailTag, maxPolls = 90, interv
             }
 
             if (status === 3) {
-                return { success: false, error: result.error_message || result.status_desc || 'Generarea a eșuat.' };
+                const errMsg = result.error_message || result.status_desc || result.error_code || '';
+                // GeminiGen returnează erori specifice pe care le mapăm
+                if (errMsg.toLowerCase().includes('audio')) {
+                    return { success: false, error: '🔊 Generarea audio a eșuat (promptul poate conține elemente blocate). Modifică promptul și reîncearcă.' };
+                }
+                if (errMsg.toLowerCase().includes('safety') || errMsg.toLowerCase().includes('filter') || errMsg.toLowerCase().includes('blocked')) {
+                    return { success: false, error: '🚫 Conținut blocat de filtrul de siguranță. Modifică promptul.' };
+                }
+                if (errMsg.toLowerCase().includes('person') || errMsg.toLowerCase().includes('face') || errMsg.toLowerCase().includes('human')) {
+                    return { success: false, error: '🚫 Promptul sau imaginea conține persoane/fețe care au fost blocate. Încearcă fără imagini cu persoane reale.' };
+                }
+                return { success: false, error: errMsg || 'Generarea a eșuat pe serverele AI. Reîncearcă.' };
             }
 
             // status === 1 → still processing
@@ -567,6 +578,7 @@ app.post('/api/media/video',
 
             // ─── Trimitem cererile paralel (count videoclipuri) ─────────
             const videoUrls = [];
+            let lastVideoError = null;
             const videoPromises = Array.from({ length: count }, async (_, idx) => {
                 if (clientAborted) return;
 
@@ -680,6 +692,7 @@ app.post('/api/media/video',
                         console.log(`[Video] ✅ ${idx+1}/${count} gata: ${finalUrl} | ${emailTag}`);
                         if (!clientAborted) sendStatus(`${videoUrls.length} din ${count} videoclipuri gata...`);
                     } else {
+                        lastVideoError = result.error;
                         console.error(`[Video] ❌ ${idx+1}/${count}: ${result.error} | ${emailTag}`);
                         if (count === 1) throw new Error(result.error);
                     }
@@ -694,7 +707,8 @@ app.post('/api/media/video',
             if (clientAborted) { clearKeepAlive(); return; }
 
             if (videoUrls.length === 0) {
-                return sendError('Nu s-a putut genera niciun videoclip. Reîncearcă sau modifică promptul.');
+                // Colectăm erorile reale din videoclipurile eșuate pentru a le afișa
+                return sendError(lastVideoError || 'Nu s-a putut genera niciun videoclip. Reîncearcă sau modifică promptul.');
             }
 
             // Scădem creditele
