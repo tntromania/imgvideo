@@ -188,7 +188,8 @@ const authenticateAdmin = async (req, res, next) => {
 const MODEL_PRICES = {
     'gemini-flash': 1, 'nano-banana-pro-1k': 1,
     'gemini-pro': 2,   'nano-banana-pro-2k': 2,
-    'veo3.1': 3,       'veo3.1fast': 2,
+    'veo3.1-fast': 2,
+    'grok-720p-6s': 2, 'grok-720p-10s': 2,
 };
 
 const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
@@ -386,166 +387,97 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
 });
 
 // ══════════════════════════════════════════════════════════════
-// ██ VIDEO
+// ██ VIDEO — GeminiGen API
 // ══════════════════════════════════════════════════════════════
-const VIDEO_API_URL = 'https://genaipro.vn/api/v1';
 
-const toVideoRatio = (ratio) => {
-    const portrait = ['9:16', '4:5', '3:4', '2:3'];
-    return portrait.includes(ratio) ? 'VIDEO_ASPECT_RATIO_PORTRAIT' : 'VIDEO_ASPECT_RATIO_LANDSCAPE';
+const toGeminiGenAspect = (ratio, isGrok) => {
+    if (isGrok) {
+        const map = { '9:16': 'portrait', '3:4': 'portrait', '2:3': 'vertical', '4:5': 'portrait', '16:9': 'landscape', '4:3': 'horizontal', '3:2': 'horizontal', '1:1': 'square' };
+        return map[ratio] || 'landscape';
+    }
+    // Veo: doar 16:9 și 9:16
+    return ['9:16','3:4','2:3','4:5'].includes(ratio) ? '9:16' : '16:9';
 };
 
 const DISCORD_CONTACT = 'alexcaba pe Discord (discord.gg/h8Ah6VKDzm)';
 
 const mapVideoError = (msg) => {
     if (!msg) return 'Eroare necunoscută la generarea video.';
-    if (msg.includes('PUBLIC_ERROR_SEXUAL')) return '🚫 Conținutul a fost blocat: elemente inadecvate.';
-    if (msg.includes('UNSAFE_GENERATION') || msg.includes('unsafe') || msg.includes('PUBLIC_ERROR_DANGER_FILTER'))
+    if (msg.includes('PUBLIC_ERROR_SEXUAL') || msg.includes('sexual')) return '🚫 Conținutul a fost blocat: elemente inadecvate.';
+    if (msg.includes('UNSAFE_GENERATION') || msg.includes('unsafe') || msg.includes('PUBLIC_ERROR_DANGER_FILTER') || msg.includes('safety'))
         return '🚫 Conținut blocat de filtrul de siguranță. Modifică promptul.';
     if (msg.includes('AUDIO_FILTERED')) return '🚫 Audio-ul filtrat — conține elemente inadecvate.';
-    if (msg.includes('PUBLIC_ERROR_IP_INPUT_IMAGE')) return '🚫 Imaginea nu este acceptată. Încearcă cu alta.';
-    if (msg.includes('TIMED_OUT') || msg.includes('TIMEOUT') || msg.includes('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'))
+    if (msg.includes('TIMED_OUT') || msg.includes('TIMEOUT') || msg.includes('timeout'))
         return 'Generarea a durat prea mult. Reîncearcă.';
     if (msg.includes('quota') || msg.includes('QUOTA') || msg.includes('rate limit') || msg.includes('RATE_LIMIT') || msg.includes('insufficient') || msg.includes('balance') || msg.includes('credit'))
         return `⚠️ Capacitatea serverelor AI atinsă. Contactează ${DISCORD_CONTACT}`;
     if (msg.includes('Create video error') || msg.includes('Create video failed'))
-        return '⚠️ Serverele AI au respins generarea după toate încercările. Încearcă din nou în câteva secunde.';
-    // Erori de socket/retea - imaginea a fost refuzată de Veo
+        return '⚠️ Serverele AI au respins generarea. Posibile cauze: imaginea conține fețe celebre, sau promptul include oameni celebrii. Încearcă cu o altă imagine sau modifică promptul.';
     if (msg === 'terminated' || msg.includes('UND_ERR') || msg.includes('other side closed') || msg.includes('Stream inchis'))
-        return '⚠️ Serverele AI sunt suprasolicitate momentan. Te rugăm să reîncerci în câteva secunde.';
-    return msg.replace(/genaipro/gi, 'serverul AI');
+        return '⚠️ Conexiunea cu serverele AI a fost intrerupta dupa toate reincercarile. Te rugam sa reincerci.';
+    return msg.replace(/genaipro/gi, 'serverul AI').replace(/dubvoice/gi, 'serverul AI').replace(/geminigen/gi, 'serverul AI').replace(/\bGrok\b/gi, 'serverul video').replace(/\bVeo\s*3?\b/gi, 'serverul video');
 };
 
-const isContentBlockedError = (msg) => {
+const isNonRetryableError = (msg) => {
     if (!msg) return false;
     return msg.includes('PUBLIC_ERROR_DANGER_FILTER') || msg.includes('UNSAFE_GENERATION') ||
-           msg.includes('AUDIO_FILTERED') || msg.includes('PUBLIC_ERROR_SEXUAL') || msg.includes('PUBLIC_ERROR_IP_INPUT_IMAGE');
+           msg.includes('AUDIO_FILTERED') || msg.includes('PUBLIC_ERROR_SEXUAL') ||
+           msg.includes('quota') || msg.includes('QUOTA') || msg.includes('rate limit') ||
+           msg.includes('RATE_LIMIT') || msg.includes('insufficient') || msg.includes('balance');
 };
 
-const isQuotaError = (msg) => {
-    if (!msg) return false;
-    return msg.includes('quota') || msg.includes('QUOTA') || msg.includes('rate limit') ||
-           msg.includes('RATE_LIMIT') || msg.includes('insufficient') || msg.includes('balance') || msg.toLowerCase().includes('credit');
-};
+// ── GeminiGen: Polling pe History API ────────────────────────────
+const pollGeminiGenResult = async (uuid, apiKey, emailTag, maxPolls = 90, intervalMs = 4000) => {
+    for (let poll = 1; poll <= maxPolls; poll++) {
+        await new Promise(r => setTimeout(r, intervalMs));
+        try {
+            // Endpoint corect: /uapi/v1/history/{uuid} (singular, nu plural)
+            const historyUrl = `https://api.geminigen.ai/uapi/v1/history/${uuid}`;
+            const res = await fetch(historyUrl, {
+                headers: { 'x-api-key': apiKey }
+            });
+            const data = await res.json();
 
-const isNonRetryableError = (msg) => isContentBlockedError(msg) || isQuotaError(msg);
+            // Dacă răspunsul conține 'detail' = eroare API
+            if (data?.detail && !data.status && !data.id) {
+                console.warn(`[GeminiGen] Poll ${poll} API error: ${JSON.stringify(data.detail)}`);
+                continue;
+            }
 
-const parseVideoSSE = (apiRes, emailTag, onStatus) => {
-    return new Promise((resolve, reject) => {
-        const reader = apiRes.body.getReader();
-        const dec = new TextDecoder();
-        let buf = '';
-        let currentEvent = '';
-        let lastLoggedStatus = '';
-        let settled = false;
+            // API-ul poate returna obiectul direct sau învelit în { result: ... }
+            const result = (data?.result && typeof data.result === 'object') ? data.result : data;
 
-        const globalTimeout = setTimeout(() => {
-            if (settled) return; settled = true;
-            try { reader.cancel(); } catch (_) {}
-            reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
-        }, 360000);
+            const status = result.status ?? result.status_code;
+            const pct = result.status_percentage ?? 0;
 
-        let activityTimeout = setTimeout(() => {
-            if (settled) return; settled = true;
-            clearTimeout(globalTimeout);
-            try { reader.cancel(); } catch (_) {}
-            reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
-        }, 180000);
+            if (poll <= 3 || poll % 10 === 0) {
+                console.log(`[GeminiGen] Poll ${poll}/${maxPolls} uuid=${uuid} status=${status} pct=${pct}% | ${emailTag}`);
+            }
 
-        const resetActivity = () => {
-            clearTimeout(activityTimeout);
-            activityTimeout = setTimeout(() => {
-                if (settled) return; settled = true;
-                clearTimeout(globalTimeout);
-                try { reader.cancel(); } catch (_) {}
-                reject(new Error('PUBLIC_ERROR_VIDEO_GENERATION_TIMED_OUT'));
-            }, 180000);
-        };
+            if (status === 2) {
+                // Structura răspunsului: generated_video[0].video_url (sau generated_image, etc.)
+                const videoUrl = result.generated_video?.[0]?.video_url
+                    || result.generated_video?.[0]?.url;
+                if (videoUrl) return { success: true, url: videoUrl };
 
-        const done = (urls) => {
-            if (settled) return; settled = true;
-            clearTimeout(globalTimeout); clearTimeout(activityTimeout);
-            resolve(urls);
-        };
+                // Fallback: generate_result sau alte câmpuri
+                const mediaUrl = result.generate_result || result.media_url || result.url
+                    || result.video_url || result.output_url || result.file_url;
+                if (mediaUrl) return { success: true, url: mediaUrl };
 
-        const fail = (err) => {
-            if (settled) return; settled = true;
-            clearTimeout(globalTimeout); clearTimeout(activityTimeout);
-            try { reader.cancel(); } catch (_) {}
-            reject(err);
-        };
+                console.error(`[GeminiGen] Status 2 dar fără URL! Keys: ${JSON.stringify(Object.keys(result))}`);
+                return { success: false, error: 'Video gata dar fără URL. Verifică logs.' };
+            }
 
-        const pump = async () => {
-            try {
-                while (true) {
-                    let result;
-                    try { result = await reader.read(); }
-                    catch (readErr) { if (!settled) fail(new Error('terminated')); return; }
-                    if (!result) { if (!settled) fail(new Error('terminated')); return; }
-                    const { done: streamDone, value } = result;
-                    if (streamDone) break;
+            if (status === 3) {
+                return { success: false, error: result.error_message || result.status_desc || result.message || 'Generarea a eșuat.' };
+            }
 
-                    buf += dec.decode(value, { stream: true });
-                    resetActivity();
-                    const lines = buf.split('\n');
-                    buf = lines.pop();
-
-                    for (const line of lines) {
-                        const trimmed = line.trim();
-                        if (!trimmed) { currentEvent = ''; continue; }
-                        if (trimmed.startsWith('event:')) { currentEvent = trimmed.slice(6).trim(); continue; }
-                        if (!trimmed.startsWith('data:')) continue;
-                        const raw = trimmed.slice(5).trim();
-
-                        if (currentEvent === 'video_generation_status') {
-                            if (raw !== lastLoggedStatus) { lastLoggedStatus = raw; if (onStatus) onStatus(raw); }
-                            continue;
-                        }
-                        if (currentEvent === 'error') {
-                            let rawMsg = raw;
-                            try { const errObj = JSON.parse(raw); rawMsg = errObj.error || errObj.message || raw; } catch (_) {}
-                            return fail(new Error(rawMsg));
-                        }
-                        if (currentEvent === 'video_generation_complete') {
-                            try {
-                                const parsed = JSON.parse(raw);
-                                const items = Array.isArray(parsed) ? parsed : [parsed];
-                                const urls = [];
-                                items.forEach(item => {
-                                    if (item.file_url) urls.push(item.file_url);
-                                    if (item.video_url) urls.push(item.video_url);
-                                    if (item.url) urls.push(item.url);
-                                    if (Array.isArray(item.file_urls)) urls.push(...item.file_urls);
-                                });
-                                if (urls.length > 0) return done(urls);
-                            } catch (_) {}
-                        }
-                        if (raw.startsWith('{') || raw.startsWith('[')) {
-                            try {
-                                const obj = JSON.parse(raw);
-                                const urls = [];
-                                if (obj.file_url) urls.push(obj.file_url);
-                                if (obj.video_url) urls.push(obj.video_url);
-                                if (obj.url) urls.push(obj.url);
-                                if (Array.isArray(obj.file_urls)) urls.push(...obj.file_urls);
-                                if (urls.length > 0) return done(urls);
-                                if (obj.error) return fail(new Error(obj.error));
-                            } catch (_) {}
-                        }
-                    }
-                }
-                if (!settled) fail(new Error('Stream închis fără rezultat'));
-            } catch (e) { if (!settled) fail(e); }
-        };
-
-        pump().catch(err => { if (!settled) fail(err); });
-    });
-};
-
-const uploadImageToR2 = async (file, userId, prefix = 'refs') => {
-    const ext = file.mimetype.split('/')[1] || 'jpg';
-    const fileName = `${prefix}/vid_${userId}_${Date.now()}_${Math.random().toString(36).substring(5)}.${ext}`;
-    return await uploadToR2(file.buffer, fileName, file.mimetype);
+        } catch (e) {
+            console.warn(`[GeminiGen] Poll ${poll} eroare rețea: ${e.message}`);
+        }
+    }
+    return { success: false, error: 'Timeout: generarea video a durat prea mult.' };
 };
 
 app.post('/api/media/video',
@@ -565,7 +497,6 @@ app.post('/api/media/video',
         let clientAborted = false;
         res.on('close', () => { if (!res.writableEnded) clientAborted = true; });
 
-        // Keep-alive: trimite un comentariu SSE la fiecare 20s ca browserul sa nu taie conexiunea
         const keepAliveInterval = setInterval(() => {
             if (!res.writableEnded && !clientAborted) {
                 res.write(': keep-alive\n\n');
@@ -595,9 +526,13 @@ app.post('/api/media/video',
             const { prompt, aspect_ratio, number_of_videos, model_id } = req.body;
             let finalPrompt = prompt;
             const count = parseInt(number_of_videos) || 1;
-            const costPerVid = MODEL_PRICES[model_id] || 3;
+            const costPerVid = MODEL_PRICES[model_id] || 2;
             const totalCost = count * costPerVid;
-            const videoRatio = toVideoRatio(aspect_ratio);
+
+            const GEMINIGEN_API_KEY = process.env.GEMINIGEN_API_KEY;
+            if (!GEMINIGEN_API_KEY) {
+                return sendError('Cheia API GeminiGen nu este configurată. Contactează administratorul.');
+            }
 
             // Verificăm credite prin HUB
             const balance = await hubAPI.checkCredits(req.userId);
@@ -606,9 +541,8 @@ app.post('/api/media/video',
             const startImageFile = req.files?.['start_image']?.[0] || null;
             const endImageFile   = req.files?.['end_image']?.[0]   || null;
             const refImages      = req.files?.['ref_images']        || [];
-            const hasFrames = startImageFile || endImageFile;
 
-            // Validare imagini înainte de a trimite la API
+            // Validare imagini
             if (startImageFile) {
                 const v = await validateImageForVideo(startImageFile.buffer, startImageFile.mimetype, 'start_image');
                 if (!v.valid) return sendError(`Imaginea de start are probleme: ${v.reason}. Te rugăm să folosești o altă imagine (JPEG/PNG, minim 128x128px).`);
@@ -618,113 +552,155 @@ app.post('/api/media/video',
                 if (!v.valid) return sendError(`Imaginea de final are probleme: ${v.reason}. Te rugăm să folosești o altă imagine (JPEG/PNG, minim 128x128px).`);
             }
 
-            if (refImages.length > 0) {
-                for (let i = 0; i < refImages.length; i++) {
-                    const url = await uploadImageToR2(refImages[i], req.userId, 'refs');
-                    finalPrompt = finalPrompt.replace(new RegExp(`@img${i + 1}`, 'g'), url);
-                }
+            const emailTag = req.user.email;
+            const isGrok = model_id.startsWith('grok-');
+            const isVeo = model_id.startsWith('veo');
+
+            // ─── Determină endpoint și parametri ─────────────────────────
+            let apiEndpoint, apiModel, resolution, duration, grokAspect;
+
+            if (isGrok) {
+                apiEndpoint = 'https://api.geminigen.ai/uapi/v1/video-gen/grok';
+                apiModel = 'grok-3';
+                resolution = '720p';
+                duration = model_id === 'grok-720p-10s' ? 10 : 6;
+                grokAspect = toGeminiGenAspect(aspect_ratio, true);
+            } else {
+                // Veo 3.1 Fast
+                apiEndpoint = 'https://api.geminigen.ai/uapi/v1/video-gen/veo';
+                apiModel = 'veo-3.1-fast';
+                resolution = '1080p';
+                duration = 8; // fixed
+                grokAspect = toGeminiGenAspect(aspect_ratio, false);
             }
 
-            const buildRequest = async () => {
-                if (hasFrames) {
-                    const fields = { prompt: finalPrompt, aspect_ratio: videoRatio, number_of_videos: String(count) };
-                    const files = [];
-                    if (startImageFile) {
-                        const { buffer, mimetype } = await compressForVideo(startImageFile.buffer, startImageFile.mimetype);
-                        files.push({ fieldname: 'start_image', buffer, mimetype, filename: 'start.jpg' });
-                    }
-                    if (endImageFile) {
-                        const { buffer, mimetype } = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
-                        files.push({ fieldname: 'end_image', buffer, mimetype, filename: 'end.jpg' });
-                    }                    const { body: formBody, contentType } = buildMultipartBody(fields, files);
-                    return {
-                        endpoint: `${VIDEO_API_URL}/veo/frames-to-video`,
-                        options: {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`, 'Content-Type': contentType },
-                            body: formBody
-                        }
-                    };
-                }
-                return {
-                    endpoint: `${VIDEO_API_URL}/veo/text-to-video`,
-                    options: {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${process.env.GENAIPRO_API_KEY}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt: finalPrompt, aspect_ratio: videoRatio, number_of_videos: count })
-                    }
-                };
-            };
+            console.log(`[Video] START | model=${model_id} → api=${apiModel} res=${resolution} dur=${duration}s count=${count} cost=${totalCost} | ${emailTag}`);
+            sendStatus('Se trimite cererea video...');
 
-            const MAX_VIDEO_RETRIES = 4;
-            const RETRY_DELAY_MS = 4000;
-            let videoUrls = null;
-            let lastErrorMsg = null;
-            const emailTag = req.user.email;
-            const currentType = hasFrames ? 'frames-to-video' : 'text-to-video';
-
-            for (let attempt = 1; attempt <= MAX_VIDEO_RETRIES; attempt++) {
-                const { endpoint, options } = await buildRequest();
-                console.log(`[Video] Tentativa ${attempt}/${MAX_VIDEO_RETRIES} | ${currentType} | ${emailTag}`);
-                sendStatus(`Se generează... (încercare ${attempt}/${MAX_VIDEO_RETRIES})`);
-
-                let apiRes;
-                try { apiRes = await fetch(endpoint, options); }
-                catch (fetchErr) {
-                    lastErrorMsg = fetchErr.message;
-                    if (attempt < MAX_VIDEO_RETRIES) {
-                        sendStatus('Eroare de rețea, reîncerc...');
-                        await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-                        continue;
-                    }
-                    break;
-                }
-
-                if (!apiRes.ok) {
-                    const errorDetails = await apiRes.text().catch(() => '');
-                    lastErrorMsg = `HTTP ${apiRes.status}: ${errorDetails.substring(0, 100)}`;
-                    if ((apiRes.status === 429 || apiRes.status === 503) && attempt < MAX_VIDEO_RETRIES) {
-                        sendStatus('Server suprasolicitat, reîncerc...');
-                        await new Promise(r => setTimeout(r, RETRY_DELAY_MS * 2));
-                        continue;
-                    }
-                    break;
-                }
+            // ─── Trimitem cererile paralel (count videoclipuri) ─────────
+            const videoUrls = [];
+            const videoPromises = Array.from({ length: count }, async (_, idx) => {
+                if (clientAborted) return;
 
                 try {
-                    videoUrls = await parseVideoSSE(apiRes, emailTag, (s) => sendStatus(`${s}...`));
-                    console.log(`[Video] ✅ Done în ${elapsed()} | ${emailTag}`);
-                    break;
-                } catch (sseErr) {
-                    lastErrorMsg = sseErr.message || 'Eroare SSE';
-                    console.warn(`[Video] ⚠️ Tentativa ${attempt}/${MAX_VIDEO_RETRIES} eșuată (${currentType}) | ${emailTag} | ${lastErrorMsg}`);
+                    // Build multipart form data
+                    const formData = new FormData();
+                    formData.append('prompt', finalPrompt);
+                    formData.append('model', apiModel);
+                    formData.append('resolution', resolution);
 
-                    // Erori de conținut blocat — nu are sens să reîncerci, mesaj specific
-                    if (isNonRetryableError(lastErrorMsg)) {
-                        console.error(`[Video] ❌ Conținut blocat: ${lastErrorMsg} | ${emailTag}`);
-                        break;
+                    if (isGrok) {
+                        formData.append('aspect_ratio', grokAspect);
+                        formData.append('duration', String(duration));
+                    } else {
+                        formData.append('aspect_ratio', grokAspect);
                     }
 
-                    if (attempt < MAX_VIDEO_RETRIES) {
-                        // terminated = server genaipro suprasolicitat → așteptăm mai mult
-                        const isSocketError = lastErrorMsg === 'terminated' || lastErrorMsg.includes('UND_ERR');
-                        const retryDelay = isSocketError ? RETRY_DELAY_MS * 2 : RETRY_DELAY_MS;
-                        console.log(`[Video] Reîncerc în ${retryDelay/1000}s... | ${emailTag}`);
-                        sendStatus(`Serverele AI sunt ocupate, reîncerc... (${attempt + 1}/${MAX_VIDEO_RETRIES})`);
-                        await new Promise(r => setTimeout(r, retryDelay));
+                    // Atașăm imagini de referință
+                    // ⚠️ Grok acceptă fișiere DOAR în câmpul 'files', nu 'ref_images'
+                    // ⚠️ Veo acceptă fișiere în câmpul 'ref_images'
+                    if (isGrok) {
+                        if (startImageFile) {
+                            const compressed = await compressForVideo(startImageFile.buffer, startImageFile.mimetype);
+                            const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                            formData.append('files', blob, `start_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                        }
+                        if (endImageFile) {
+                            const compressed = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
+                            const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                            formData.append('files', blob, `end_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                        }
+                        if (!startImageFile && !endImageFile && refImages.length > 0) {
+                            for (const ref of refImages.slice(0, 3)) {
+                                const compressed = await compressForVideo(ref.buffer, ref.mimetype);
+                                const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                                formData.append('files', blob, ref.originalname || `ref.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                            }
+                        }
+                    } else {
+                        // Veo: ref_images acceptă fișiere
+                        if (startImageFile) {
+                            const compressed = await compressForVideo(startImageFile.buffer, startImageFile.mimetype);
+                            const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                            formData.append('ref_images', blob, `start_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                        }
+                        if (endImageFile) {
+                            const compressed = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
+                            const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                            formData.append('ref_images', blob, `end_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                        }
+                        if (!startImageFile && !endImageFile && refImages.length > 0) {
+                            for (const ref of refImages.slice(0, 3)) {
+                                const compressed = await compressForVideo(ref.buffer, ref.mimetype);
+                                const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                                formData.append('ref_images', blob, ref.originalname || `ref.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                            }
+                        }
+                        if (startImageFile) {
+                            formData.append('mode_image', 'frame');
+                        }
                     }
+
+                    console.log(`[Video] POST ${idx+1}/${count} → ${apiEndpoint} model=${apiModel} | ${emailTag}`);
+
+                    const postRes = await fetchWithRetry(apiEndpoint, {
+                        method: 'POST',
+                        headers: { 'x-api-key': GEMINIGEN_API_KEY },
+                        body: formData
+                    }, 3, 5000);
+
+                    const postText = await postRes.text();
+                    let postData;
+                    try { postData = JSON.parse(postText); } catch { throw new Error(`Răspuns invalid de la server: ${postText.substring(0, 200)}`); }
+
+                    console.log(`[Video] POST ${idx+1} → status=${postRes.status} uuid=${postData.uuid || 'N/A'} | ${emailTag}`);
+
+                    if (!postRes.ok) {
+                        throw new Error(postData.error || postData.message || postData.detail || `HTTP ${postRes.status}`);
+                    }
+
+                    const uuid = postData.uuid;
+                    if (!uuid) {
+                        // Poate a returnat direct un URL
+                        const directUrl = postData.media_url || postData.video_url || postData.url;
+                        if (directUrl) { videoUrls.push(directUrl); return; }
+                        throw new Error('Niciun UUID în răspunsul serverului.');
+                    }
+
+                    sendStatus(`Se generează videoclipul ${count > 1 ? `${idx+1}/${count}` : ''}...`);
+
+                    // ── Polling ────────────────────────────────────────────
+                    const result = await pollGeminiGenResult(uuid, GEMINIGEN_API_KEY, emailTag);
+
+                    if (result.success) {
+                        videoUrls.push(result.url);
+                        console.log(`[Video] ✅ ${idx+1}/${count} gata: ${result.url} | ${emailTag}`);
+                        if (!clientAborted) sendStatus(`${videoUrls.length} din ${count} videoclipuri gata...`);
+                    } else {
+                        console.error(`[Video] ❌ ${idx+1}/${count}: ${result.error} | ${emailTag}`);
+                        if (count === 1) throw new Error(result.error);
+                    }
+
+                } catch (e) {
+                    console.error(`[Video] ❌ Video ${idx+1} eroare: ${e.message} | ${emailTag}`);
+                    if (count === 1) throw e;
                 }
+            });
+
+            await Promise.allSettled(videoPromises);
+            if (clientAborted) { clearKeepAlive(); return; }
+
+            if (videoUrls.length === 0) {
+                return sendError('Nu s-a putut genera niciun videoclip. Reîncearcă sau modifică promptul.');
             }
 
-            if (videoUrls && videoUrls.length > 0) {
-                await Log.create({ userEmail: req.user.email, type: 'video', count, cost: totalCost }).catch(() => {});
-                try { await hubAPI.useCredits(req.userId, totalCost); } catch (e) { console.error('Eroare scădere credite video:', e.message); }
-                console.log(`[Video] Credite scăzute: -${totalCost} | ${emailTag}`);
-                sendDone(videoUrls);
-            } else {
-                console.error(`[Video] ❌ FAIL FINAL | ${emailTag} | ${lastErrorMsg || 'motiv necunoscut'}`);
-                sendError(lastErrorMsg || 'Generarea video a eșuat.');
-            }
+            // Scădem creditele
+            const actualCost = videoUrls.length * costPerVid;
+            await Log.create({ userEmail: req.user.email, type: 'video', count: videoUrls.length, cost: actualCost }).catch(() => {});
+            try { await hubAPI.useCredits(req.userId, actualCost); } catch (e) { console.error('Eroare scădere credite video:', e.message); }
+
+            console.log(`[Video] ✅ ${videoUrls.length}/${count} gata în ${elapsed()} | -${actualCost} cr | ${emailTag}`);
+            return sendDone(videoUrls);
 
         } catch (e) {
             console.error(`[Video] ❌ Eroare neașteptată: ${e.message}`);
