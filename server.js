@@ -431,7 +431,7 @@ const pollGeminiGenResult = async (uuid, apiKey, emailTag, maxPolls = 90, interv
     for (let poll = 1; poll <= maxPolls; poll++) {
         await new Promise(r => setTimeout(r, intervalMs));
         try {
-            const res = await fetch(`https://api.geminigen.ai/uapi/v1/histories/${uuid}`, {
+            const res = await fetch(`https://api.geminigen.ai/uapi/v1/history/${uuid}`, {
                 headers: { 'x-api-key': apiKey }
             });
             const data = await res.json();
@@ -445,9 +445,14 @@ const pollGeminiGenResult = async (uuid, apiKey, emailTag, maxPolls = 90, interv
             }
 
             if (status === 2) {
-                // Completed — extract media_url
-                const mediaUrl = result.media_url || result.generate_result || result.url;
+                // Structura reală: generated_video[0].video_url
+                const videoUrl = result.generated_video?.[0]?.video_url
+                    || result.generated_video?.[0]?.url;
+                if (videoUrl) return { success: true, url: videoUrl };
+                // Fallback la alte câmpuri
+                const mediaUrl = result.generate_result || result.media_url || result.url;
                 if (mediaUrl) return { success: true, url: mediaUrl };
+                console.error(`[GeminiGen] Status 2 dar fără URL! Keys: ${Object.keys(result).join(', ')}`);
                 return { success: false, error: 'Video gata dar fără URL.' };
             }
 
@@ -579,28 +584,46 @@ app.post('/api/media/video',
                         formData.append('aspect_ratio', grokAspect);
                     }
 
-                    // Atașăm imagini de referință (start/end frame ca ref_images)
-                    if (startImageFile) {
-                        const compressed = await compressForVideo(startImageFile.buffer, startImageFile.mimetype);
-                        const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
-                        formData.append('ref_images', blob, `start_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
-                    }
-                    if (endImageFile) {
-                        const compressed = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
-                        const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
-                        formData.append('ref_images', blob, `end_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
-                    }
-
-                    if (!startImageFile && !endImageFile && refImages.length > 0) {
-                        for (const ref of refImages.slice(0, 3)) {
-                            const compressed = await compressForVideo(ref.buffer, ref.mimetype);
+                    // Grok: fișiere în 'files' | Veo: fișiere în 'ref_images'
+                    if (isGrok) {
+                        if (startImageFile) {
+                            const compressed = await compressForVideo(startImageFile.buffer, startImageFile.mimetype);
                             const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
-                            formData.append('ref_images', blob, ref.originalname || `ref.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                            formData.append('files', blob, `start_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
                         }
-                    }
-
-                    if (isVeo && startImageFile) {
-                        formData.append('mode_image', 'frame');
+                        if (endImageFile) {
+                            const compressed = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
+                            const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                            formData.append('files', blob, `end_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                        }
+                        if (!startImageFile && !endImageFile && refImages.length > 0) {
+                            for (const ref of refImages.slice(0, 3)) {
+                                const compressed = await compressForVideo(ref.buffer, ref.mimetype);
+                                const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                                formData.append('files', blob, ref.originalname || `ref.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                            }
+                        }
+                    } else {
+                        if (startImageFile) {
+                            const compressed = await compressForVideo(startImageFile.buffer, startImageFile.mimetype);
+                            const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                            formData.append('ref_images', blob, `start_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                        }
+                        if (endImageFile) {
+                            const compressed = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
+                            const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                            formData.append('ref_images', blob, `end_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                        }
+                        if (!startImageFile && !endImageFile && refImages.length > 0) {
+                            for (const ref of refImages.slice(0, 3)) {
+                                const compressed = await compressForVideo(ref.buffer, ref.mimetype);
+                                const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                                formData.append('ref_images', blob, ref.originalname || `ref.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                            }
+                        }
+                        if (startImageFile) {
+                            formData.append('mode_image', 'frame');
+                        }
                     }
 
                     console.log(`[Video] POST ${idx+1}/${count} → ${apiEndpoint} model=${apiModel} | ${emailTag}`);
