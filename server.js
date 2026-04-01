@@ -757,22 +757,48 @@ app.post('/api/media/video',
                 console.log(`[Veo] START | ${emailTag}`);
 
                 // ── POST inițial ──────────────────────────────────────────────
-                let postRes;
-                try {
-                    postRes = await fetch('https://www.dubvoice.ai/api/video', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${DUBVOICE_API_KEY}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ prompt: finalPrompt })
-                    });
-                } catch (fetchErr) {
-                    return sendError(`Eroare rețea Veo: ${fetchErr.message}`);
+                // Încercăm mai multe endpoint-uri posibile pentru Veo cu API key
+                const veoEndpoints = [
+                    'https://www.dubvoice.ai/api/v1/video',      // API v1 (API key compatible)
+                    'https://www.dubvoice.ai/api/video',          // endpoint standard
+                ];
+                const authHeaders = {
+                    'Authorization': `Bearer ${DUBVOICE_API_KEY}`,
+                    'X-API-Key': DUBVOICE_API_KEY,
+                    'Content-Type': 'application/json'
+                };
+                const veoBody = JSON.stringify({ prompt: finalPrompt });
+
+                let postRes = null;
+                let postData = {};
+                let usedEndpoint = '';
+
+                for (const endpoint of veoEndpoints) {
+                    console.log(`[Veo] Încerc endpoint: ${endpoint} | ${emailTag}`);
+                    try {
+                        postRes = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: authHeaders,
+                            body: veoBody
+                        });
+                        postData = await postRes.json().catch(() => ({}));
+                        console.log(`[Veo] ${endpoint} → status=${postRes.status} | keys=${Object.keys(postData).join(',')} | full=${JSON.stringify(postData).substring(0, 600)}`);
+
+                        if (postRes.status !== 401 && postRes.status !== 404) {
+                            usedEndpoint = endpoint;
+                            break; // Endpoint valid, ieșim din loop
+                        }
+                        console.log(`[Veo] ${endpoint} → ${postRes.status}, încerc următorul...`);
+                    } catch (fetchErr) {
+                        console.warn(`[Veo] ${endpoint} → eroare rețea: ${fetchErr.message}`);
+                        continue;
+                    }
                 }
 
-                const postData = await postRes.json().catch(() => ({}));
-                console.log(`[Veo] POST status=${postRes.status} | keys=${Object.keys(postData).join(',')} | full=${JSON.stringify(postData).substring(0, 600)}`);
+                if (!postRes || !usedEndpoint) {
+                    console.error(`[Veo] ❌ Niciun endpoint Veo nu a răspuns valid | ${emailTag}`);
+                    return sendError('Serverul Veo nu este disponibil momentan. Verifică cheia API DubVoice.');
+                }
 
                 if (!postRes.ok) {
                     return sendError(postData.error || `HTTP ${postRes.status}`);
@@ -804,10 +830,20 @@ app.post('/api/media/video',
                 const POLL_INTERVAL = 5000;
 
                 // Polling pe endpoint-ul DubVoice
-                const pollUrls = [
-                    `https://www.dubvoice.ai/api/video?action=status&prediction_id=${predictionId}`,
-                    `https://www.dubvoice.ai/api/v1/tts/${predictionId}`,
-                ];
+                const isV1 = usedEndpoint.includes('/api/v1/');
+                const pollUrls = isV1
+                    ? [
+                        `https://www.dubvoice.ai/api/v1/video?action=status&prediction_id=${predictionId}`,
+                        `https://www.dubvoice.ai/api/v1/tts/${predictionId}`,
+                      ]
+                    : [
+                        `https://www.dubvoice.ai/api/video?action=status&prediction_id=${predictionId}`,
+                        `https://www.dubvoice.ai/api/v1/tts/${predictionId}`,
+                      ];
+                const pollHeaders = {
+                    'Authorization': `Bearer ${DUBVOICE_API_KEY}`,
+                    'X-API-Key': DUBVOICE_API_KEY
+                };
 
                 for (let poll = 1; poll <= MAX_POLLS; poll++) {
                     if (clientAborted) return;
@@ -820,9 +856,7 @@ app.post('/api/media/video',
 
                     let pollRes;
                     try {
-                        pollRes = await fetch(pollUrl, {
-                            headers: { 'Authorization': `Bearer ${DUBVOICE_API_KEY}` }
-                        });
+                        pollRes = await fetch(pollUrl, { headers: pollHeaders });
                     } catch (pollErr) {
                         console.warn(`[Veo] Poll ${poll} eroare rețea: ${pollErr.message}`);
                         continue;
