@@ -381,25 +381,28 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         });
 
         await Promise.allSettled(imagePromises);
-        if (clientAborted) return;
 
         if (urls.length === 0) {
+            if (clientAborted) return;
             res.write(`data: ${JSON.stringify({ error: "Imaginile nu au putut fi generate. Promptul poate conține elemente blocate." })}\n\n`);
             res.write('data: [DONE]\n\n'); res.end(); return;
         }
 
-        // Scădem creditele prin HUB
+        // Scădem creditele prin HUB — întotdeauna, chiar dacă clientul s-a deconectat
         const actualCost = urls.length * costPerImg;
         await Log.create({ userEmail: req.user.email, type: 'image', count: urls.length, cost: actualCost }).catch(() => {});
         try { await hubAPI.useCredits(req.userId, actualCost); } catch (e) { console.error('Eroare scădere credite:', e.message); }
 
-        // ✅ Salvăm istoricul pe SERVER — nu mai depindem de client
+        // ✅ Salvăm istoricul pe SERVER — întotdeauna (necesar pentru restore după refresh)
         try {
             for (const url of urls) {
                 await History.create({ userId: req.userId, type: 'image', originalUrl: url, supabaseUrl: url, prompt: prompt || finalPrompt });
             }
             console.log(`[Imagini] 📝 Istoric salvat server-side: ${urls.length} imagini`);
         } catch (histErr) { console.error('[Imagini] ⚠️ Eroare salvare istoric server-side:', histErr.message); }
+
+        // Verificăm dacă clientul mai e conectat pentru SSE
+        if (clientAborted) return;
 
         console.log(`[Imagini] ✅ ${urls.length}/${count} imagini gata în ${elapsed()} | -${actualCost} cr | ${req.user.email}`);
 
@@ -766,19 +769,19 @@ app.post('/api/media/video',
             });
 
             await Promise.allSettled(videoPromises);
-            if (clientAborted) { clearKeepAlive(); return; }
 
             if (videoUrls.length === 0) {
                 // Colectăm erorile reale din videoclipurile eșuate pentru a le afișa
                 return sendError(lastVideoError || 'Nu s-a putut genera niciun videoclip. Reîncearcă sau modifică promptul.');
             }
 
-            // Scădem creditele
+            // Scădem creditele — întotdeauna, chiar dacă clientul s-a deconectat (refresh)
             const actualCost = videoUrls.length * costPerVid;
             await Log.create({ userEmail: req.user.email, type: 'video', count: videoUrls.length, cost: actualCost }).catch(() => {});
             try { await hubAPI.useCredits(req.userId, actualCost); } catch (e) { console.error('Eroare scădere credite video:', e.message); }
 
-            // ✅ Salvăm istoricul pe SERVER — nu mai depindem de client
+            // ✅ Salvăm istoricul pe SERVER — întotdeauna, chiar dacă clientul a dat refresh
+            // (necesar pentru restore după refresh via _pollForResult)
             try {
                 for (let i = 0; i < videoUrls.length; i++) {
                     await History.create({
@@ -790,6 +793,9 @@ app.post('/api/media/video',
                 }
                 console.log(`[Video] 📝 Istoric salvat server-side: ${videoUrls.length} videoclipuri`);
             } catch (histErr) { console.error('[Video] ⚠️ Eroare salvare istoric server-side:', histErr.message); }
+
+            // Acum verificăm dacă clientul mai e conectat pentru a trimite răspunsul SSE
+            if (clientAborted) { clearKeepAlive(); return; }
 
             console.log(`[Video] ✅ ${videoUrls.length}/${count} gata în ${elapsed()} | -${actualCost} cr | ${emailTag}`);
             // Trimitem URL-urile și UUID-urile pentru extend
