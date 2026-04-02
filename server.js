@@ -95,16 +95,32 @@ const validateImageForVideo = async (buffer, mimetype, label = 'imagine') => {
     }
 };
 
-const compressForVideo = async (buffer, mimetype) => {
+const compressForVideo = async (buffer, mimetype, model = 'generic') => {
     try {
+        // Grok API e sensibil la imagini mari — limităm la 768px și calitate 82
+        // Veo acceptă imagini mai mari dar tot comprimăm pentru viteză
+        const maxDim = model === 'grok' ? 768 : 1024;
+        const quality = model === 'grok' ? 82 : 85;
         const compressed = await sharp(buffer)
-            .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 85 }).toBuffer();
-        console.log(`[Video] Comprimat: ${buffer.length} → ${compressed.length} bytes`);
+            .resize({ width: maxDim, height: maxDim, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality, mozjpeg: true })
+            .toBuffer();
+        console.log(`[Video] Comprimat (${model}): ${buffer.length} → ${compressed.length} bytes (max ${maxDim}px)`);
         return { buffer: compressed, mimetype: 'image/jpeg' };
     } catch (e) {
-        console.warn(`[Video] Comprimare eșuată, trimit original: ${e.message}`);
-        return { buffer, mimetype };
+        console.warn(`[Video] Comprimare eșuată, reîncerc fără mozjpeg: ${e.message}`);
+        try {
+            const meta = await sharp(buffer).metadata();
+            const maxDim = model === 'grok' ? 768 : 1024;
+            const compressed = await sharp(buffer)
+                .resize({ width: maxDim, height: maxDim, fit: 'inside', withoutEnlargement: true })
+                .jpeg({ quality: 80 })
+                .toBuffer();
+            return { buffer: compressed, mimetype: 'image/jpeg' };
+        } catch (e2) {
+            console.warn(`[Video] Comprimare eșuată complet, trimit original: ${e2.message}`);
+            return { buffer, mimetype };
+        }
     }
 };
 
@@ -118,11 +134,14 @@ if (process.env.MONGO_URI) {
 }
 
 const HistorySchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
     type: { type: String, enum: ['image', 'video'], required: true },
     originalUrl: String, supabaseUrl: String, prompt: String,
+    uuid: { type: String, default: null },
     createdAt: { type: Date, default: Date.now }
 });
+// ✅ Index compus pentru verificare duplicate rapidă
+HistorySchema.index({ userId: 1, originalUrl: 1 });
 const History = mongoose.models.History || mongoose.model('History', HistorySchema);
 
 const LogSchema = new mongoose.Schema({
@@ -189,7 +208,9 @@ const MODEL_PRICES = {
     'gemini-flash': 1, 'nano-banana-pro-1k': 1,
     'gemini-pro': 2,   'nano-banana-pro-2k': 2,
     'veo3.1-fast': 2,
+    'veo-extend': 2,
     'grok-720p-6s': 2, 'grok-720p-10s': 2,
+    'grok-extend': 2,
 };
 
 const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
@@ -372,9 +393,17 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         await Log.create({ userEmail: req.user.email, type: 'image', count: urls.length, cost: actualCost }).catch(() => {});
         try { await hubAPI.useCredits(req.userId, actualCost); } catch (e) { console.error('Eroare scădere credite:', e.message); }
 
+        // ✅ Salvăm istoricul pe SERVER — nu mai depindem de client
+        try {
+            for (const url of urls) {
+                await History.create({ userId: req.userId, type: 'image', originalUrl: url, supabaseUrl: url, prompt: prompt || finalPrompt });
+            }
+            console.log(`[Imagini] 📝 Istoric salvat server-side: ${urls.length} imagini`);
+        } catch (histErr) { console.error('[Imagini] ⚠️ Eroare salvare istoric server-side:', histErr.message); }
+
         console.log(`[Imagini] ✅ ${urls.length}/${count} imagini gata în ${elapsed()} | -${actualCost} cr | ${req.user.email}`);
 
-        res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
+        res.write(`data: ${JSON.stringify({ file_urls: urls, saved_to_history: true })}\n\n`);
         res.write('data: [DONE]\n\n'); res.end();
 
     } catch (e) {
@@ -506,10 +535,10 @@ app.post('/api/media/video',
         const clearKeepAlive = () => clearInterval(keepAliveInterval);
 
         const sendStatus = (status) => { if (!res.writableEnded && !clientAborted) res.write(`data: ${JSON.stringify({ status })}\n\n`); };
-        const sendDone = (urls) => {
+        const sendDone = (urls, uuids) => {
             clearKeepAlive();
             if (!res.writableEnded && !clientAborted) {
-                res.write(`data: ${JSON.stringify({ file_urls: urls })}\n\n`);
+                res.write(`data: ${JSON.stringify({ file_urls: urls, file_uuids: uuids || [], saved_to_history: true })}\n\n`);
                 res.write('data: [DONE]\n\n'); res.end();
             }
         };
@@ -552,8 +581,10 @@ app.post('/api/media/video',
             }
 
             const emailTag = req.user.email;
-            const isGrok = model_id.startsWith('grok-');
-            const isVeo = model_id.startsWith('veo');
+            const isGrok = model_id.startsWith('grok-') && model_id !== 'grok-extend';
+            const isGrokExtend = model_id === 'grok-extend';
+            const isVeoExtend = model_id === 'veo-extend';
+            const isVeo = model_id.startsWith('veo') && !isVeoExtend;
 
             // ─── Determină endpoint și parametri ─────────────────────────
             let apiEndpoint, apiModel, resolution, duration, grokAspect;
@@ -564,6 +595,18 @@ app.post('/api/media/video',
                 resolution = '720p';
                 duration = model_id === 'grok-720p-10s' ? 10 : 6;
                 grokAspect = toGeminiGenAspect(aspect_ratio, true);
+            } else if (isGrokExtend) {
+                apiEndpoint = 'https://api.geminigen.ai/uapi/v1/video-extend/grok';
+                apiModel = 'grok-3';
+                resolution = '720p';
+                duration = parseInt(req.body.extend_duration) === 6 ? 6 : 10;
+                grokAspect = toGeminiGenAspect(aspect_ratio, true);
+            } else if (isVeoExtend) {
+                apiEndpoint = 'https://api.geminigen.ai/uapi/v1/video-extend/veo';
+                apiModel = 'veo-2';
+                resolution = '1080p';
+                duration = 8;
+                grokAspect = toGeminiGenAspect(aspect_ratio, false);
             } else {
                 // Veo 3.1 Fast
                 apiEndpoint = 'https://api.geminigen.ai/uapi/v1/video-gen/veo';
@@ -571,6 +614,12 @@ app.post('/api/media/video',
                 resolution = '1080p';
                 duration = 8; // fixed
                 grokAspect = toGeminiGenAspect(aspect_ratio, false);
+            }
+
+            // ─── Validare ref_history pentru extend ──────────────────────
+            const refHistory = req.body.ref_history || null;
+            if ((isGrokExtend || isVeoExtend) && !refHistory) {
+                return sendError('Pentru Extend trebuie să selectezi un videoclip existent (ref_history UUID).');
             }
 
             console.log(`[Video] START | model=${model_id} → api=${apiModel} res=${resolution} dur=${duration}s count=${count} cost=${totalCost} | ${emailTag}`);
@@ -586,59 +635,71 @@ app.post('/api/media/video',
                     // Build multipart form data
                     const formData = new FormData();
                     formData.append('prompt', finalPrompt);
-                    formData.append('model', apiModel);
-                    formData.append('resolution', resolution);
 
-                    if (isGrok) {
-                        formData.append('aspect_ratio', grokAspect);
-                        formData.append('duration', String(duration));
+                    // ── Extend endpoints: trimit ref_history + prompt ──────
+                    if (isGrokExtend || isVeoExtend) {
+                        formData.append('ref_history', refHistory);
+                        if (isGrokExtend) {
+                            formData.append('duration', String(duration));
+                        }
+                        console.log(`[Video] POST ${idx+1}/${count} → ${apiEndpoint} (extend) ref=${refHistory} dur=${duration}s | ${emailTag}`);
                     } else {
-                        formData.append('aspect_ratio', grokAspect);
-                    }
+                        // ── Generare normală ──────────────────────────────
+                        formData.append('model', apiModel);
+                        formData.append('resolution', resolution);
 
-                    // Grok: fișiere în 'files' | Veo: fișiere în 'ref_images'
-                    if (isGrok) {
-                        if (startImageFile) {
-                            const compressed = await compressForVideo(startImageFile.buffer, startImageFile.mimetype);
-                            const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
-                            formData.append('files', blob, `start_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                        if (isGrok) {
+                            formData.append('aspect_ratio', grokAspect);
+                            formData.append('duration', String(duration));
+                        } else {
+                            formData.append('aspect_ratio', grokAspect);
                         }
-                        if (endImageFile) {
-                            const compressed = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
-                            const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
-                            formData.append('files', blob, `end_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
-                        }
-                        if (!startImageFile && !endImageFile && refImages.length > 0) {
-                            for (const ref of refImages.slice(0, 3)) {
-                                const compressed = await compressForVideo(ref.buffer, ref.mimetype);
+
+                        // Grok: fișiere în 'files' | Veo: fișiere în 'ref_images'
+                        const compressModel = isGrok ? 'grok' : 'veo';
+                        if (isGrok) {
+                            if (startImageFile) {
+                                const compressed = await compressForVideo(startImageFile.buffer, startImageFile.mimetype, 'grok');
                                 const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
-                                formData.append('files', blob, ref.originalname || `ref.${compressed.mimetype.split('/')[1] || 'jpg'}`);
+                                formData.append('files', blob, `start_frame.jpg`);
+                            }
+                            if (endImageFile) {
+                                const compressed = await compressForVideo(endImageFile.buffer, endImageFile.mimetype, 'grok');
+                                const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                                formData.append('files', blob, `end_frame.jpg`);
+                            }
+                            if (!startImageFile && !endImageFile && refImages.length > 0) {
+                                for (const ref of refImages.slice(0, 3)) {
+                                    const compressed = await compressForVideo(ref.buffer, ref.mimetype, 'grok');
+                                    const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                                    formData.append('files', blob, `ref.jpg`);
+                                }
+                            }
+                        } else {
+                            if (startImageFile) {
+                                const compressed = await compressForVideo(startImageFile.buffer, startImageFile.mimetype, 'veo');
+                                const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                                formData.append('ref_images', blob, `start_frame.jpg`);
+                            }
+                            if (endImageFile) {
+                                const compressed = await compressForVideo(endImageFile.buffer, endImageFile.mimetype, 'veo');
+                                const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                                formData.append('ref_images', blob, `end_frame.jpg`);
+                            }
+                            if (!startImageFile && !endImageFile && refImages.length > 0) {
+                                for (const ref of refImages.slice(0, 3)) {
+                                    const compressed = await compressForVideo(ref.buffer, ref.mimetype, 'veo');
+                                    const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
+                                    formData.append('ref_images', blob, `ref.jpg`);
+                                }
+                            }
+                            if (startImageFile) {
+                                formData.append('mode_image', 'frame');
                             }
                         }
-                    } else {
-                        if (startImageFile) {
-                            const compressed = await compressForVideo(startImageFile.buffer, startImageFile.mimetype);
-                            const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
-                            formData.append('ref_images', blob, `start_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
-                        }
-                        if (endImageFile) {
-                            const compressed = await compressForVideo(endImageFile.buffer, endImageFile.mimetype);
-                            const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
-                            formData.append('ref_images', blob, `end_frame.${compressed.mimetype.split('/')[1] || 'jpg'}`);
-                        }
-                        if (!startImageFile && !endImageFile && refImages.length > 0) {
-                            for (const ref of refImages.slice(0, 3)) {
-                                const compressed = await compressForVideo(ref.buffer, ref.mimetype);
-                                const blob = new Blob([compressed.buffer], { type: compressed.mimetype });
-                                formData.append('ref_images', blob, ref.originalname || `ref.${compressed.mimetype.split('/')[1] || 'jpg'}`);
-                            }
-                        }
-                        if (startImageFile) {
-                            formData.append('mode_image', 'frame');
-                        }
-                    }
 
-                    console.log(`[Video] POST ${idx+1}/${count} → ${apiEndpoint} model=${apiModel} | ${emailTag}`);
+                        console.log(`[Video] POST ${idx+1}/${count} → ${apiEndpoint} model=${apiModel} | ${emailTag}`);
+                    } // end else (non-extend)
 
                     const postRes = await fetchWithRetry(apiEndpoint, {
                         method: 'POST',
@@ -688,8 +749,9 @@ app.post('/api/media/video',
                         } catch (uploadErr) {
                             console.warn(`[Video] ⚠️ R2 upload eșuat, folosesc URL original: ${uploadErr.message} | ${emailTag}`);
                         }
-                        videoUrls.push(finalUrl);
-                        console.log(`[Video] ✅ ${idx+1}/${count} gata: ${finalUrl} | ${emailTag}`);
+                        // Salvăm și UUID-ul GeminiGen pentru extend
+                        videoUrls.push({ url: finalUrl, uuid });
+                        console.log(`[Video] ✅ ${idx+1}/${count} gata: ${finalUrl} | uuid=${uuid} | ${emailTag}`);
                         if (!clientAborted) sendStatus(`${videoUrls.length} din ${count} videoclipuri gata...`);
                     } else {
                         lastVideoError = result.error;
@@ -716,8 +778,24 @@ app.post('/api/media/video',
             await Log.create({ userEmail: req.user.email, type: 'video', count: videoUrls.length, cost: actualCost }).catch(() => {});
             try { await hubAPI.useCredits(req.userId, actualCost); } catch (e) { console.error('Eroare scădere credite video:', e.message); }
 
+            // ✅ Salvăm istoricul pe SERVER — nu mai depindem de client
+            try {
+                for (let i = 0; i < videoUrls.length; i++) {
+                    await History.create({
+                        userId: req.userId, type: 'video',
+                        originalUrl: videoUrls[i].url, supabaseUrl: videoUrls[i].url,
+                        prompt: prompt || finalPrompt,
+                        uuid: videoUrls[i].uuid || null,
+                    });
+                }
+                console.log(`[Video] 📝 Istoric salvat server-side: ${videoUrls.length} videoclipuri`);
+            } catch (histErr) { console.error('[Video] ⚠️ Eroare salvare istoric server-side:', histErr.message); }
+
             console.log(`[Video] ✅ ${videoUrls.length}/${count} gata în ${elapsed()} | -${actualCost} cr | ${emailTag}`);
-            return sendDone(videoUrls);
+            // Trimitem URL-urile și UUID-urile pentru extend
+            const plainUrls = videoUrls.map(v => v.url);
+            const uuids = videoUrls.map(v => v.uuid);
+            return sendDone(plainUrls, uuids);
 
         } catch (e) {
             console.error(`[Video] ❌ Eroare neașteptată: ${e.message}`);
@@ -755,11 +833,23 @@ app.get('/api/media/history', authenticate, async (req, res) => {
 });
 
 app.post('/api/media/save-history', authenticate, async (req, res) => {
-    const { urls, type, prompt } = req.body;
+    const { urls, type, prompt, uuids } = req.body;
     if (!urls || !urls.length) return res.status(400).json({ error: 'Fără URL-uri.' });
     try {
-        for (const url of urls) await History.create({ userId: req.userId, type, originalUrl: url, supabaseUrl: url, prompt });
-        res.status(200).json({ message: 'Istoric salvat cu succes' });
+        let savedCount = 0;
+        for (let i = 0; i < urls.length; i++) {
+            // ✅ Verificăm dacă URL-ul există deja (protecție anti-duplicate)
+            const existing = await History.findOne({ userId: req.userId, originalUrl: urls[i] });
+            if (existing) { continue; }
+            await History.create({
+                userId: req.userId, type,
+                originalUrl: urls[i], supabaseUrl: urls[i],
+                prompt,
+                uuid: (uuids && uuids[i]) ? uuids[i] : null,
+            });
+            savedCount++;
+        }
+        res.status(200).json({ message: savedCount > 0 ? `${savedCount} salvate` : 'Deja existau în istoric' });
     } catch (err) { res.status(500).json({ error: 'Eroare server' }); }
 });
 

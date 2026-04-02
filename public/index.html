@@ -659,6 +659,103 @@
 
 <div id="toast"></div>
 
+<!-- EXTEND MODAL -->
+<div id="extend-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);backdrop-filter:blur(20px);z-index:200000;align-items:center;justify-content:center;opacity:0;transition:opacity 0.3s" onclick="closeExtendModal(event)">
+    <div onclick="event.stopPropagation()" style="background:linear-gradient(135deg,#12121e 0%,#0e0e1a 100%);border:1px solid rgba(255,255,255,0.08);border-radius:24px;width:90%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 40px 80px -20px rgba(0,0,0,0.7),0 0 0 1px rgba(99,102,241,0.15);position:relative">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.07)">
+            <div style="display:flex;align-items:center;gap:12px">
+                <div style="width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(139,92,246,0.3));border:1px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center">
+                    <i class="fa-solid fa-forward" style="color:rgba(165,168,255,0.9);font-size:0.9rem"></i>
+                </div>
+                <div>
+                    <h3 style="font-size:1rem;font-weight:800;color:white;margin:0;line-height:1.2">Extinde Video</h3>
+                    <p style="font-size:0.68rem;color:rgba(255,255,255,0.3);margin:0;font-weight:600">Continuă videoclipul generat</p>
+                </div>
+            </div>
+            <button onclick="closeExtendModal()" style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.12)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'"><i class="fa-solid fa-xmark text-sm"></i></button>
+        </div>
+
+        <!-- Preview section -->
+        <div style="padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.06)">
+            <div style="display:flex;align-items:center;gap:16px">
+                <!-- Source video thumbnail -->
+                <div style="flex-shrink:0;position:relative">
+                    <div style="width:110px;height:70px;border-radius:12px;overflow:hidden;border:2px solid rgba(99,102,241,0.4);position:relative;background:#000">
+                        <video id="ext-preview-vid" muted preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>
+                        <div style="position:absolute;top:4px;left:4px;background:rgba(99,102,241,0.85);border-radius:6px;padding:2px 7px;font-size:0.55rem;font-weight:800;color:white;text-transform:uppercase;letter-spacing:0.05em">Sursă</div>
+                    </div>
+                </div>
+                <!-- Arrow + label -->
+                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
+                    <i class="fa-solid fa-arrow-right" style="color:rgba(99,102,241,0.7);font-size:1.1rem"></i>
+                    <span style="font-size:0.6rem;font-weight:700;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.08em;text-align:center">Extinde<br>cu AI</span>
+                </div>
+                <!-- Result placeholder -->
+                <div style="flex:1;height:70px;border-radius:12px;border:2px dashed rgba(99,102,241,0.35);background:rgba(99,102,241,0.05);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
+                    <div style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(99,102,241,0.4);display:flex;align-items:center;justify-content:center">
+                        <i class="fa-solid fa-plus" style="color:rgba(99,102,241,0.7);font-size:0.7rem"></i>
+                    </div>
+                    <span style="font-size:0.6rem;font-weight:700;color:rgba(99,102,241,0.6);text-transform:uppercase;letter-spacing:0.05em">Video extins</span>
+                    <span style="font-size:0.55rem;color:rgba(255,255,255,0.25)">Va fi generat</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model selector -->
+        <div style="padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.06)">
+            <label style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.3);display:block;margin-bottom:10px">Model Extend</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="ext-model-btns">
+                <button onclick="selectExtendModel('grok')" id="ext-btn-grok" class="ext-model-btn" style="padding:10px 14px;border-radius:12px;border:1.5px solid rgba(99,102,241,0.5);background:rgba(99,102,241,0.12);cursor:pointer;text-align:left;transition:all 0.2s">
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:1rem">⚡</span>
+                        <div>
+                            <div style="font-size:0.78rem;font-weight:800;color:rgba(165,168,255,0.95)">Grok 3</div>
+                            <div style="font-size:0.62rem;color:rgba(255,255,255,0.35);font-weight:600">720p · ~40 sec</div>
+                        </div>
+                    </div>
+                </button>
+                <button onclick="selectExtendModel('veo')" id="ext-btn-veo" class="ext-model-btn" style="padding:10px 14px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);cursor:pointer;text-align:left;transition:all 0.2s">
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:1rem">🌐</span>
+                        <div>
+                            <div style="font-size:0.78rem;font-weight:800;color:rgba(255,255,255,0.7)">Veo 2</div>
+                            <div style="font-size:0.62rem;color:rgba(255,255,255,0.35);font-weight:600">1080p · 1-2 min</div>
+                        </div>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Duration (only for Grok) -->
+        <div id="ext-duration-row" style="padding:14px 24px;border-bottom:1px solid rgba(255,255,255,0.06)">
+            <label style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.3);display:block;margin-bottom:10px">Durată</label>
+            <div style="display:flex;gap:8px">
+                <button onclick="selectExtendDuration(6)" id="ext-dur-6" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.5);font-size:0.8rem;font-weight:700;cursor:pointer;transition:all 0.2s">6 secunde</button>
+                <button onclick="selectExtendDuration(10)" id="ext-dur-10" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid rgba(99,102,241,0.5);background:rgba(99,102,241,0.12);color:rgba(165,168,255,0.95);font-size:0.8rem;font-weight:700;cursor:pointer;transition:all 0.2s">10 secunde</button>
+            </div>
+        </div>
+
+        <!-- Prompt -->
+        <div style="padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.06)">
+            <label style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.3);display:block;margin-bottom:10px">Prompt Extend <span style="normal-case;font-weight:500;color:rgba(255,255,255,0.2)">(opțional)</span></label>
+            <textarea id="ext-prompt" rows="3" placeholder="Descrie ce vrei să se întâmple în continuare... (opțional)" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px 14px;font-size:0.85rem;color:rgba(255,255,255,0.85);outline:none;resize:none;font-family:'Inter',sans-serif;transition:border-color 0.2s;box-sizing:border-box" onfocus="this.style.borderColor='rgba(99,102,241,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"></textarea>
+        </div>
+
+        <!-- Footer / Generate button -->
+        <div style="padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-size:1.1rem;font-weight:900;color:#f5c842" id="ext-cost-display">2</span>
+                <i class="fa-solid fa-coins" style="color:#f5c842;font-size:0.85rem;opacity:0.8"></i>
+                <span style="font-size:0.68rem;font-weight:700;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.05em">credite</span>
+            </div>
+            <button id="ext-gen-btn" onclick="submitExtend()" style="flex:1;max-width:260px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;padding:12px 20px;border-radius:14px;font-size:0.9rem;font-weight:800;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.3s;box-shadow:0 8px 24px rgba(99,102,241,0.3)" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 12px 28px rgba(99,102,241,0.4)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 8px 24px rgba(99,102,241,0.3)'">
+                <i class="fa-solid fa-forward"></i> Generează Extend
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- NAV -->
 <div class="sticky top-0 z-50 flex w-full justify-center px-4 pt-4 pb-2 max-w-screen-2xl mx-auto relative z-10">
     <nav class="nav-glass w-full px-4 md:px-6 py-3 flex justify-between items-center">
@@ -740,6 +837,7 @@
                         </optgroup>
                     </select>
                 </div>
+                <div id="model-eta-chip" style="margin-top:10px;display:none"></div>
             </div>
 
             <!-- PROMPT -->
@@ -816,9 +914,9 @@
                                 <img id="start-frame-img" src="" alt="start">
                                 <div class="remove-btn" onclick="removeFrame('start')"><i class="fa-solid fa-xmark"></i></div>
                             </div>
-                            <div id="start-frame-zone" class="dropzone flex flex-col items-center justify-center text-center p-3 min-h-[80px]" onclick="document.getElementById('start-frame-input').click()">
-                                <i class="fa-solid fa-cloud-arrow-up mb-1" style="color:rgba(255,255,255,0.2);font-size:1.2rem"></i>
-                                <span class="text-[0.62rem] font-bold" style="color:rgba(255,255,255,0.3)">Încarcă</span>
+                            <div id="start-frame-zone" class="dropzone flex flex-col items-center justify-center text-center p-3 min-h-[80px]" onclick="openFramePicker('start')">
+                                <i class="fa-solid fa-images mb-1" style="color:rgba(255,255,255,0.2);font-size:1.2rem"></i>
+                                <span class="text-[0.62rem] font-bold" style="color:rgba(255,255,255,0.3)">Alege imagine</span>
                             </div>
                         </div>
                         <div>
@@ -829,9 +927,9 @@
                                 <img id="end-frame-img" src="" alt="end">
                                 <div class="remove-btn" onclick="removeFrame('end')"><i class="fa-solid fa-xmark"></i></div>
                             </div>
-                            <div id="end-frame-zone" class="dropzone flex flex-col items-center justify-center text-center p-3 min-h-[80px]" onclick="document.getElementById('end-frame-input').click()">
-                                <i class="fa-solid fa-cloud-arrow-up mb-1" style="color:rgba(255,255,255,0.2);font-size:1.2rem"></i>
-                                <span class="text-[0.62rem] font-bold" style="color:rgba(255,255,255,0.3)">Încarcă</span>
+                            <div id="end-frame-zone" class="dropzone flex flex-col items-center justify-center text-center p-3 min-h-[80px]" onclick="openFramePicker('end')">
+                                <i class="fa-solid fa-images mb-1" style="color:rgba(255,255,255,0.2);font-size:1.2rem"></i>
+                                <span class="text-[0.62rem] font-bold" style="color:rgba(255,255,255,0.3)">Alege imagine</span>
                             </div>
                         </div>
                     </div>
@@ -842,11 +940,11 @@
             <div id="refs-section" class="panel-s pt-0 border-none mt-2">
                 <label class="field-label flex justify-between items-center mb-3">
                     <span>Referințe <span class="normal-case font-medium" style="color:rgba(255,255,255,0.2)">(opțional)</span></span>
-                    <span class="text-[0.62rem] px-2.5 py-1 rounded-lg cursor-pointer font-display font-bold transition-all" style="background:rgba(99,102,241,0.15);color:rgba(165,168,255,0.8);border:1px solid rgba(99,102,241,0.25)" onclick="document.getElementById('ref-file').click()">+ Adaugă</span>
+                    <span class="text-[0.62rem] px-2.5 py-1 rounded-lg cursor-pointer font-display font-bold transition-all" style="background:rgba(99,102,241,0.15);color:rgba(165,168,255,0.8);border:1px solid rgba(99,102,241,0.25)" onclick="openRefsPicker()">+ Adaugă</span>
                 </label>
                 <input type="file" id="ref-file" class="hidden" accept="image/*" multiple onchange="handleFileSelect(event)">
                 <div id="ref-gallery" class="flex flex-wrap gap-2 mb-3 hidden"></div>
-                <div id="ref-zone" class="dropzone flex flex-col items-center justify-center text-center p-5 min-h-[90px] mb-3" onclick="document.getElementById('ref-file').click()">
+                <div id="ref-zone" class="dropzone flex flex-col items-center justify-center text-center p-5 min-h-[90px] mb-3" onclick="openRefsPicker()">
                     <div class="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5" style="background:rgba(255,255,255,0.05)">
                         <i class="fa-solid fa-cloud-arrow-up" style="color:rgba(255,255,255,0.3)"></i>
                     </div>
@@ -937,8 +1035,10 @@ const MODEL_META = {
     'gemini-flash': { type:'image', cost:1 },
     'gemini-pro':   { type:'image', cost:2 },
     'veo3.1-fast':  { type:'video', cost:2 },
+    'veo-extend':   { type:'video', cost:2 },
     'grok-720p-6s': { type:'video', cost:2 },
-    'grok-720p-10s':{ type:'video', cost:2 }
+    'grok-720p-10s':{ type:'video', cost:2 },
+    'grok-extend':  { type:'video', cost:2 }
 };
 let mode = 'image';
 let imgCount = 1;
@@ -974,12 +1074,30 @@ function updateUI(user) {
     document.getElementById('nav-name').innerText = user.name.split(' ')[0];
     document.getElementById('nav-avatar').src = user.picture;
     document.getElementById('nav-credits').innerText = user.credits;
-    loadHistory();
+    loadHistory(); // mode e deja restaurat din localStorage în window.onload
 }
 
 function logout() { removeToken(); location.reload(); }
 
 window.onload = async () => {
+    // ── Restaurăm mode-ul (image/video) din localStorage înainte de orice altceva ──
+    const savedMode = localStorage.getItem('viralio_mode');
+    if (savedMode === 'video' && mode !== 'video') {
+        // Schimbăm fără să triggereze loadHistory (îl facem noi mai jos)
+        mode = 'video';
+        document.getElementById('tab-image').classList.remove('active');
+        document.getElementById('tab-video').classList.add('active');
+        document.getElementById('og-img').style.display = 'none';
+        document.getElementById('og-vid').style.display = '';
+        document.getElementById('og-grok').style.display = '';
+        document.getElementById('model-sel').value = 'veo3.1-fast';
+        updateModelEtaChip();
+        document.getElementById('img-options').classList.add('hidden');
+        document.getElementById('vid-options').classList.remove('hidden');
+        document.getElementById('refs-section').classList.add('hidden');
+        refreshBadges();
+    }
+
     const t = getToken();
     if(t) {
         try {
@@ -988,7 +1106,8 @@ window.onload = async () => {
         } catch(e){}
     }
     refreshBadges();
-    if(t) loadHistory();
+    // tryRestoreTask e chemat din updateUI → loadHistory (deja setat mode corect)
+    if(t) { tryRestoreTask(); }
 };
 
 // ===================== UI HELPERS =====================
@@ -1005,18 +1124,58 @@ function refreshBadges(){
     const n = mode==='image'?imgCount:vidCount;
     document.getElementById('total-cost').textContent = m.cost*n;
 }
-function onModelChange(){ refreshBadges(); }
+
+function onModelChange(){
+    refreshBadges();
+    updateModelEtaChip();
+}
+
+function updateModelEtaChip(){
+    const chip = document.getElementById('model-eta-chip');
+    if(!chip) return;
+    const modelId = document.getElementById('model-sel')?.value || '';
+
+    if(modelId.startsWith('grok-')){
+        chip.style.display = 'flex';
+        chip.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:10px;
+            background:rgba(99,211,140,0.08);border:1px solid rgba(99,211,140,0.2);width:100%;box-sizing:border-box">
+            <span style="font-size:0.95rem">${modelId==='grok-extend'?'🔗':'⚡'}</span>
+            <div>
+                <span style="font-size:0.68rem;font-weight:700;color:rgba(99,211,140,0.9);letter-spacing:0.02em">~40 secunde</span>
+                <span style="font-size:0.65rem;color:rgba(255,255,255,0.3);margin-left:6px">${modelId==='grok-extend'?'Grok Extend · continuă video':'procesare rapidă'}</span>
+            </div>
+        </div>`;
+    } else if(modelId.startsWith('veo')){
+        chip.style.display = 'flex';
+        chip.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:10px;
+            background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.25);width:100%;box-sizing:border-box">
+            <span style="font-size:0.95rem">${modelId==='veo-extend'?'🔗':'⏳'}</span>
+            <div>
+                <span style="font-size:0.68rem;font-weight:700;color:rgba(167,139,250,0.9);letter-spacing:0.02em">1–2 minute</span>
+                <span style="font-size:0.65rem;color:rgba(255,255,255,0.3);margin-left:6px">${modelId==='veo-extend'?'Veo Extend · continuă video':'servere aglomerate'}</span>
+            </div>
+        </div>`;
+    } else {
+        chip.style.display = 'none';
+        chip.innerHTML = '';
+    }
+}
 
 function switchMode(m){
     mode=m; const isVid=m==='video';
+    try { localStorage.setItem('viralio_mode', m); } catch(e) {}
     document.getElementById('tab-image').classList.toggle('active',!isVid);
     document.getElementById('tab-video').classList.toggle('active',isVid);
     document.getElementById('og-img').style.display = isVid?'none':'';
     document.getElementById('og-vid').style.display = isVid?'':'none';
     document.getElementById('og-grok').style.display = isVid?'':'none';
     document.getElementById('model-sel').value = isVid?'veo3.1-fast':'gemini-flash';
+    updateModelEtaChip();
     document.getElementById('img-options').classList.toggle('hidden',isVid);
     document.getElementById('vid-options').classList.toggle('hidden',!isVid);
+    // refs: only for image mode; video uses start/end frame picker
     document.getElementById('refs-section').classList.toggle('hidden', isVid);
     refreshBadges();
     if(getToken()) loadHistory();
@@ -1150,7 +1309,7 @@ function checkEmptyState(){
 // ===================== JOB SYSTEM =====================
 // NOTA: Nu mai există cancelJob — generările nu se pot opri din frontend.
 
-function buildShimmerLoading(currentMode, count, ratio) {
+function buildShimmerLoading(currentMode, count, ratio, modelId) {
     count = count || 1;
     ratio = ratio || (currentMode === 'video' ? '9:16' : '9:16');
     const ratioMap = {
@@ -1174,12 +1333,94 @@ function buildShimmerLoading(currentMode, count, ratio) {
     ).join('');
     const statusId = 'job-status-JOBID';
     const statusText = currentMode === 'video' ? 'Se generează videoclipul...' : 'Se generează imaginile...';
+
+    // ETA badge per model
+    let etaBadge = '';
+    if (currentMode === 'video' && modelId) {
+        let etaIcon, etaLabel, etaNote, etaColor, etaGlow;
+        if (modelId === 'grok-extend') {
+            etaIcon = '🔗';
+            etaLabel = '~40 sec';
+            etaNote = 'Grok Extend · continuă video';
+            etaColor = 'rgba(99,211,140,0.15)';
+            etaGlow  = 'rgba(99,211,140,0.35)';
+        } else if (modelId.startsWith('grok-')) {
+            etaIcon = '⚡';
+            etaLabel = '~40 sec';
+            etaNote = 'Grok · procesare rapidă';
+            etaColor = 'rgba(99,211,140,0.15)';
+            etaGlow  = 'rgba(99,211,140,0.35)';
+        } else if (modelId === 'veo-extend') {
+            etaIcon = '🔗';
+            etaLabel = '1–2 min';
+            etaNote = 'Veo Extend · continuă video';
+            etaColor = 'rgba(139,92,246,0.15)';
+            etaGlow  = 'rgba(139,92,246,0.35)';
+        } else {
+            etaIcon = '🌐';
+            etaLabel = '1–2 min';
+            etaNote = 'Veo 3.1 · servere aglomerate';
+            etaColor = 'rgba(139,92,246,0.15)';
+            etaGlow  = 'rgba(139,92,246,0.35)';
+        }
+        etaBadge = `
+        <div class="eta-badge" style="
+            display:flex;align-items:center;gap:10px;
+            background:${etaColor};
+            border:1px solid ${etaGlow};
+            border-radius:12px;padding:8px 14px;margin-top:2px;
+            backdrop-filter:blur(8px);
+        ">
+            <span style="font-size:1rem;line-height:1">${etaIcon}</span>
+            <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span style="font-size:0.7rem;font-weight:700;color:rgba(255,255,255,0.75);letter-spacing:0.03em">${etaNote}</span>
+                    <span id="eta-timer-JOBID" style="font-size:0.7rem;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,0.4);font-family:monospace">0s</span>
+                </div>
+                <div style="margin-top:5px;height:2px;border-radius:99px;background:rgba(255,255,255,0.07);overflow:hidden">
+                    <div id="eta-bar-JOBID" style="height:100%;border-radius:99px;background:${etaGlow};width:0%;transition:width 1s linear"></div>
+                </div>
+            </div>
+        </div>`;
+    }
+
     return `
     <div class="flex flex-col gap-3">
         ${header}
         <div class="flex gap-2 justify-center flex-wrap">${placeholders}</div>
         <p id="${statusId}" class="text-center text-xs font-medium mt-1" style="color:rgba(255,255,255,0.3)">${statusText}</p>
     </div>`;
+}
+
+
+// ===================== ETA TIMER =====================
+const _etaTimers = {};
+function startEtaTimer(jobId, maxSec) {
+    let elapsed = 0;
+    const timerId = setInterval(() => {
+        elapsed++;
+        const timerEl = document.getElementById(`eta-timer-${jobId}`);
+        const barEl   = document.getElementById(`eta-bar-${jobId}`);
+        if (!timerEl) { clearInterval(timerId); return; } // card removed
+        timerEl.textContent = elapsed >= 60
+            ? `${Math.floor(elapsed/60)}m ${elapsed%60}s`
+            : `${elapsed}s`;
+        if (barEl) {
+            const pct = Math.min((elapsed / maxSec) * 100, 97); // never reach 100 until done
+            barEl.style.width = pct + '%';
+        }
+        if (elapsed >= maxSec * 3) clearInterval(timerId); // safety stop
+    }, 1000);
+    _etaTimers[jobId] = timerId;
+}
+function stopEtaTimer(jobId) {
+    if (_etaTimers[jobId]) {
+        clearInterval(_etaTimers[jobId]);
+        delete _etaTimers[jobId];
+        // Snap bar to 100% on success
+        const barEl = document.getElementById(`eta-bar-${jobId}`);
+        if (barEl) { barEl.style.transition='width 0.4s ease'; barEl.style.width='100%'; }
+    }
 }
 
 function createJobCard(jobId, promptText, currentMode, count, ratio){
@@ -1191,7 +1432,9 @@ function createJobCard(jobId, promptText, currentMode, count, ratio){
     const typeLabel = currentMode==='video'
         ? `<span class="flex items-center gap-1.5" style="color:rgba(165,168,255,0.7)"><i class="fa-solid fa-clapperboard text-[0.6rem]"></i> <span class="font-bold text-[0.65rem] uppercase tracking-wider">Video</span></span>`
         : `<span class="flex items-center gap-1.5" style="color:rgba(165,168,255,0.7)"><i class="fa-solid fa-image text-[0.6rem]"></i> <span class="font-bold text-[0.65rem] uppercase tracking-wider">Imagine</span></span>`;
-    const shimmer = buildShimmerLoading(currentMode, count, ratio).replace('job-status-JOBID', `job-status-${jobId}`);
+    const _selModel = document.getElementById('model-sel')?.value || '';
+    const shimmer = buildShimmerLoading(currentMode, count, ratio, _selModel)
+        .replace(/JOBID/g, String(jobId));
     el.innerHTML=`
         <div class="flex items-center justify-between px-5 py-3.5" style="border-bottom:1px solid rgba(255,255,255,0.05)">
             <div class="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
@@ -1223,7 +1466,7 @@ function setJobStatus(jobId, text){
     if(st) st.textContent = text;
 }
 
-function setJobDone(jobId, urls, ratioVal, currentMode){
+function setJobDone(jobId, urls, ratioVal, currentMode, uuids){ stopEtaTimer(jobId); clearActiveTask();
     const body=document.getElementById(`job-body-${jobId}`); const card=document.getElementById(`job-${jobId}`);
     if(!body||!card) return;
     card.className='job-card done';
@@ -1269,12 +1512,15 @@ function setJobDone(jobId, urls, ratioVal, currentMode){
                     <button onclick="downloadMedia('${url}','viralio_img_${ts}.png')" class="w-full text-xs font-bold px-3 py-2 rounded-xl transition-all" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
                 </div>`;
         } else {
+            const uuid = (uuids && uuids[idx]) || '';
+            const extendAttr = uuid ? `data-uuid="${uuid}" data-url="${url}"` : `data-url="${url}"`;
             el.innerHTML=`
                 <div class="${aspectClass(ratioVal)} w-full relative overflow-hidden" style="background:#000;border-radius:14px 14px 0 0">
                     <video src="${url}" controls playsinline preload="metadata" class="absolute inset-0 w-full h-full object-contain"></video>
                 </div>
-                <div class="p-2.5" style="border-top:1px solid rgba(255,255,255,0.05)">
-                    <button onclick="downloadMedia('${url}','viralio_vid_${ts}.mp4')" class="w-full text-xs font-bold px-3 py-2 rounded-xl transition-all" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
+                <div class="p-2.5 flex gap-2" style="border-top:1px solid rgba(255,255,255,0.05)">
+                    <button onclick="downloadMedia('${url}','viralio_vid_${ts}.mp4')" class="flex-1 text-xs font-bold px-3 py-2 rounded-xl transition-all" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)"><i class="fa-solid fa-download mr-1"></i>Descarcă</button>
+                    <button ${extendAttr} onclick="openExtendModal(this.dataset.uuid, this.dataset.url)" class="text-xs font-bold px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap" style="color:rgba(165,168,255,0.9);background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.35)" onmouseover="this.style.background='rgba(99,102,241,0.28)'" onmouseout="this.style.background='rgba(99,102,241,0.15)'"><i class="fa-solid fa-forward text-[0.65rem]"></i> Extindere</button>
                 </div>`;
         }
         return el;
@@ -1316,7 +1562,7 @@ function setJobDone(jobId, urls, ratioVal, currentMode){
     body.appendChild(wrapper);
 }
 
-function setJobError(jobId, msg){
+function setJobError(jobId, msg){ stopEtaTimer(jobId); clearActiveTask();
     const body=document.getElementById(`job-body-${jobId}`); const card=document.getElementById(`job-${jobId}`);
     if(!body) return;
     card.className='job-card error';
@@ -1389,12 +1635,14 @@ async function readSSEJob(jobId, response){
 }
 
 function extractUrls(data){
-    if(!data) return [];
-    if(data.file_urls&&Array.isArray(data.file_urls)&&data.file_urls.length>0) return data.file_urls;
-    if(data.file_url) return [data.file_url];
-    if(data.video_url) return [data.video_url];
-    if(data.url) return [data.url];
-    const found=[]; const scan=(o)=>{ for(let k in o){ if(typeof o[k]==='string'&&(o[k].includes('.mp4')||o[k].includes('.png')||o[k].startsWith('http'))) found.push(o[k]); else if(typeof o[k]==='object'&&o[k]!==null) scan(o[k]); } }; scan(data); return found;
+    if(!data) return { urls: [], uuids: [] };
+    const uuids = data.file_uuids || [];
+    if(data.file_urls&&Array.isArray(data.file_urls)&&data.file_urls.length>0) return { urls: data.file_urls, uuids };
+    if(data.file_url) return { urls: [data.file_url], uuids };
+    if(data.video_url) return { urls: [data.video_url], uuids };
+    if(data.url) return { urls: [data.url], uuids };
+    const found=[]; const scan=(o)=>{ for(let k in o){ if(typeof o[k]==='string'&&(o[k].includes('.mp4')||o[k].includes('.png')||o[k].startsWith('http'))) found.push(o[k]); else if(typeof o[k]==='object'&&o[k]!==null) scan(o[k]); } }; scan(data);
+    return { urls: found, uuids };
 }
 
 // ===================== RUN JOB =====================
@@ -1410,13 +1658,16 @@ async function runJob(jobId, promptText, currentMode, ratio, refs, token, startF
             const resp=await fetch('/api/media/image',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
             if(!resp.ok){ const j=await resp.json().catch(()=>{}); throw new Error(j?.error||'Eroare server'); }
             const data=await readSSEJob(jobId,resp);
-            const urls=extractUrls(data); if(!urls?.length) throw new Error('Nu s-au generat imagini.');
-            setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText,currentMode);
+            const { urls } = extractUrls(data); if(!urls?.length) throw new Error('Nu s-au generat imagini.');
+            setJobDone(jobId,urls,ratio,currentMode,[]);
+            // ✅ Salvăm doar dacă serverul NU a salvat deja
+            if(!data?.saved_to_history) await saveToSupabase(urls,promptText,currentMode,[]);
         } else {
             const model_id=document.getElementById('model-sel').value;
             let statusMsg = 'Se trimite la AI...';
             if (startFrame && endFrame) statusMsg = 'Se trimite cu start + end frame...';
             else if (startFrame) statusMsg = 'Se trimite cu start frame...';
+            else if (model_id === 'veo-extend' || model_id === 'grok-extend') statusMsg = 'Se trimite pentru extend video...';
             setJobStatus(jobId, statusMsg);
             fd.append('prompt',promptText); fd.append('aspect_ratio',ratio); fd.append('number_of_videos',vidCount); fd.append('model_id',model_id);
             if (startFrame) fd.append('start_image', startFrame, startFrame.name);
@@ -1425,10 +1676,12 @@ async function runJob(jobId, promptText, currentMode, ratio, refs, token, startF
             const resp=await fetch('/api/media/video',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
             if(!resp.ok){ const j=await resp.json().catch(()=>{}); throw new Error(j?.error||'Eroare server'); }
             const data=await readSSEJob(jobId,resp);
-            const urls=extractUrls(data); if(!urls?.length) throw new Error('Nu s-a generat video.');
-            setJobDone(jobId,urls,ratio,currentMode); saveToSupabase(urls,promptText,currentMode);
+            const { urls, uuids } = extractUrls(data); if(!urls?.length) throw new Error('Nu s-a generat video.');
+            setJobDone(jobId,urls,ratio,currentMode,uuids);
+            // ✅ Salvăm doar dacă serverul NU a salvat deja
+            if(!data?.saved_to_history) await saveToSupabase(urls,promptText,currentMode,uuids);
         }
-        setTimeout(loadHistory,2000);
+        setTimeout(loadHistory, 3000); // 3s pentru a da timp DB-ului să scrie
     } catch(err){
         // Mapăm erorile native de browser la mesaje prietenoase
         let msg = err.message || '';
@@ -1446,6 +1699,137 @@ async function runJob(jobId, promptText, currentMode, ratio, refs, token, startF
         } catch(e){}
     }
 }
+
+// ===================== EXTEND MODAL =====================
+let _extendUUID = '';
+let _extendUrl  = '';
+let _extendModel = 'grok'; // 'grok' | 'veo'
+let _extendDuration = 10;
+
+function openExtendModal(uuid, url) {
+    _extendUUID = uuid || '';
+    _extendUrl  = url  || '';
+    _extendModel = 'grok';
+    _extendDuration = 10;
+
+    // Salvăm în localStorage pentru recover după refresh
+    try { localStorage.setItem('viralio_last_extend', JSON.stringify({ uuid, url, ts: Date.now() })); } catch(e){}
+
+    // Set preview video
+    const vid = document.getElementById('ext-preview-vid');
+    if(vid) { vid.src = url; vid.currentTime = 0; }
+
+    // Reset prompt
+    const pr = document.getElementById('ext-prompt'); if(pr) pr.value = '';
+
+    // Reset model selection
+    selectExtendModel('grok');
+    selectExtendDuration(10);
+
+    const modal = document.getElementById('extend-modal');
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => { modal.style.opacity = '1'; });
+}
+
+function closeExtendModal(e) {
+    if(e && e.target !== document.getElementById('extend-modal') && e.type !== 'click') return;
+    const modal = document.getElementById('extend-modal');
+    modal.style.opacity = '0';
+    setTimeout(() => { modal.style.display = 'none'; }, 300);
+    const vid = document.getElementById('ext-preview-vid');
+    if(vid) { vid.pause(); vid.src = ''; }
+}
+
+function selectExtendModel(model) {
+    _extendModel = model;
+    const grokBtn = document.getElementById('ext-btn-grok');
+    const veoBtn  = document.getElementById('ext-btn-veo');
+    const durRow  = document.getElementById('ext-duration-row');
+
+    if(model === 'grok') {
+        grokBtn.style.border = '1.5px solid rgba(99,102,241,0.5)';
+        grokBtn.style.background = 'rgba(99,102,241,0.12)';
+        grokBtn.querySelector('div div:first-child').style.color = 'rgba(165,168,255,0.95)';
+        veoBtn.style.border = '1.5px solid rgba(255,255,255,0.08)';
+        veoBtn.style.background = 'rgba(255,255,255,0.03)';
+        veoBtn.querySelector('div div:first-child').style.color = 'rgba(255,255,255,0.7)';
+        if(durRow) durRow.style.display = 'block';
+    } else {
+        veoBtn.style.border = '1.5px solid rgba(99,102,241,0.5)';
+        veoBtn.style.background = 'rgba(99,102,241,0.12)';
+        veoBtn.querySelector('div div:first-child').style.color = 'rgba(165,168,255,0.95)';
+        grokBtn.style.border = '1.5px solid rgba(255,255,255,0.08)';
+        grokBtn.style.background = 'rgba(255,255,255,0.03)';
+        grokBtn.querySelector('div div:first-child').style.color = 'rgba(255,255,255,0.7)';
+        if(durRow) durRow.style.display = 'none';
+    }
+}
+
+function selectExtendDuration(dur) {
+    _extendDuration = dur;
+    const b6  = document.getElementById('ext-dur-6');
+    const b10 = document.getElementById('ext-dur-10');
+    const active  = { border:'1.5px solid rgba(99,102,241,0.5)', background:'rgba(99,102,241,0.12)', color:'rgba(165,168,255,0.95)' };
+    const inactive = { border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.03)', color:'rgba(255,255,255,0.5)' };
+    Object.assign(b6.style,  dur === 6  ? active : inactive);
+    Object.assign(b10.style, dur === 10 ? active : inactive);
+}
+
+async function submitExtend() {
+    const token = getToken(); if(!token){ closeExtendModal(); openLoginModal(); return; }
+    if(!_extendUUID){ toast('UUID lipsă — videoclipul nu are ID salvat.'); return; }
+
+    const prompt = document.getElementById('ext-prompt')?.value?.trim() || '';
+    const model_id = _extendModel === 'grok' ? 'grok-extend' : 'veo-extend';
+    const ratio = '9:16'; // extend uses source video ratio — backend ignores it for extend anyway
+
+    // Close modal and start job
+    closeExtendModal();
+
+    const jobId = ++jobCounter;
+    activeJobs.set(jobId, { aborted: false, reader: null });
+    const card = createJobCard(jobId, prompt || 'Extend video...', 'video', 1, ratio);
+    document.getElementById('jobs-area').prepend(card);
+    checkEmptyState();
+
+    const maxSec = _extendModel === 'grok' ? 50 : 130;
+    startEtaTimer(jobId, maxSec);
+    markTaskActive(jobId, { type: 'extend', prompt, uuid: _extendUUID, model: model_id, ratio: '16:9', count: 1 });
+
+    try {
+        const fd = new FormData();
+        fd.append('prompt', prompt);
+        fd.append('model_id', model_id);
+        fd.append('aspect_ratio', ratio);
+        fd.append('number_of_videos', '1');
+        fd.append('ref_history', _extendUUID);
+        fd.append('extend_duration', String(_extendDuration));
+
+        setJobStatus(jobId, 'Se trimite la AI pentru extend...');
+        const resp = await fetch('/api/media/video', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:fd });
+        if(!resp.ok){ const j = await resp.json().catch(()=>{}); throw new Error(j?.error||'Eroare server'); }
+        const data = await readSSEJob(jobId, resp);
+        const { urls, uuids } = extractUrls(data);
+        if(!urls?.length) throw new Error('Nu s-a generat video extend.');
+        setJobDone(jobId, urls, ratio, 'video', uuids);
+        // ✅ Salvăm doar dacă serverul NU a salvat deja
+        if(!data?.saved_to_history) saveToSupabase(urls, prompt || 'Extend video', 'video', uuids);
+        setTimeout(loadHistory, 2000);
+    } catch(err) {
+        let msg = err.message || '';
+        if(msg === 'Failed to fetch' || msg.toLowerCase().includes('network')) msg = 'Conexiunea a fost întreruptă. Reîncearcă.';
+        setJobError(jobId, msg);
+    } finally {
+        activeJobs.delete(jobId);
+        try {
+            const r = await fetch('/api/auth/me', { headers:{'Authorization':'Bearer '+token} });
+            if(r.ok){ const d = await r.json(); document.getElementById('nav-credits').innerText = d.user.credits; }
+        } catch(e){}
+    }
+}
+
+// Close extend modal on Escape
+document.addEventListener('keydown', e => { if(e.key==='Escape' && document.getElementById('extend-modal').style.display==='flex') closeExtendModal(); });
 
 // ===================== GENERATE =====================
 async function generate(){
@@ -1472,12 +1856,23 @@ async function generate(){
     }
 
     runJob(jobId,promptText,currentMode,ratio,refs,token,startFrame,endFrame);
+    // Start ETA timer if video mode
+    if(currentMode==='video'){
+        const modelId = document.getElementById('model-sel')?.value || '';
+        const maxSec = (modelId.startsWith('grok-')) ? 50 : 130;
+        startEtaTimer(jobId, maxSec);
+        markTaskActive(jobId, { type: 'video', prompt: promptText, model: modelId, ratio, count: vidCount });
+    } else {
+        markTaskActive(jobId, { type: 'image', prompt: promptText, ratio, count: imgCount });
+    }
 }
 
 // ===================== HISTORY =====================
-async function saveToSupabase(urls,promptText,jobMode){
+async function saveToSupabase(urls,promptText,jobMode,uuids){
     const token=getToken(); if(!token) return;
-    try { await fetch('/api/media/save-history',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({urls,type:jobMode||mode,prompt:promptText})}); } catch(e){}
+    try {
+        await fetch('/api/media/save-history',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({urls,type:jobMode||mode,prompt:promptText,uuids:uuids||[]})});
+    } catch(e){}
 }
 
 let historyPage = 1;
@@ -1511,8 +1906,10 @@ async function loadHistory(append=false){
             const last=grouped[grouped.length-1]; const ps=item.prompt||'Fără prompt';
             const url=item.supabaseUrl||item.originalUrl;
             if(!url) return; // skip entries without URL
-            if(last&&last.prompt===ps&&last.type===item.type) last.urls.push(url);
-            else grouped.push({prompt:ps,type:item.type,urls:[url]});
+            if(last&&last.prompt===ps&&last.type===item.type) {
+                last.urls.push(url);
+                last.uuids.push(item.uuid||'');
+            } else grouped.push({prompt:ps,type:item.type,urls:[url],uuids:[item.uuid||'']});
         });
 
         if(!append) window.currentHistoryMedia=[];
@@ -1520,23 +1917,27 @@ async function loadHistory(append=false){
 
         let counter=window.currentHistoryMedia.length;
 
-        grouped.forEach(g=>g.urls.forEach(u=>window.currentHistoryMedia.push({url:u,type:g.type})));
+        grouped.forEach(g=>g.urls.forEach((u,i)=>window.currentHistoryMedia.push({url:u,type:g.type,uuid:g.uuids[i]||''})));
 
         grouped.forEach((group,i)=>{
-            const mediaHtml=group.urls.map((url)=>{
+            const mediaHtml=group.urls.map((url,urlIdx)=>{
                 const idx=counter++;
                 if(group.type==='image') return `
                     <div class="aspect-square rounded-xl overflow-hidden cursor-pointer transition-all hover:scale-[1.03] hover:shadow-lg relative bg-white/5" style="border:1px solid rgba(255,255,255,0.06)" onclick="openLightbox(window.currentHistoryMedia,${idx},'image')">
                         <img src="${url}" loading="lazy" class="w-full h-full object-cover" onerror="this.parentElement.style.opacity='0.3';this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1 1%22/>'">
                     </div>`;
                 return `
-                    <div class="aspect-video relative rounded-xl overflow-hidden cursor-pointer transition-all hover:scale-[1.03]" style="border:1px solid rgba(255,255,255,0.06)" onclick="openLightbox(window.currentHistoryMedia,${idx},'video')">
-                        <video data-src="${url}" class="w-full h-full object-cover hist-video" preload="none" muted playsinline
-                            onerror="this.parentElement.style.opacity='0.3'"></video>
-                        <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.35)">
+                    <div class="aspect-video relative rounded-xl overflow-hidden transition-all hover:scale-[1.03]" style="border:1px solid rgba(255,255,255,0.06)">
+                        <div onclick="openLightbox(window.currentHistoryMedia,${idx},'video')" class="absolute inset-0 cursor-pointer" style="z-index:1"></div>
+                        <video data-src="${url}" class="w-full h-full object-cover hist-video" preload="none" muted playsinline crossorigin="anonymous"
+                            onerror="if(!this.dataset.retried){this.dataset.retried='1';setTimeout(()=>{this.src=this.dataset.src+'?r='+Date.now()},1000)}else{this.parentElement.style.opacity='0.3'}"></video>
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none" style="background:rgba(0,0,0,0.35);z-index:2">
                             <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.3);backdrop-filter:blur(4px)">
                                 <i class="fa-solid fa-play text-white text-xs ml-0.5"></i>
                             </div>
+                        </div>
+                        <div class="absolute bottom-1.5 right-1.5" style="z-index:3">
+                            <button data-url="${url}" data-uuid="${group.uuids[urlIdx]||''}" onclick="event.stopPropagation();openExtendModal(this.dataset.uuid,this.dataset.url)" class="flex items-center gap-1 text-[0.6rem] font-bold px-2 py-1 rounded-lg" style="background:rgba(99,102,241,0.88);color:white;border:1px solid rgba(165,168,255,0.3);backdrop-filter:blur(4px)"><i class="fa-solid fa-forward" style="font-size:0.5rem"></i><span class="hidden sm:inline">Extindere</span><span class="sm:hidden">+</span></button>
                         </div>
                     </div>`;
             }).join('');
@@ -1582,19 +1983,136 @@ const videoObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
         if(!entry.isIntersecting) return;
         const video = entry.target;
-        if(video.dataset.src && !video.src) {
+        if(video.dataset.src && !video.dataset.loaded) {
+            video.dataset.loaded = '1';
             video.src = video.dataset.src;
             video.preload = 'metadata';
-            video.addEventListener('loadedmetadata', () => { video.currentTime = 0.5; }, { once: true });
+            // ✅ Retry robust: dacă metadata nu se încarcă în 8s, reîncercăm cu cache-bust
+            const metaTimeout = setTimeout(() => {
+                if(video.readyState < 1 && !video.dataset.retried) {
+                    video.dataset.retried = '1';
+                    video.src = video.dataset.src + '?r=' + Date.now();
+                }
+            }, 8000);
+            video.addEventListener('loadedmetadata', () => {
+                clearTimeout(metaTimeout);
+                video.currentTime = 0.5;
+            }, { once: true });
         }
         videoObserver.unobserve(video);
     });
-}, { rootMargin: '100px' });
+}, { rootMargin: '300px' });
 
 function observeHistoryVideos(){
     document.querySelectorAll('.hist-video[data-src]').forEach(v => {
-        if(!v.src) videoObserver.observe(v);
+        if(!v.dataset.loaded) videoObserver.observe(v);
     });
+}
+
+// ===================== TASK PERSISTENCE (reconstituire card după refresh) =====================
+
+const TASK_KEY = 'viralio_active_task';
+const TASK_MAX_AGE = 15 * 60 * 1000; // 15 minute
+
+function markTaskActive(jobId, meta) {
+    try {
+        localStorage.setItem(TASK_KEY, JSON.stringify({ jobId, startedAt: Date.now(), ...meta }));
+    } catch(e) {}
+}
+
+function clearActiveTask() {
+    try { localStorage.removeItem(TASK_KEY); } catch(e) {}
+}
+
+// Rulează la window.onload după ce userul e autentificat
+function tryRestoreTask() {
+    let task;
+    try {
+        const raw = localStorage.getItem(TASK_KEY);
+        if (!raw) return;
+        task = JSON.parse(raw);
+    } catch(e) { clearActiveTask(); return; }
+
+    const age = Date.now() - task.startedAt;
+    if (age > TASK_MAX_AGE) { clearActiveTask(); return; }
+
+    // Mode-ul e deja restaurat în window.onload — nu mai apelăm switchMode
+    // (care ar trigger loadHistory a doua oară și ar reseta paginarea)
+    const restoredMode = (task.type === 'image') ? 'image' : 'video';
+
+    const restoredRatio = task.ratio || (restoredMode === 'image' ? '9:16' : '16:9');
+    const restoredCount = task.count || 1;
+    const restoredPrompt = task.prompt || '…';
+
+    const restoredJobId = ++jobCounter;
+    activeJobs.set(restoredJobId, { aborted: false, reader: null, restored: true });
+
+    const card = createJobCard(restoredJobId, restoredPrompt, restoredMode, restoredCount, restoredRatio);
+    const jobsArea = document.getElementById('jobs-area');
+    if (jobsArea) { jobsArea.prepend(card); checkEmptyState(); }
+
+    setJobStatus(restoredJobId, 'Se recuperează generarea după refresh…');
+
+    if (restoredMode === 'video') {
+        const elapsed = Math.floor(age / 1000);
+        const maxSec = (task.model || '').startsWith('grok') ? 50 : 130;
+        startEtaTimer(restoredJobId, Math.max(maxSec - elapsed, 5));
+    }
+
+    _pollForResult(restoredJobId, restoredMode, restoredRatio, restoredPrompt, task.startedAt);
+}
+
+async function _pollForResult(jobId, jobMode, ratio, prompt, startedAt) {
+    const token = getToken();
+    if (!token) {
+        setJobError(jobId, 'Sesiune expirată după refresh. Regenerează.');
+        clearActiveTask(); activeJobs.delete(jobId); return;
+    }
+
+    const MAX_POLLS = 120;  // ~10 minute maxim
+    const INTERVAL  = 5000; // poll la fiecare 5 secunde
+
+    for (let i = 0; i < MAX_POLLS; i++) {
+        await new Promise(r => setTimeout(r, INTERVAL));
+
+        const job = activeJobs.get(jobId);
+        if (!job) return;
+
+        try {
+            const res = await fetch(`/api/media/history?type=${jobMode}&page=1&limit=20`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!res.ok) continue;
+            const data = await res.json();
+
+            // Caută orice item generat DUPĂ ce a pornit task-ul (cu 10s toleranță)
+            const found = (data.history || []).find(item => {
+                const itemTs = new Date(item.createdAt).getTime();
+                return itemTs > startedAt - 10000;
+            });
+
+            if (found) {
+                // Colectăm tot batch-ul cu același prompt și timestamp apropiat
+                const batchItems = (data.history || []).filter(item => {
+                    const ts = new Date(item.createdAt).getTime();
+                    return ts > startedAt - 10000 && (item.prompt || '') === (found.prompt || '');
+                });
+
+                const urls  = batchItems.map(i => i.supabaseUrl || i.originalUrl).filter(Boolean);
+                const uuids = batchItems.map(i => i.uuid || '');
+
+                setJobDone(jobId, urls.length ? urls : [found.supabaseUrl || found.originalUrl],
+                           ratio, jobMode, uuids);
+                clearActiveTask();
+                setTimeout(loadHistory, 1000);
+                activeJobs.delete(jobId);
+                return;
+            }
+        } catch(e) { /* rețea temporar căzută, continuăm */ }
+    }
+
+    setJobError(jobId, 'Generarea a durat prea mult sau a eșuat. Verifică istoricul.');
+    clearActiveTask(); activeJobs.delete(jobId);
 }
 
 // ===================== THEME TOGGLE =====================
@@ -1665,5 +2183,398 @@ function toggleMobileSettings(){
     }, 10000);
 })();
 </script>
+<!-- REFS PICKER MODAL -->
+<div id="refs-picker-modal" style="display:none;position:fixed;inset:0;background:rgba(4,4,12,0.92);backdrop-filter:blur(24px);z-index:250000;align-items:center;justify-content:center;opacity:0;transition:opacity 0.3s" onclick="closeRefsPicker(event)">
+    <div onclick="event.stopPropagation()" style="background:linear-gradient(160deg,#111120 0%,#0c0c1a 100%);border:1px solid rgba(255,255,255,0.08);border-radius:28px;width:92%;max-width:640px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 40px 80px -10px rgba(0,0,0,0.8),0 0 0 1px rgba(99,102,241,0.12),0 0 60px rgba(99,102,241,0.06)">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 26px 18px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0">
+            <div style="display:flex;align-items:center;gap:12px">
+                <div style="width:38px;height:38px;border-radius:13px;background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(236,72,153,0.2));border:1px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(99,102,241,0.15)">
+                    <i class="fa-solid fa-images" style="color:rgba(165,168,255,0.95);font-size:0.95rem"></i>
+                </div>
+                <div>
+                    <h3 style="font-size:1rem;font-weight:900;color:white;margin:0;letter-spacing:-0.01em">Referințe</h3>
+                    <p style="font-size:0.65rem;color:rgba(255,255,255,0.3);margin:0;font-weight:600;letter-spacing:0.04em;text-transform:uppercase">Alege din istoric sau încarcă</p>
+                </div>
+            </div>
+            <button onclick="closeRefsPicker()" style="width:34px;height:34px;border-radius:11px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);color:rgba(255,255,255,0.45);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='rgba(255,255,255,0.8)'" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.color='rgba(255,255,255,0.45)'"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Upload button -->
+        <div style="padding:16px 26px 0;flex-shrink:0">
+            <input type="file" id="refs-picker-file" class="hidden" accept="image/*" multiple onchange="handleRefsPickerUpload(event)">
+            <button onclick="document.getElementById('refs-picker-file').click()" style="width:100%;padding:13px;border-radius:16px;border:1.5px dashed rgba(99,102,241,0.4);background:rgba(99,102,241,0.05);color:rgba(165,168,255,0.85);font-size:0.84rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:all 0.2s;letter-spacing:0.01em" onmouseover="this.style.background='rgba(99,102,241,0.12)';this.style.borderColor='rgba(99,102,241,0.6)'" onmouseout="this.style.background='rgba(99,102,241,0.05)';this.style.borderColor='rgba(99,102,241,0.4)'">
+                <i class="fa-solid fa-cloud-arrow-up" style="font-size:1rem"></i>
+                Încarcă de pe PC
+            </button>
+        </div>
+
+        <!-- Selected refs preview -->
+        <div id="refs-picker-selected" style="padding:14px 26px 0;flex-shrink:0;display:none">
+            <div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:rgba(165,168,255,0.6);margin-bottom:8px">Selectate</div>
+            <div id="refs-picker-selected-grid" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        </div>
+
+        <!-- Separator -->
+        <div style="padding:14px 26px 10px;flex-shrink:0;display:flex;align-items:center;gap:10px">
+            <div style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></div>
+            <span style="font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.2)">Din Istoric</span>
+            <div style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></div>
+        </div>
+
+        <!-- History grid -->
+        <div id="refs-picker-history" style="flex:1;overflow-y:auto;padding:0 26px 20px" class="no-scrollbar">
+            <div id="refs-picker-history-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+                <div style="grid-column:1/-1;text-align:center;padding:32px 0;color:rgba(255,255,255,0.2);font-size:0.8rem">
+                    <i class="fa-solid fa-spinner fa-spin mb-2 text-lg block" style="color:rgba(99,102,241,0.4)"></i>
+                    Se încarcă istoricul...
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer: confirm -->
+        <div style="padding:16px 26px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;background:rgba(8,8,18,0.6)">
+            <span id="refs-picker-count-label" style="font-size:0.75rem;font-weight:700;color:rgba(255,255,255,0.3)">0 selectate (max 4)</span>
+            <button onclick="confirmRefsPicker()" style="padding:11px 28px;border-radius:13px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;font-size:0.88rem;font-weight:800;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;box-shadow:0 8px 20px rgba(99,102,241,0.3)" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 12px 26px rgba(99,102,241,0.45)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 8px 20px rgba(99,102,241,0.3)'">
+                <i class="fa-solid fa-check"></i> Confirmă
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- EXTEND RECOVER TOAST -->
+<div id="extend-recover-bar" style="display:none;position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);z-index:180000;opacity:0;transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1)">
+    <div style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(15,15,28,0.98),rgba(12,12,22,0.98));border:1px solid rgba(99,102,241,0.35);border-radius:18px;padding:13px 18px;box-shadow:0 20px 50px rgba(0,0,0,0.6),0 0 0 1px rgba(99,102,241,0.1),0 0 30px rgba(99,102,241,0.08);backdrop-filter:blur(20px);white-space:nowrap">
+        <div style="width:36px;height:36px;border-radius:11px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="fa-solid fa-forward" style="color:rgba(165,168,255,0.9);font-size:0.85rem"></i>
+        </div>
+        <div>
+            <div style="font-size:0.82rem;font-weight:800;color:white;margin-bottom:1px">Ai un video de extins</div>
+            <div style="font-size:0.68rem;color:rgba(255,255,255,0.35);font-weight:600">Sesiunea anterioară a lăsat un video nesalvat</div>
+        </div>
+        <button id="extend-recover-btn" style="padding:8px 16px;border-radius:10px;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.4);color:rgba(165,168,255,0.95);font-size:0.78rem;font-weight:800;cursor:pointer;white-space:nowrap;transition:all 0.2s;flex-shrink:0" onmouseover="this.style.background='rgba(99,102,241,0.35)'" onmouseout="this.style.background='rgba(99,102,241,0.2)'">Extinde acum</button>
+        <button onclick="dismissExtendRecover()" style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.35);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.35)'"><i class="fa-solid fa-xmark text-xs"></i></button>
+    </div>
+</div>
+
+<script>
+// ===================== EXTEND RECOVER AFTER REFRESH =====================
+(function(){
+    try {
+        const saved = localStorage.getItem('viralio_last_extend');
+        if(!saved) return;
+        const data = JSON.parse(saved);
+        if(!data || !data.url) return;
+        // Show only if saved in last 2 hours
+        if(Date.now() - data.ts > 2 * 60 * 60 * 1000) { localStorage.removeItem('viralio_last_extend'); return; }
+
+        const bar = document.getElementById('extend-recover-bar');
+        if(!bar) return;
+        bar.style.display = 'block';
+        requestAnimationFrame(() => {
+            bar.style.opacity = '1';
+            bar.style.transform = 'translateX(-50%) translateY(0)';
+        });
+
+        document.getElementById('extend-recover-btn').onclick = () => {
+            dismissExtendRecover();
+            openExtendModal(data.uuid, data.url);
+        };
+
+        // Auto-dismiss after 10s
+        setTimeout(dismissExtendRecover, 10000);
+    } catch(e){}
+})();
+
+function dismissExtendRecover(){
+    const bar = document.getElementById('extend-recover-bar');
+    if(!bar) return;
+    bar.style.opacity = '0';
+    bar.style.transform = 'translateX(-50%) translateY(20px)';
+    setTimeout(() => { bar.style.display = 'none'; }, 400);
+}
+
+// ===================== REFS PICKER MODAL =====================
+let _refsPickerSelected = []; // { type:'history'|'upload', url, file? }
+
+function openRefsPicker() {
+    _refsPickerSelected = [...uploadedRefs.map(f => ({ type:'upload', file:f, url: URL.createObjectURL(f) }))];
+    renderRefsPickerSelected();
+
+    const modal = document.getElementById('refs-picker-modal');
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => { modal.style.opacity = '1'; });
+
+    loadRefsPickerHistory();
+}
+
+function closeRefsPicker(e) {
+    if(e && e.target !== document.getElementById('refs-picker-modal')) return;
+    const modal = document.getElementById('refs-picker-modal');
+    modal.style.opacity = '0';
+    setTimeout(() => { modal.style.display = 'none'; }, 300);
+}
+
+async function loadRefsPickerHistory() {
+    const grid = document.getElementById('refs-picker-history-grid');
+    const token = getToken();
+    if(!token) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 0;color:rgba(255,255,255,0.2);font-size:0.8rem"><i class="fa-solid fa-lock mb-2 text-lg block" style="color:rgba(255,255,255,0.15)"></i>Conectează-te pentru istoric</div>`;
+        return;
+    }
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 0;color:rgba(255,255,255,0.2);font-size:0.8rem"><i class="fa-solid fa-spinner fa-spin mb-2 text-lg block" style="color:rgba(99,102,241,0.4)"></i>Se încarcă...</div>`;
+    try {
+        const currentModeLocal = mode; // 'image' or 'video'
+        const res = await fetch(`/api/media/history?type=${currentModeLocal}&page=1&limit=40`, { headers:{'Authorization':'Bearer '+token} });
+        const data = await res.json();
+        const allItems = []; // { url, type }
+        (data.history||[]).forEach(item => {
+            const u = item.supabaseUrl||item.originalUrl;
+            if(u) allItems.push({ url: u, type: item.type || currentModeLocal });
+        });
+
+        if(!allItems.length) {
+            grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 0;color:rgba(255,255,255,0.2);font-size:0.8rem"><i class="fa-solid fa-photo-film mb-2 text-xl block" style="color:rgba(255,255,255,0.1)"></i>Nicio înregistrare în istoric</div>`;
+            return;
+        }
+
+        grid.innerHTML = allItems.map(({ url, type }) => {
+            const isSelected = _refsPickerSelected.some(s => s.url === url);
+            const isVideo = type === 'video';
+            const mediaEl = isVideo
+                ? `<video src="${url}" preload="none" muted playsinline style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'"></video>
+                   <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3)">
+                     <div style="width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center">
+                       <i class="fa-solid fa-play" style="font-size:0.5rem;color:white;margin-left:1px"></i>
+                     </div>
+                   </div>`
+                : `<img src="${url}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'">`;
+            return `<div class="refs-picker-item" data-url="${escHtml(url)}" onclick="toggleRefsPickerItem(this,'${escHtml(url)}')" style="aspect-ratio:1;border-radius:12px;overflow:hidden;cursor:pointer;position:relative;border:2px solid ${isSelected?'rgba(99,102,241,0.7)':'transparent'};transition:all 0.18s;background:#0a0a16">
+                ${mediaEl}
+                <div class="refs-picker-check" style="position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;background:${isSelected?'rgba(99,102,241,0.95)':'rgba(0,0,0,0.4)'};border:2px solid ${isSelected?'rgba(165,168,255,0.8)':'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center;transition:all 0.18s;backdrop-filter:blur(4px)">
+                    <i class="fa-solid fa-check" style="font-size:0.55rem;color:white;opacity:${isSelected?1:0};transition:opacity 0.15s"></i>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 0;color:rgba(248,113,113,0.5);font-size:0.8rem">Eroare la încărcare</div>`;
+    }
+}
+
+function toggleRefsPickerItem(el, url) {
+    const maxRefs = getMaxRefs();
+    const already = _refsPickerSelected.findIndex(s => s.url === url);
+    if(already >= 0) {
+        _refsPickerSelected.splice(already, 1);
+        el.style.border = '2px solid transparent';
+        const check = el.querySelector('.refs-picker-check');
+        if(check) { check.style.background='rgba(0,0,0,0.4)'; check.style.borderColor='rgba(255,255,255,0.3)'; check.querySelector('i').style.opacity='0'; }
+    } else {
+        if(_refsPickerSelected.length >= maxRefs) { toast(`Maxim ${maxRefs} referințe pentru modelul selectat!`); return; }
+        _refsPickerSelected.push({ type:'history', url });
+        el.style.border = '2px solid rgba(99,102,241,0.7)';
+        const check = el.querySelector('.refs-picker-check');
+        if(check) { check.style.background='rgba(99,102,241,0.95)'; check.style.borderColor='rgba(165,168,255,0.8)'; check.querySelector('i').style.opacity='1'; }
+    }
+    renderRefsPickerSelected();
+}
+
+function handleRefsPickerUpload(e) {
+    const maxRefs = getMaxRefs();
+    Array.from(e.target.files).forEach(f => {
+        if(_refsPickerSelected.length >= maxRefs) return;
+        _refsPickerSelected.push({ type:'upload', file:f, url: URL.createObjectURL(f) });
+    });
+    renderRefsPickerSelected();
+    e.target.value = '';
+}
+
+function renderRefsPickerSelected() {
+    const wrap = document.getElementById('refs-picker-selected');
+    const grid = document.getElementById('refs-picker-selected-grid');
+    const label = document.getElementById('refs-picker-count-label');
+    const maxRefs = getMaxRefs();
+    const n = _refsPickerSelected.length;
+    label.textContent = `${n} selectate (max ${maxRefs})`;
+    if(!n) { wrap.style.display='none'; return; }
+    wrap.style.display='block';
+    grid.innerHTML = _refsPickerSelected.map((s,i) => `
+        <div style="position:relative;width:54px;height:54px;border-radius:10px;overflow:hidden;border:1.5px solid rgba(99,102,241,0.4)">
+            <img src="${s.url}" style="width:100%;height:100%;object-fit:cover">
+            <button onclick="removeRefsPickerItem(${i})" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(239,68,68,0.85);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.5rem"><i class="fa-solid fa-xmark"></i></button>
+        </div>`).join('');
+}
+
+function removeRefsPickerItem(i) {
+    _refsPickerSelected.splice(i, 1);
+    renderRefsPickerSelected();
+    // Deselect in history grid if it was a history item
+    document.querySelectorAll('.refs-picker-item').forEach(el => {
+        const url = el.dataset.url;
+        const isSelected = _refsPickerSelected.some(s => s.url === url);
+        el.style.border = isSelected ? '2px solid rgba(99,102,241,0.7)' : '2px solid transparent';
+        const check = el.querySelector('.refs-picker-check');
+        if(check) {
+            check.style.background = isSelected ? 'rgba(99,102,241,0.95)' : 'rgba(0,0,0,0.4)';
+            check.style.borderColor = isSelected ? 'rgba(165,168,255,0.8)' : 'rgba(255,255,255,0.3)';
+            check.querySelector('i').style.opacity = isSelected ? '1' : '0';
+        }
+    });
+}
+
+function getMaxRefs() {
+    const model = document.getElementById('model-sel')?.value || '';
+    return model === 'gemini-pro' ? 14 : 3;
+}
+
+function confirmRefsPicker() {
+    uploadedRefs = [];
+    const filePromises = _refsPickerSelected.map(async s => {
+        if(s.type === 'upload') return s.file;
+        // For history URLs: try proxy first, fallback to passing URL as-is via a blob fetch through our own server
+        try {
+            const token = getToken();
+            const proxyUrl = `/api/media/proxy-download?url=${encodeURIComponent(s.url)}&filename=ref.jpg`;
+            const res = await fetch(proxyUrl, { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
+            if(!res.ok) throw new Error('proxy fail ' + res.status);
+            const blob = await res.blob();
+            const ext = blob.type.includes('png') ? 'png' : 'jpg';
+            return new File([blob], `ref_hist_${Date.now()}.${ext}`, { type: blob.type });
+        } catch(e) {
+            return null;
+        }
+    });
+    Promise.all(filePromises).then(files => {
+        uploadedRefs = files.filter(Boolean);
+        renderRefGallery();
+        closeRefsPicker();
+        toast(`${uploadedRefs.length} referință${uploadedRefs.length!==1?'e':''} adăugate!`);
+    });
+}
+
+// ===================== FRAME PICKER (Start / End) =====================
+let _framePickerSlot = 'start'; // 'start' | 'end'
+
+function openFramePicker(slot) {
+    _framePickerSlot = slot;
+    const modal = document.getElementById('frame-picker-modal');
+    const title = document.getElementById('frame-picker-title');
+    title.textContent = slot === 'start' ? '🟢 Start Frame' : '🔴 End Frame';
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => { modal.style.opacity = '1'; });
+    loadFramePickerHistory();
+}
+
+function closeFramePicker(e) {
+    if(e && e.target !== document.getElementById('frame-picker-modal')) return;
+    const modal = document.getElementById('frame-picker-modal');
+    modal.style.opacity = '0';
+    setTimeout(() => { modal.style.display = 'none'; }, 300);
+}
+
+async function loadFramePickerHistory() {
+    const grid = document.getElementById('frame-picker-grid');
+    const token = getToken();
+    if(!token) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 0;color:rgba(255,255,255,0.2);font-size:0.8rem"><i class="fa-solid fa-lock mb-2 text-lg block" style="color:rgba(255,255,255,0.15)"></i>Conectează-te pentru istoric</div>`;
+        return;
+    }
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 0;color:rgba(255,255,255,0.2);font-size:0.8rem"><i class="fa-solid fa-spinner fa-spin mb-2 text-lg block" style="color:rgba(99,102,241,0.4)"></i>Se încarcă...</div>`;
+    try {
+        const res = await fetch('/api/media/history?type=image&page=1&limit=40', { headers:{'Authorization':'Bearer '+token} });
+        const data = await res.json();
+        const urls = [];
+        (data.history||[]).forEach(item => { const u = item.supabaseUrl||item.originalUrl; if(u) urls.push(u); });
+        if(!urls.length) {
+            grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 0;color:rgba(255,255,255,0.2);font-size:0.8rem"><i class="fa-solid fa-image mb-2 text-xl block" style="color:rgba(255,255,255,0.1)"></i>Nicio imagine în istoric</div>`;
+            return;
+        }
+        grid.innerHTML = urls.map(url => `
+            <div onclick="selectFrameFromHistory('${escHtml(url)}')" style="aspect-ratio:1;border-radius:12px;overflow:hidden;cursor:pointer;position:relative;border:2px solid transparent;transition:all 0.18s;background:#0a0a16" onmouseover="this.style.borderColor='rgba(99,102,241,0.6)';this.style.transform='scale(1.03)'" onmouseout="this.style.borderColor='transparent';this.style.transform='scale(1)'">
+                <img src="${url}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'">
+            </div>`).join('');
+    } catch(e) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 0;color:rgba(248,113,113,0.5);font-size:0.8rem">Eroare la încărcare</div>`;
+    }
+}
+
+async function selectFrameFromHistory(url) {
+    const token = getToken();
+    try {
+        const proxyUrl = `/api/media/proxy-download?url=${encodeURIComponent(url)}&filename=frame.jpg`;
+        const res = await fetch(proxyUrl, { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
+        if(!res.ok) throw new Error('fail');
+        const blob = await res.blob();
+        const file = new File([blob], `frame_${Date.now()}.jpg`, { type: blob.type });
+        applyFrameFile(_framePickerSlot, file, url);
+    } catch(e) {
+        toast('Nu s-a putut încărca imaginea. Încearcă upload manual.');
+    }
+    closeFramePicker();
+}
+
+function handleFramePickerUpload(e) {
+    const file = e.target.files[0]; if(!file) return;
+    const url = URL.createObjectURL(file);
+    applyFrameFile(_framePickerSlot, file, url);
+    e.target.value = '';
+    closeFramePicker();
+}
+
+function applyFrameFile(slot, file, previewUrl) {
+    if(slot === 'start') {
+        startFrameFile = file;
+        document.getElementById('start-frame-img').src = previewUrl;
+        document.getElementById('start-frame-preview').classList.remove('hidden');
+        document.getElementById('start-frame-zone').classList.add('hidden');
+    } else {
+        endFrameFile = file;
+        document.getElementById('end-frame-img').src = previewUrl;
+        document.getElementById('end-frame-preview').classList.remove('hidden');
+        document.getElementById('end-frame-zone').classList.add('hidden');
+    }
+}
+
+document.addEventListener('keydown', e => {
+    if(e.key==='Escape' && document.getElementById('frame-picker-modal')?.style.display==='flex') closeFramePicker();
+});
+</script>
+
+<!-- FRAME PICKER MODAL -->
+<div id="frame-picker-modal" style="display:none;position:fixed;inset:0;background:rgba(4,4,12,0.92);backdrop-filter:blur(24px);z-index:260000;align-items:center;justify-content:center;opacity:0;transition:opacity 0.3s" onclick="closeFramePicker(event)">
+    <div onclick="event.stopPropagation()" style="background:linear-gradient(160deg,#111120 0%,#0c0c1a 100%);border:1px solid rgba(255,255,255,0.08);border-radius:28px;width:92%;max-width:580px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 40px 80px -10px rgba(0,0,0,0.8),0 0 0 1px rgba(99,102,241,0.12)">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0">
+            <div style="display:flex;align-items:center;gap:12px">
+                <div style="width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(52,211,153,0.2));border:1px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center">
+                    <i class="fa-solid fa-image" style="color:rgba(165,168,255,0.9);font-size:0.9rem"></i>
+                </div>
+                <div>
+                    <h3 id="frame-picker-title" style="font-size:0.95rem;font-weight:900;color:white;margin:0">Start Frame</h3>
+                    <p style="font-size:0.63rem;color:rgba(255,255,255,0.3);margin:0;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Alege o imagine</p>
+                </div>
+            </div>
+            <button onclick="closeFramePicker()" style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);color:rgba(255,255,255,0.45);cursor:pointer;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <!-- Upload -->
+        <div style="padding:14px 24px 0;flex-shrink:0">
+            <input type="file" id="frame-picker-file" class="hidden" accept="image/*" onchange="handleFramePickerUpload(event)">
+            <button onclick="document.getElementById('frame-picker-file').click()" style="width:100%;padding:12px;border-radius:14px;border:1.5px dashed rgba(99,102,241,0.4);background:rgba(99,102,241,0.05);color:rgba(165,168,255,0.85);font-size:0.84rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s" onmouseover="this.style.background='rgba(99,102,241,0.12)'" onmouseout="this.style.background='rgba(99,102,241,0.05)'">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Încarcă de pe PC
+            </button>
+        </div>
+        <!-- Divider -->
+        <div style="padding:12px 24px 8px;flex-shrink:0;display:flex;align-items:center;gap:10px">
+            <div style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></div>
+            <span style="font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.2)">Din Istoric</span>
+            <div style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></div>
+        </div>
+        <!-- Grid -->
+        <div style="flex:1;overflow-y:auto;padding:0 24px 20px" class="no-scrollbar">
+            <div id="frame-picker-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"></div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
