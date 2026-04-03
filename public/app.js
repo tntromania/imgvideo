@@ -255,14 +255,21 @@ function buildShimmerLoading(currentMode, count, ratio, modelId) {
     const aspectCSS = ratioMap[ratio] || '1/1';
     const isPortrait = ['9:16','4:5','3:4','2:3'].includes(ratio);
     const isLandscape = ['16:9','21:9','3:2','4:3','5:4'].includes(ratio);
-    const cardW = isPortrait ? '110px' : isLandscape ? '175px' : '140px';
-    const header = `<div class="flex items-center gap-3 mb-3"><div class="w-8 h-8 rounded-xl shimmer-box shrink-0"></div><div class="flex-1"><div class="h-3 rounded-full shimmer-box mb-2" style="width:60%"></div><div class="h-2.5 rounded-full shimmer-box" style="width:40%;opacity:0.6"></div></div></div>`;
-    // ✅ Fiecare placeholder are data-slot-index pentru înlocuire progresivă
+    // Dimensiuni placeholder similare cu cardurile finale
+    const cardW = isPortrait ? '140px' : isLandscape ? '220px' : '180px';
+    // Grid wrapper similar cu setJobDone pentru consistență vizuală
+    const maxW = count === 1
+        ? (isPortrait ? '210px' : isLandscape ? '460px' : '280px')
+        : (isPortrait ? (count<=2?'340px':count===3?'500px':'660px') : (isLandscape ? '100%' : (count<=2?'420px':'560px')));
+    const gridCols = count === 1 ? '1fr'
+        : (isPortrait ? `repeat(${Math.min(count,4)},1fr)` : (isLandscape ? 'repeat(2,1fr)' : `repeat(${Math.min(count,2)},1fr)`));
+
+    // Fiecare placeholder are data-slot pentru înlocuire progresivă
     const placeholders = Array.from({length: count}, (_, i) =>
-        `<div class="rounded-xl shimmer-box shrink-0" data-slot="${i}" style="aspect-ratio:${aspectCSS};width:${cardW};animation-delay:${i*0.15}s;transition:all 0.3s"></div>`
+        `<div class="rounded-xl shimmer-box" data-slot="${i}" style="aspect-ratio:${aspectCSS};animation-delay:${i*0.15}s;transition:opacity 0.3s"></div>`
     ).join('');
 
-    return `<div class="flex flex-col gap-3">${header}<div id="job-media-grid-JOBID" class="flex gap-2 justify-center flex-wrap">${placeholders}</div><p id="job-status-JOBID" style="display:none;"></p></div>`;
+    return `<div style="padding:12px"><div id="job-media-grid-JOBID" style="display:grid;grid-template-columns:${gridCols};gap:10px;max-width:${maxW};margin:0 auto">${placeholders}</div></div><p id="job-status-JOBID" style="display:none;"></p>`;
 }
 
 // ===================== PROGRESSIVE RENDER =====================
@@ -273,25 +280,24 @@ function renderPartialResult(jobId, url, uuid, slotIndex, totalCount, ratio, med
     const slot = grid.querySelector(`[data-slot="${slotIndex}"]`);
     if(!slot) return;
 
-    const isPortrait=['9:16','2:3','3:4','4:5'].includes(ratio);
-    const isLandscape=['16:9','21:9','3:2','4:3','5:4'].includes(ratio);
-    const cardW = isPortrait ? '110px' : isLandscape ? '175px' : '140px';
+    const ratioMap = {'9:16':'9/16','16:9':'16/9','1:1':'1/1','4:5':'4/5','5:4':'5/4','3:4':'3/4','4:3':'4/3','2:3':'2/3','3:2':'3/2','21:9':'21/9'};
+    const aspectCSS = ratioMap[ratio] || '1/1';
     const ts = Date.now() + slotIndex;
 
     const el = document.createElement('div');
-    el.className = 'result-card animate-fade-in';
+    el.className = 'result-card';
     el.dataset.slot = slotIndex;
-    el.style.cssText = `width:${cardW};flex-shrink:0;border-radius:14px;overflow:hidden;animation:fadeInUp 0.4s ease forwards`;
+    el.style.cssText = 'border-radius:14px;overflow:hidden;animation:fadeInUp 0.4s cubic-bezier(0.16,1,0.3,1) forwards';
 
     if(mediaType === 'image'){
         const allStr = JSON.stringify(allPartialUrls);
-        el.innerHTML = `<div style="aspect-ratio:${({'9:16':'9/16','16:9':'16/9','1:1':'1/1','4:5':'4/5','5:4':'5/4','3:4':'3/4','4:3':'4/3','2:3':'2/3','3:2':'3/2','21:9':'21/9'})[ratio]||'1/1'};position:relative;overflow:hidden;border-radius:14px 14px 0 0"><img src="${url}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:14px 14px 0 0"><div class="card-overlay"><button onclick='openLightbox(${allStr},${slotIndex},"image")' class="text-white backdrop-blur-md text-xs font-bold px-3 py-1.5 rounded-xl transition-all hover:scale-105" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2)"><i class="fa-solid fa-expand mr-1"></i>Mărește</button></div></div><div class="p-2.5" style="border-top:1px solid rgba(255,255,255,0.05)"><button onclick="downloadMedia('${url}','viralio_img_${ts}.png')" class="w-full text-xs font-bold px-3 py-2 rounded-xl transition-all" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)"><i class="fa-solid fa-download mr-1"></i>Descarcă</button></div>`;
+        el.innerHTML = `<div class="${aspectClass(ratio)} w-full relative group overflow-hidden" style="border-radius:14px 14px 0 0"><img src="${url}" class="absolute inset-0 w-full h-full object-cover"><div class="card-overlay"><button onclick='openLightbox(${allStr},${slotIndex},"image")' class="text-white backdrop-blur-md text-xs font-bold px-3 py-1.5 rounded-xl transition-all hover:scale-105" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2)"><i class="fa-solid fa-expand mr-1"></i>Mărește</button></div></div><div class="p-2.5" style="border-top:1px solid rgba(255,255,255,0.05)"><button onclick="downloadMedia('${url}','viralio_img_${ts}.png')" class="w-full text-xs font-bold px-3 py-2 rounded-xl transition-all" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)"><i class="fa-solid fa-download mr-1"></i>Descarcă</button></div>`;
     } else {
         const extendAttr = uuid ? `data-uuid="${uuid}" data-url="${url}"` : `data-url="${url}"`;
-        el.innerHTML = `<div style="aspect-ratio:${({'9:16':'9/16','16:9':'16/9','1:1':'1/1','4:5':'4/5','5:4':'5/4','3:4':'3/4','4:3':'4/3','2:3':'2/3','3:2':'3/2','21:9':'21/9'})[ratio]||'16/9'};background:#000;border-radius:14px 14px 0 0;position:relative;overflow:hidden"><video src="${url}" controls playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain"></video></div><div class="p-2 flex flex-col gap-1.5" style="border-top:1px solid rgba(255,255,255,0.05)"><button onclick="downloadMedia('${url}','viralio_vid_${ts}.mp4')" class="w-full text-xs font-bold px-3 py-2 rounded-xl transition-all" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)"><i class="fa-solid fa-download mr-1"></i>Descarcă</button><button ${extendAttr} onclick="openExtendModal(this.dataset.uuid,this.dataset.url)" class="w-full text-xs font-bold px-2 py-2 rounded-xl transition-all flex items-center justify-center gap-1" style="color:rgba(165,168,255,0.9);background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.35)"><i class="fa-solid fa-forward text-[0.65rem]"></i> Extinde Video</button></div>`;
+        // ✅ Fix video: butoane pe un singur rând, fără text wrap, video vizibil
+        el.innerHTML = `<div class="${aspectClass(ratio)} w-full relative overflow-hidden" style="background:#000;border-radius:14px 14px 0 0"><video src="${url}" controls playsinline preload="metadata" class="absolute inset-0 w-full h-full object-contain"></video></div><div class="p-2" style="border-top:1px solid rgba(255,255,255,0.05);display:flex;flex-direction:column;gap:6px"><button onclick="downloadMedia('${url}','viralio_vid_${ts}.mp4')" style="width:100%;font-size:0.72rem;font-weight:700;padding:6px 8px;border-radius:10px;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><i class="fa-solid fa-download" style="margin-right:4px"></i>Descarcă</button><button ${extendAttr} onclick="openExtendModal(this.dataset.uuid,this.dataset.url)" style="width:100%;font-size:0.72rem;font-weight:700;padding:6px 8px;border-radius:10px;color:rgba(165,168,255,0.9);background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><i class="fa-solid fa-forward" style="font-size:0.6rem;margin-right:4px"></i>Extinde Video</button></div>`;
     }
 
-    // Înlocuim shimmer-ul cu media reală
     slot.replaceWith(el);
 }
 
@@ -403,7 +409,8 @@ const makeCard=(url, idx)=>{
         } else {
             const uuid = (uuids && uuids[idx]) || '';
             const extendAttr = uuid ? `data-uuid="${uuid}" data-url="${url}"` : `data-url="${url}"`;
-            el.innerHTML=`<div class="${aspectClass(ratioVal)} w-full relative overflow-hidden" style="background:#000;border-radius:14px 14px 0 0"><video src="${url}" controls playsinline preload="metadata" class="absolute inset-0 w-full h-full object-contain"></video></div><div class="p-2 flex flex-col gap-1.5" style="border-top:1px solid rgba(255,255,255,0.05)"><button onclick="downloadMedia('${url}','viralio_vid_${ts}.mp4')" class="w-full text-xs font-bold px-3 py-2 rounded-xl transition-all" style="color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07)"><i class="fa-solid fa-download mr-1"></i>Descarcă</button><button ${extendAttr} onclick="openExtendModal(this.dataset.uuid, this.dataset.url)" class="w-full text-xs font-bold px-2 py-2 rounded-xl transition-all flex items-center justify-center gap-1 whitespace-nowrap flex-shrink-0" style="color:rgba(165,168,255,0.9);background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.35)" onmouseover="this.style.background='rgba(99,102,241,0.28)'" onmouseout="this.style.background='rgba(99,102,241,0.15)'"><i class="fa-solid fa-forward text-[0.65rem]"></i> Extinde Video</button></div>`;
+            // ✅ Fix: butoane compacte, fără text wrap, video vizibil
+            el.innerHTML=`<div class="${aspectClass(ratioVal)} w-full relative overflow-hidden" style="background:#000;border-radius:14px 14px 0 0"><video src="${url}" controls playsinline preload="metadata" class="absolute inset-0 w-full h-full object-contain"></video></div><div class="p-2" style="border-top:1px solid rgba(255,255,255,0.05);display:flex;flex-direction:column;gap:6px"><button onclick="downloadMedia('${url}','viralio_vid_${ts}.mp4')" style="width:100%;font-size:0.72rem;font-weight:700;padding:6px 8px;border-radius:10px;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><i class="fa-solid fa-download" style="margin-right:4px"></i>Descarcă</button><button ${extendAttr} onclick="openExtendModal(this.dataset.uuid,this.dataset.url)" style="width:100%;font-size:0.72rem;font-weight:700;padding:6px 8px;border-radius:10px;color:rgba(165,168,255,0.9);background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><i class="fa-solid fa-forward" style="font-size:0.6rem;margin-right:4px"></i>Extinde Video</button></div>`;
         }
         return el;
     };
