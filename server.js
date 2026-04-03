@@ -358,7 +358,8 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                                             urls.push(publicUrl);
                                             completedCount++;
                                             console.log(`[Imagini] ✅ ${completedCount}/${count} gata: ${publicUrl}`);
-                                            if (!clientAborted) res.write(`data: ${JSON.stringify({ status: `${completedCount} din ${count} imagini gata...` })}\n\n`);
+                                            // ✅ Trimite imediat URL-ul parțial clientului — afișare progresivă
+                                            if (!clientAborted) res.write(`data: ${JSON.stringify({ partial_url: publicUrl, partial_index: completedCount - 1, partial_type: 'image', status: `${completedCount} din ${count} imagini gata...` })}\n\n`);
                                             return;
                                         } catch (uploadErr) {
                                             console.error(`[Imagini] ❌ R2 upload eșuat: ${uploadErr.message}`);
@@ -755,7 +756,10 @@ app.post('/api/media/video',
                         // Salvăm și UUID-ul GeminiGen pentru extend
                         videoUrls.push({ url: finalUrl, uuid });
                         console.log(`[Video] ✅ ${idx+1}/${count} gata: ${finalUrl} | uuid=${uuid} | ${emailTag}`);
-                        if (!clientAborted) sendStatus(`${videoUrls.length} din ${count} videoclipuri gata...`);
+                        // ✅ Trimite imediat URL-ul parțial clientului — afișare progresivă
+                        if (!clientAborted) {
+                            res.write(`data: ${JSON.stringify({ partial_url: finalUrl, partial_uuid: uuid, partial_index: videoUrls.length - 1, partial_type: 'video', status: `${videoUrls.length} din ${count} videoclipuri gata...` })}\n\n`);
+                        }
                     } else {
                         lastVideoError = result.error;
                         console.error(`[Video] ❌ ${idx+1}/${count}: ${result.error} | ${emailTag}`);
