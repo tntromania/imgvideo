@@ -436,18 +436,44 @@ const DISCORD_CONTACT = 'alexcaba pe Discord (discord.gg/h8Ah6VKDzm)';
 
 const mapVideoError = (msg) => {
     if (!msg) return 'Eroare necunoscută la generarea video.';
-    if (msg.includes('PUBLIC_ERROR_SEXUAL') || msg.includes('sexual')) return '🚫 Conținutul a fost blocat: elemente inadecvate.';
-    if (msg.includes('UNSAFE_GENERATION') || msg.includes('unsafe') || msg.includes('PUBLIC_ERROR_DANGER_FILTER') || msg.includes('safety'))
-        return '🚫 Conținut blocat de filtrul de siguranță. Modifică promptul.';
-    if (msg.includes('AUDIO_FILTERED')) return '🚫 Audio-ul filtrat — conține elemente inadecvate.';
+
+    // ── Conținut blocat: sexual / minori / personaje protejate ──────────────
+    if (msg.includes('PUBLIC_ERROR_SEXUAL') || msg.includes('sexual')) {
+        return '🚫 Promptul sau imaginea a fost blocată de filtrele Google (conținut inadecvat sau personaj perceput ca minor).\n\n' +
+               '❌ Reîncercarea cu același prompt/imagine NU va funcționa.\n\n' +
+               '✏️ Ce poți face:\n' +
+               '• Reformulează complet promptul — evită cuvinte afectuoase adresate personajelor\n' +
+               '• Dacă folosești o imagine de referință, încearcă fără ea\n' +
+               '• Evită personaje antropomorfizate (animale/fructe cu față de copil)';
+    }
+    if (msg.includes('UNSAFE_GENERATION') || msg.includes('unsafe') || msg.includes('PUBLIC_ERROR_DANGER_FILTER') || msg.includes('safety') ||
+        msg.toLowerCase().includes('describe children') || msg.toLowerCase().includes('celebrity') || msg.toLowerCase().includes('third-party content')) {
+        return '🚫 Promptul conține cuvinte blocate de politicile Google (personaje cunoscute, minori sau conținut protejat).\n\n' +
+               '❌ Reîncercarea cu același prompt NU va funcționa.\n\n' +
+               '✏️ Ce poți face:\n' +
+               '• Reformulează complet — descrie acțiunea fără a numi personajul sau a folosi replici\n' +
+               '• Înlocuiește cuvintele afectuoase ("scumpo", "drăguț", "copilul") cu termeni neutri\n' +
+               '• Dacă folosești imagine de referință, încearcă fără ea';
+    }
+
+    if (msg.toLowerCase().includes('reference image violates') || msg.toLowerCase().includes('reference image')) {
+        return '🚫 Imaginea de referință a fost blocată de moderare.\n\n' +
+               '❌ Reîncercarea cu aceeași imagine NU va funcționa.\n\n' +
+               '✏️ Ce poți face:\n' +
+               '• Generează videoul fără imagine de referință\n' +
+               '• Folosește o imagine de referință diferită (peisaj, obiect, textură)\n' +
+               '• Personajele antropomorfizate (fructe cu față, animale cartoon) sunt adesea blocate';
+    }
+
+    if (msg.includes('AUDIO_FILTERED')) return '🚫 Audio-ul a fost filtrat (conținut inadecvat în replici/sunet). Modifică promptul sau elimină replicile.';
     if (msg.includes('TIMED_OUT') || msg.includes('TIMEOUT') || msg.includes('timeout'))
         return 'Generarea a durat prea mult. Reîncearcă.';
     if (msg.includes('quota') || msg.includes('QUOTA') || msg.includes('rate limit') || msg.includes('RATE_LIMIT') || msg.includes('insufficient') || msg.includes('balance') || msg.includes('credit'))
         return `⚠️ Capacitatea serverelor AI atinsă. Contactează ${DISCORD_CONTACT}`;
     if (msg.includes('Create video error') || msg.includes('Create video failed'))
-        return '⚠️ Serverele AI au respins generarea. Posibile cauze: imaginea conține fețe celebre, sau promptul include oameni celebrii. Încearcă cu o altă imagine sau modifică promptul.';
+        return '⚠️ Serverele AI au respins generarea. Posibile cauze: imaginea conține fețe celebre sau promptul include personaje cunoscute. Încearcă fără imagine de referință sau modifică promptul.';
     if (msg === 'terminated' || msg.includes('UND_ERR') || msg.includes('other side closed') || msg.includes('Stream inchis'))
-        return '⚠️ Conexiunea cu serverele AI a fost intrerupta dupa toate reincercarile. Te rugam sa reincerci.';
+        return '⚠️ Conexiunea cu serverele AI a fost întreruptă după toate reîncercările. Te rugăm să reîncerci.';
     return msg.replace(/genaipro/gi, 'serverul AI').replace(/dubvoice/gi, 'serverul AI').replace(/geminigen/gi, 'serverul AI').replace(/\bGrok\b/gi, 'serverul video').replace(/\bVeo\s*3?\b/gi, 'serverul video');
 };
 
@@ -456,7 +482,12 @@ const isNonRetryableError = (msg) => {
     return msg.includes('PUBLIC_ERROR_DANGER_FILTER') || msg.includes('UNSAFE_GENERATION') ||
            msg.includes('AUDIO_FILTERED') || msg.includes('PUBLIC_ERROR_SEXUAL') ||
            msg.includes('quota') || msg.includes('QUOTA') || msg.includes('rate limit') ||
-           msg.includes('RATE_LIMIT') || msg.includes('insufficient') || msg.includes('balance');
+           msg.includes('RATE_LIMIT') || msg.includes('insufficient') || msg.includes('balance') ||
+           msg.includes('reference image violates') ||
+           msg.toLowerCase().includes('describe children') ||
+           msg.toLowerCase().includes('celebrity') ||
+           msg.toLowerCase().includes('third-party content') ||
+           msg.includes('content moderation');
 };
 
 // ── GeminiGen: Polling pe History API ────────────────────────────
@@ -632,8 +663,11 @@ app.post('/api/media/video',
             // ─── Trimitem cererile paralel (count videoclipuri) ─────────
             const videoUrls = [];
             let lastVideoError = null;
+            let nonRetryableHit = false; // ← dacă un job primește eroare fatală, oprim tot
             const videoPromises = Array.from({ length: count }, async (_, idx) => {
                 if (clientAborted) return;
+                // Dacă un alt job a primit eroare fatală de content policy, nu mai trimitem cereri noi
+                if (nonRetryableHit) return;
 
                 try {
                     // Build multipart form data
@@ -763,11 +797,20 @@ app.post('/api/media/video',
                     } else {
                         lastVideoError = result.error;
                         console.error(`[Video] ❌ ${idx+1}/${count}: ${result.error} | ${emailTag}`);
+                        // Dacă eroarea e fatală (content policy) oprim imediat toate cererile paralele
+                        if (isNonRetryableError(result.error)) {
+                            nonRetryableHit = true;
+                            console.warn(`[Video] 🛑 Eroare non-retryable detectată, opresc toate cererile paralele | ${emailTag}`);
+                        }
                         if (count === 1) throw new Error(result.error);
                     }
 
                 } catch (e) {
                     console.error(`[Video] ❌ Video ${idx+1} eroare: ${e.message} | ${emailTag}`);
+                    if (isNonRetryableError(e.message)) {
+                        nonRetryableHit = true;
+                        lastVideoError = e.message;
+                    }
                     if (count === 1) throw e;
                 }
             });
