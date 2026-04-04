@@ -446,11 +446,20 @@ function setJobError(jobId, msg){ stopEtaTimer(jobId);
     _addCloseBtn(card);
     const pulseWrap = card.querySelector('.pulse-ring');
     if(pulseWrap){ pulseWrap.classList.remove('pulse-ring'); const dot = pulseWrap.querySelector('div') || pulseWrap; dot.style.background = 'rgba(248,113,113,0.9)'; }
-    const isBlocked = msg && (msg.includes('sexuală') || msg.includes('blocat') || msg.includes('filtrat') || msg.includes('inadecvat') || msg.includes('siguranță') || msg.includes('Audio'));
+    const isBlocked = msg && (
+        msg.includes('\uD83D\uDEAB') || msg.includes('blocat') || msg.includes('filtrat') ||
+        msg.includes('inadecvat') || msg.includes('siguranță') || msg.includes('Audio') ||
+        msg.includes('politicile') || msg.includes('content moderation') ||
+        msg.includes('minori') || msg.includes('referință')
+    );
     const icon = isBlocked ? 'fa-ban' : 'fa-triangle-exclamation';
     const iconColor = isBlocked ? 'rgba(251,146,60,0.8)' : 'rgba(248,113,113,0.8)';
-    const actionBtn = isBlocked ? `<button onclick="document.getElementById('prompt-in').value='';document.getElementById('prompt-in').focus();" class="text-xs font-bold px-4 py-2 rounded-xl mt-1 transition-all hover:scale-105" style="color:rgba(251,146,60,0.9);background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.2)">✏️ Modifică promptul și regenerează!</button>` : '';
-    body.innerHTML=`<div class="flex flex-col items-center gap-2 py-4 w-full"><i class="fa-solid ${icon} text-2xl" style="color:${iconColor}"></i><p class="text-xs text-center max-w-xs leading-relaxed" style="color:rgba(255,255,255,0.4)">${escHtml(msg)}</p>${actionBtn}</div>`;
+    // Renderăm newline-urile ca <br> pentru mesaje multi-linie
+    const formattedMsg = escHtml(msg).replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+    const actionBtn = isBlocked
+        ? `<button onclick="document.getElementById('prompt-in').focus();" class="text-xs font-bold px-4 py-2 rounded-xl mt-1 transition-all hover:scale-105" style="color:rgba(251,146,60,0.9);background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.2)">✏️ Modifică promptul</button>`
+        : '';
+    body.innerHTML=`<div class="flex flex-col items-center gap-2 py-4 px-3 w-full"><i class="fa-solid ${icon} text-2xl" style="color:${iconColor}"></i><p class="text-xs text-left leading-relaxed" style="color:rgba(255,255,255,0.45);max-width:340px">${formattedMsg}</p>${actionBtn}</div>`;
 }
 
 function _addCloseBtn(card){
