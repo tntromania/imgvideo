@@ -433,32 +433,62 @@ const makeCard=(url, idx)=>{
     body.appendChild(wrapper);
 }
 
-function setJobError(jobId, msg){ stopEtaTimer(jobId); 
-    // Dacă eroarea este din cauza refresh-ului, NU ștergem task-ul din local storage,
-    // lăsând funcția tryRestoreTask() să repornească interfața!
+function setJobError(jobId, msg){ stopEtaTimer(jobId);
     if (!msg.includes('Conexiunea a fost întreruptă')) {
-        clearActiveTask(); 
+        clearActiveTask();
     }
-    
+
     const body=document.getElementById(`job-body-${jobId}`); const card=document.getElementById(`job-${jobId}`);
     if(!body) return;
     card.className='job-card error';
     _addCloseBtn(card);
     const pulseWrap = card.querySelector('.pulse-ring');
     if(pulseWrap){ pulseWrap.classList.remove('pulse-ring'); const dot = pulseWrap.querySelector('div') || pulseWrap; dot.style.background = 'rgba(248,113,113,0.9)'; }
-    const isBlocked = msg && (
-        msg.includes('\uD83D\uDEAB') || msg.includes('blocat') || msg.includes('filtrat') ||
-        msg.includes('inadecvat') || msg.includes('siguranță') || msg.includes('Audio') ||
-        msg.includes('politicile') || msg.includes('content moderation') ||
-        msg.includes('minori') || msg.includes('referință')
+
+    // Detectăm dacă eroarea e din cauza imaginii de referință blocate
+    const isImageBlocked = msg && (
+        msg.toLowerCase().includes('reference image') ||
+        msg.toLowerCase().includes('content moderation') ||
+        msg.toLowerCase().includes('imaginea de referinta') ||
+        msg.toLowerCase().includes('imaginea de start') ||
+        msg.toLowerCase().includes('imaginea de final')
     );
+
+    // ★ FIX CRITIC: dacă imaginea e blocată, o resetăm automat
+    // altfel userul o retrimite fără să știe la fiecare Recreate
+    if (isImageBlocked) {
+        startFrameFile = null;
+        try {
+            document.getElementById('start-frame-img').src = '';
+            document.getElementById('start-frame-preview').classList.add('hidden');
+            document.getElementById('start-frame-zone').classList.remove('hidden');
+        } catch(e) {}
+        endFrameFile = null;
+        try {
+            document.getElementById('end-frame-img').src = '';
+            document.getElementById('end-frame-preview').classList.add('hidden');
+            document.getElementById('end-frame-zone').classList.remove('hidden');
+        } catch(e) {}
+        uploadedRefs = [];
+        try { renderRefGallery(); } catch(e) {}
+    }
+
+    const isBlocked = isImageBlocked || (msg && (
+        msg.includes('sexuala') || msg.includes('blocat') || msg.includes('filtrat') ||
+        msg.includes('inadecvat') || msg.includes('siguranta') || msg.includes('Audio') ||
+        msg.includes('politicile') || msg.includes('minori') || msg.includes('🚫')
+    ));
     const icon = isBlocked ? 'fa-ban' : 'fa-triangle-exclamation';
     const iconColor = isBlocked ? 'rgba(251,146,60,0.8)' : 'rgba(248,113,113,0.8)';
-    // Renderăm newline-urile ca <br> pentru mesaje multi-linie
+
     const formattedMsg = escHtml(msg).replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
-    const actionBtn = isBlocked
-        ? `<button onclick="document.getElementById('prompt-in').focus();" class="text-xs font-bold px-4 py-2 rounded-xl mt-1 transition-all hover:scale-105" style="color:rgba(251,146,60,0.9);background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.2)">✏️ Modifică promptul</button>`
-        : '';
+
+    const actionBtn = isImageBlocked
+        ? `<button onclick="document.getElementById('prompt-in').focus();" class="text-xs font-bold px-4 py-2 rounded-xl mt-1 transition-all hover:scale-105" style="color:rgba(251,146,60,0.9);background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.2)">🖼️ Imaginea blocată a fost ștearsă — încearcă fără ea</button>`
+        : isBlocked
+            ? `<button onclick="document.getElementById('prompt-in').focus();" class="text-xs font-bold px-4 py-2 rounded-xl mt-1 transition-all hover:scale-105" style="color:rgba(251,146,60,0.9);background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.2)">✏️ Modifică promptul</button>`
+            : '';
+
     body.innerHTML=`<div class="flex flex-col items-center gap-2 py-4 px-3 w-full"><i class="fa-solid ${icon} text-2xl" style="color:${iconColor}"></i><p class="text-xs text-left leading-relaxed" style="color:rgba(255,255,255,0.45);max-width:340px">${formattedMsg}</p>${actionBtn}</div>`;
 }
 
