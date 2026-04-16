@@ -56,7 +56,7 @@ window.onload = async () => {
         document.getElementById('og-img').style.display = 'none';
         document.getElementById('og-vid').style.display = '';
         document.getElementById('og-grok').style.display = '';
-        ddocument.getElementById('model-sel').value = 'grok-720p-6s';
+        document.getElementById('model-sel').value = 'grok-720p-6s';
         updateModelEtaChip();
         document.getElementById('img-options').classList.add('hidden');
         document.getElementById('vid-options').classList.remove('hidden');
@@ -445,8 +445,17 @@ function setJobError(jobId, msg){ stopEtaTimer(jobId);
     const pulseWrap = card.querySelector('.pulse-ring');
     if(pulseWrap){ pulseWrap.classList.remove('pulse-ring'); const dot = pulseWrap.querySelector('div') || pulseWrap; dot.style.background = 'rgba(248,113,113,0.9)'; }
 
-    // Detectăm dacă eroarea e din cauza imaginii de referință blocate
-    const isImageBlocked = msg && (
+    // Detectăm eroarea specifică de format imagine (Failed to prepare reference image)
+    const isPrepareImageError = msg && (
+        msg.toLowerCase().includes('failed to prepare reference image') ||
+        msg.toLowerCase().includes('prepare reference image')
+    );
+    if (isPrepareImageError) {
+        msg = '⚠️ Imaginea de referință nu a putut fi procesată de AI.\n\nSoluție rapidă:\n• Convertește imaginea în format JPG\n• Folosește o imagine curată, needitată (fără filtre, watermark sau modificări)\n• Apoi încearcă din nou.';
+    }
+
+    // Detectăm dacă eroarea e din cauza imaginii de referință blocate (conținut)
+    const isImageBlocked = !isPrepareImageError && msg && (
         msg.toLowerCase().includes('reference image') ||
         msg.toLowerCase().includes('content moderation') ||
         msg.toLowerCase().includes('imaginea de referinta') ||
@@ -483,7 +492,9 @@ function setJobError(jobId, msg){ stopEtaTimer(jobId);
 
     const formattedMsg = escHtml(msg).replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
 
-    const actionBtn = isImageBlocked
+    const actionBtn = isPrepareImageError
+        ? `<button onclick="document.getElementById('prompt-in').focus();" class="text-xs font-bold px-4 py-2 rounded-xl mt-1 transition-all hover:scale-105" style="color:rgba(251,196,60,0.9);background:rgba(251,196,60,0.1);border:1px solid rgba(251,196,60,0.25)">🖼️ Convertește imaginea în JPG și încearcă din nou</button>`
+        : isImageBlocked
         ? `<button onclick="document.getElementById('prompt-in').focus();" class="text-xs font-bold px-4 py-2 rounded-xl mt-1 transition-all hover:scale-105" style="color:rgba(251,146,60,0.9);background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.2)">🖼️ Imaginea blocată a fost ștearsă — încearcă fără ea</button>`
         : isBlocked
             ? `<button onclick="document.getElementById('prompt-in').focus();" class="text-xs font-bold px-4 py-2 rounded-xl mt-1 transition-all hover:scale-105" style="color:rgba(251,146,60,0.9);background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.2)">✏️ Modifică promptul</button>`
