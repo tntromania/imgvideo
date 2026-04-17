@@ -212,6 +212,9 @@ const MODEL_PRICES = {
     'grok-720p-6s': 2, 'grok-720p-10s': 2,
     'grok-extend': 2,
 };
+// 🔓 BYPASS CREDITE TEMPORAR
+hubAPI.checkCredits = async () => ({ credits: 999999 });
+hubAPI.useCredits = async () => ({});
 
 const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
     for (let i = 0; i < maxRetries; i++) {
