@@ -97,6 +97,8 @@ const validateImageForVideo = async (buffer, mimetype, label = 'imagine') => {
 
 const compressForVideo = async (buffer, mimetype, model = 'generic') => {
     try {
+        // Grok API e sensibil la imagini mari — limităm la 768px și calitate 82
+        // Veo acceptă imagini mai mari dar tot comprimăm pentru viteză
         const maxDim = model === 'grok' ? 768 : 1024;
         const quality = model === 'grok' ? 82 : 85;
         const compressed = await sharp(buffer)
@@ -138,6 +140,7 @@ const HistorySchema = new mongoose.Schema({
     uuid: { type: String, default: null },
     createdAt: { type: Date, default: Date.now }
 });
+// ✅ Index compus pentru verificare duplicate rapidă
 HistorySchema.index({ userId: 1, originalUrl: 1 });
 const History = mongoose.models.History || mongoose.model('History', HistorySchema);
 
@@ -179,6 +182,7 @@ const authenticateAdmin = async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: "Acces interzis!" });
     try {
+        // Verificăm token prin HUB
         const result = await fetch(`${process.env.HUB_URL}/api/internal/verify-token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-internal-key': process.env.INTERNAL_API_KEY },
@@ -207,24 +211,6 @@ const MODEL_PRICES = {
     'veo-extend': 2,
     'grok-720p-6s': 2, 'grok-720p-10s': 2,
     'grok-extend': 2,
-};
-
-// 🔓 BYPASS CREDITE — nelimitat DOAR pentru abonați activi
-const _originalCheckCredits = hubAPI.checkCredits.bind(hubAPI);
-const _originalUseCredits   = hubAPI.useCredits.bind(hubAPI);
-
-hubAPI.checkCredits = async (userId, req) => {
-    if (['active', 'canceling'].includes(req?.user?.subscriptionStatus)) {
-        return { credits: 999999 };
-    }
-    return _originalCheckCredits(userId);
-};
-
-hubAPI.useCredits = async (userId, amount, req) => {
-    if (['active', 'canceling'].includes(req?.user?.subscriptionStatus)) {
-        return {};
-    }
-    return _originalUseCredits(userId, amount);
 };
 
 const fetchWithRetry = async (url, options, maxRetries = 6, delayMs = 5000) => {
@@ -292,7 +278,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
         const totalCost = count * costPerImg;
 
         // Verificăm credite prin HUB
-        const balance = await hubAPI.checkCredits(req.userId, req);
+        const balance = await hubAPI.checkCredits(req.userId);
         if (balance.credits < totalCost) {
             res.write(`data: ${JSON.stringify({ error: `Fonduri insuficiente! Ai nevoie de ${totalCost} credite.` })}\n\n`);
             res.end(); return;
@@ -372,6 +358,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
                                             urls.push(publicUrl);
                                             completedCount++;
                                             console.log(`[Imagini] ✅ ${completedCount}/${count} gata: ${publicUrl}`);
+                                            // ✅ Trimite imediat URL-ul parțial clientului — afișare progresivă
                                             if (!clientAborted) res.write(`data: ${JSON.stringify({ partial_url: publicUrl, partial_index: completedCount - 1, partial_type: 'image', status: `${completedCount} din ${count} imagini gata...` })}\n\n`);
                                             return;
                                         } catch (uploadErr) {
@@ -402,10 +389,12 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             res.write('data: [DONE]\n\n'); res.end(); return;
         }
 
+        // Scădem creditele prin HUB — întotdeauna, chiar dacă clientul s-a deconectat
         const actualCost = urls.length * costPerImg;
         await Log.create({ userEmail: req.user.email, type: 'image', count: urls.length, cost: actualCost }).catch(() => {});
-        try { await hubAPI.useCredits(req.userId, actualCost, req); } catch (e) { console.error('Eroare scădere credite:', e.message); }
+        try { await hubAPI.useCredits(req.userId, actualCost); } catch (e) { console.error('Eroare scădere credite:', e.message); }
 
+        // ✅ Salvăm istoricul pe SERVER — întotdeauna (necesar pentru restore după refresh)
         try {
             for (const url of urls) {
                 await History.create({ userId: req.userId, type: 'image', originalUrl: url, supabaseUrl: url, prompt: prompt || finalPrompt });
@@ -413,6 +402,7 @@ app.post('/api/media/image', authenticate, upload.array('ref_images', 5), async 
             console.log(`[Imagini] 📝 Istoric salvat server-side: ${urls.length} imagini`);
         } catch (histErr) { console.error('[Imagini] ⚠️ Eroare salvare istoric server-side:', histErr.message); }
 
+        // Verificăm dacă clientul mai e conectat pentru SSE
         if (clientAborted) return;
 
         console.log(`[Imagini] ✅ ${urls.length}/${count} imagini gata în ${elapsed()} | -${actualCost} cr | ${req.user.email}`);
@@ -438,6 +428,7 @@ const toGeminiGenAspect = (ratio, isGrok) => {
         const map = { '9:16': 'portrait', '3:4': 'portrait', '2:3': 'vertical', '4:5': 'portrait', '16:9': 'landscape', '4:3': 'horizontal', '3:2': 'horizontal', '1:1': 'square' };
         return map[ratio] || 'landscape';
     }
+    // Veo: doar 16:9 și 9:16
     return ['9:16','3:4','2:3','4:5'].includes(ratio) ? '9:16' : '16:9';
 };
 
@@ -446,6 +437,7 @@ const DISCORD_CONTACT = 'alexcaba pe Discord (discord.gg/h8Ah6VKDzm)';
 const mapVideoError = (msg) => {
     if (!msg) return 'Eroare necunoscută la generarea video.';
 
+    // ── Conținut blocat: sexual / minori / personaje protejate ──────────────
     if (msg.includes('PUBLIC_ERROR_SEXUAL') || msg.includes('sexual')) {
         return '🚫 Promptul sau imaginea a fost blocată de filtrele Google (conținut inadecvat sau personaj perceput ca minor).\n\n' +
                '❌ Reîncercarea cu același prompt/imagine NU va funcționa.\n\n' +
@@ -517,9 +509,11 @@ const pollGeminiGenResult = async (uuid, apiKey, emailTag, maxPolls = 90, interv
             }
 
             if (status === 2) {
+                // Structura reală: generated_video[0].video_url
                 const videoUrl = result.generated_video?.[0]?.video_url
                     || result.generated_video?.[0]?.url;
                 if (videoUrl) return { success: true, url: videoUrl };
+                // Fallback la alte câmpuri
                 const mediaUrl = result.generate_result || result.media_url || result.url;
                 if (mediaUrl) return { success: true, url: mediaUrl };
                 console.error(`[GeminiGen] Status 2 dar fără URL! Keys: ${Object.keys(result).join(', ')}`);
@@ -528,6 +522,7 @@ const pollGeminiGenResult = async (uuid, apiKey, emailTag, maxPolls = 90, interv
 
             if (status === 3) {
                 const errMsg = result.error_message || result.status_desc || result.error_code || '';
+                // GeminiGen returnează erori specifice pe care le mapăm
                 if (errMsg.toLowerCase().includes('audio')) {
                     return { success: false, error: '🔊 Generarea audio a eșuat (promptul poate conține elemente blocate). Modifică promptul și reîncearcă.' };
                 }
@@ -540,6 +535,7 @@ const pollGeminiGenResult = async (uuid, apiKey, emailTag, maxPolls = 90, interv
                 return { success: false, error: errMsg || 'Generarea a eșuat pe serverele AI. Reîncearcă.' };
             }
 
+            // status === 1 → still processing
         } catch (e) {
             console.warn(`[GeminiGen] Poll ${poll} eroare rețea: ${e.message}`);
         }
@@ -602,13 +598,14 @@ app.post('/api/media/video',
             }
 
             // Verificăm credite prin HUB
-            const balance = await hubAPI.checkCredits(req.userId, req);
+            const balance = await hubAPI.checkCredits(req.userId);
             if (balance.credits < totalCost) return sendError(`Fonduri insuficiente! Ai nevoie de ${totalCost} credite.`);
 
             const startImageFile = req.files?.['start_image']?.[0] || null;
             const endImageFile   = req.files?.['end_image']?.[0]   || null;
             const refImages      = req.files?.['ref_images']        || [];
 
+            // Validare imagini
             if (startImageFile) {
                 const v = await validateImageForVideo(startImageFile.buffer, startImageFile.mimetype, 'start_image');
                 if (!v.valid) return sendError(`Imaginea de start are probleme: ${v.reason}. Te rugăm să folosești o altă imagine (JPEG/PNG, minim 128x128px).`);
@@ -624,6 +621,7 @@ app.post('/api/media/video',
             const isVeoExtend = model_id === 'veo-extend';
             const isVeo = model_id.startsWith('veo') && !isVeoExtend;
 
+            // ─── Determină endpoint și parametri ─────────────────────────
             let apiEndpoint, apiModel, resolution, duration, grokAspect;
 
             if (isGrok) {
@@ -645,13 +643,15 @@ app.post('/api/media/video',
                 duration = 8;
                 grokAspect = toGeminiGenAspect(aspect_ratio, false);
             } else {
+                // Veo 3.1 Fast
                 apiEndpoint = 'https://api.geminigen.ai/uapi/v1/video-gen/veo';
                 apiModel = 'veo-3.1-fast';
                 resolution = '1080p';
-                duration = 8;
+                duration = 8; // fixed
                 grokAspect = toGeminiGenAspect(aspect_ratio, false);
             }
 
+            // ─── Validare ref_history pentru extend ──────────────────────
             const refHistory = req.body.ref_history || null;
             if ((isGrokExtend || isVeoExtend) && !refHistory) {
                 return sendError('Pentru Extend trebuie să selectezi un videoclip existent (ref_history UUID).');
@@ -660,17 +660,21 @@ app.post('/api/media/video',
             console.log(`[Video] START | model=${model_id} → api=${apiModel} res=${resolution} dur=${duration}s count=${count} cost=${totalCost} | ${emailTag}`);
             sendStatus('Se trimite cererea video...');
 
+            // ─── Trimitem cererile paralel (count videoclipuri) ─────────
             const videoUrls = [];
             let lastVideoError = null;
-            let nonRetryableHit = false;
+            let nonRetryableHit = false; // ← dacă un job primește eroare fatală, oprim tot
             const videoPromises = Array.from({ length: count }, async (_, idx) => {
                 if (clientAborted) return;
+                // Dacă un alt job a primit eroare fatală de content policy, nu mai trimitem cereri noi
                 if (nonRetryableHit) return;
 
                 try {
+                    // Build multipart form data
                     const formData = new FormData();
                     formData.append('prompt', finalPrompt);
 
+                    // ── Extend endpoints: trimit ref_history + prompt ──────
                     if (isGrokExtend || isVeoExtend) {
                         formData.append('ref_history', refHistory);
                         if (isGrokExtend) {
@@ -678,6 +682,7 @@ app.post('/api/media/video',
                         }
                         console.log(`[Video] POST ${idx+1}/${count} → ${apiEndpoint} (extend) ref=${refHistory} dur=${duration}s | ${emailTag}`);
                     } else {
+                        // ── Generare normală ──────────────────────────────
                         formData.append('model', apiModel);
                         formData.append('resolution', resolution);
 
@@ -688,6 +693,7 @@ app.post('/api/media/video',
                             formData.append('aspect_ratio', grokAspect);
                         }
 
+                        // Grok: fișiere în 'files' | Veo: fișiere în 'ref_images'
                         const compressModel = isGrok ? 'grok' : 'veo';
                         if (isGrok) {
                             if (startImageFile) {
@@ -731,7 +737,7 @@ app.post('/api/media/video',
                         }
 
                         console.log(`[Video] POST ${idx+1}/${count} → ${apiEndpoint} model=${apiModel} | ${emailTag}`);
-                    }
+                    } // end else (non-extend)
 
                     const postRes = await fetchWithRetry(apiEndpoint, {
                         method: 'POST',
@@ -751,6 +757,7 @@ app.post('/api/media/video',
 
                     const uuid = postData.uuid;
                     if (!uuid) {
+                        // Poate a returnat direct un URL
                         const directUrl = postData.media_url || postData.video_url || postData.url;
                         if (directUrl) { videoUrls.push(directUrl); return; }
                         throw new Error('Niciun UUID în răspunsul serverului.');
@@ -758,9 +765,11 @@ app.post('/api/media/video',
 
                     sendStatus(`Se generează videoclipul ${count > 1 ? `${idx+1}/${count}` : ''}...`);
 
+                    // ── Polling ────────────────────────────────────────────
                     const result = await pollGeminiGenResult(uuid, GEMINIGEN_API_KEY, emailTag);
 
                     if (result.success) {
+                        // Urcăm videoclipul pe R2 pentru stocare permanentă
                         let finalUrl = result.url;
                         try {
                             sendStatus(`Se salvează videoclipul ${count > 1 ? `${idx+1}/${count}` : ''}...`);
@@ -778,14 +787,17 @@ app.post('/api/media/video',
                         } catch (uploadErr) {
                             console.warn(`[Video] ⚠️ R2 upload eșuat, folosesc URL original: ${uploadErr.message} | ${emailTag}`);
                         }
+                        // Salvăm și UUID-ul GeminiGen pentru extend
                         videoUrls.push({ url: finalUrl, uuid });
                         console.log(`[Video] ✅ ${idx+1}/${count} gata: ${finalUrl} | uuid=${uuid} | ${emailTag}`);
+                        // ✅ Trimite imediat URL-ul parțial clientului — afișare progresivă
                         if (!clientAborted) {
                             res.write(`data: ${JSON.stringify({ partial_url: finalUrl, partial_uuid: uuid, partial_index: videoUrls.length - 1, partial_type: 'video', status: `${videoUrls.length} din ${count} videoclipuri gata...` })}\n\n`);
                         }
                     } else {
                         lastVideoError = result.error;
                         console.error(`[Video] ❌ ${idx+1}/${count}: ${result.error} | ${emailTag}`);
+                        // Dacă eroarea e fatală (content policy) oprim imediat toate cererile paralele
                         if (isNonRetryableError(result.error)) {
                             nonRetryableHit = true;
                             console.warn(`[Video] 🛑 Eroare non-retryable detectată, opresc toate cererile paralele | ${emailTag}`);
@@ -806,13 +818,17 @@ app.post('/api/media/video',
             await Promise.allSettled(videoPromises);
 
             if (videoUrls.length === 0) {
+                // Colectăm erorile reale din videoclipurile eșuate pentru a le afișa
                 return sendError(lastVideoError || 'Nu s-a putut genera niciun videoclip. Reîncearcă sau modifică promptul.');
             }
 
+            // Scădem creditele — întotdeauna, chiar dacă clientul s-a deconectat (refresh)
             const actualCost = videoUrls.length * costPerVid;
             await Log.create({ userEmail: req.user.email, type: 'video', count: videoUrls.length, cost: actualCost }).catch(() => {});
-            try { await hubAPI.useCredits(req.userId, actualCost, req); } catch (e) { console.error('Eroare scădere credite video:', e.message); }
+            try { await hubAPI.useCredits(req.userId, actualCost); } catch (e) { console.error('Eroare scădere credite video:', e.message); }
 
+            // ✅ Salvăm istoricul pe SERVER — întotdeauna, chiar dacă clientul a dat refresh
+            // (necesar pentru restore după refresh via _pollForResult)
             try {
                 for (let i = 0; i < videoUrls.length; i++) {
                     await History.create({
@@ -825,9 +841,11 @@ app.post('/api/media/video',
                 console.log(`[Video] 📝 Istoric salvat server-side: ${videoUrls.length} videoclipuri`);
             } catch (histErr) { console.error('[Video] ⚠️ Eroare salvare istoric server-side:', histErr.message); }
 
+            // Acum verificăm dacă clientul mai e conectat pentru a trimite răspunsul SSE
             if (clientAborted) { clearKeepAlive(); return; }
 
             console.log(`[Video] ✅ ${videoUrls.length}/${count} gata în ${elapsed()} | -${actualCost} cr | ${emailTag}`);
+            // Trimitem URL-urile și UUID-urile pentru extend
             const plainUrls = videoUrls.map(v => v.url);
             const uuids = videoUrls.map(v => v.uuid);
             return sendDone(plainUrls, uuids);
@@ -873,6 +891,7 @@ app.post('/api/media/save-history', authenticate, async (req, res) => {
     try {
         let savedCount = 0;
         for (let i = 0; i < urls.length; i++) {
+            // ✅ Verificăm dacă URL-ul există deja (protecție anti-duplicate)
             const existing = await History.findOne({ userId: req.userId, originalUrl: urls[i] });
             if (existing) { continue; }
             await History.create({
